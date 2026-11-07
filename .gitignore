@@ -18,6 +18,9 @@ playwright-report/
 .env.*
 !.env.example
 
+# Verification evidence (.claude/rules/verification.md): local only, attached or summarized in PRs
+verification/
+
 # Logs
 *.log
 npm-debug.log*

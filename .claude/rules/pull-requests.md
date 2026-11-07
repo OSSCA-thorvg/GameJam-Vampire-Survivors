@@ -4,20 +4,25 @@ The `issue-finish` skill applies these. Writing conventions follow `dw:commit-co
 
 - **One PR per issue.** It is opened from the issue branch, and its body contains `Closes #N`. A PR without an issue is not allowed; create the issue first (`issue-create`).
 - **Title:** `<prefix>: <imperative summary> (#N)`, in English, at most 72 characters. The `(#N)` suffix is required; tooling uses it to find the PR for an issue.
-- **Body:** English, no hard wraps, passed with `--body-file`, about 250 words. Contents:
+- **Body:** English, no hard wraps, passed with `--body-file`, with a summary of about 250 words; the Impact, Verification and Conflicts sections come on top of it and stay as short as their evidence allows. Contents:
   - what changed at the behaviour level;
   - **How to verify**: exact commands or browser steps;
+  - **Impact**: the `impact-check` proof-mode report: the one safety fact with its proof level and proof, the risks, and what was cleared (`.claude/rules/verification.md`);
+  - **Verification**: each acceptance criterion with the proof level it reached and its evidence from running the real app (commands with key output, or screenshots);
+  - **Conflicts**: the files that conflicted with `main` and how each was resolved, or "none" (`.claude/rules/conflicts.md`);
   - **ADRs**: the ADRs it follows, plus any it adds or supersedes;
   - `Closes #N`.
 
   Do not narrate the diff file by file, and do not add AI attribution.
-- **One rebased commit:** the PR branch is exactly one commit on top of the current `origin/main`, with no merge commits. Its subject is the PR title and its body the PR summary (`.claude/rules/commits.md`). After every fix or every move of `main`, rebase, squash again and `git push --force-with-lease`. CI (`PR rules`) and the auto-merge workflow both refuse a branch that is behind `main`.
+- **One rebased commit:** the PR branch is exactly one commit on top of the current `origin/main`, with no merge commits. Its subject is the PR title and its body the PR summary (`.claude/rules/commits.md`). After every fix or every move of `main`, rebase (`resolve-conflicts` when it conflicts), squash again and `git push --force-with-lease`. CI (`PR rules`) and the auto-merge workflow both refuse a branch that is behind `main`.
 - **Labels:** the same `type:*`, `priority:*`, `area:*` and `phase:*` as the issue, applied when the PR is created (`gh pr create --label`), or later with `gh issue edit <PR>`.
 - **Gate before merge**, all done before the PR is opened (or before its hold is released), because green CI merges it immediately:
-  - every acceptance criterion in the issue is demonstrably met;
+  - every acceptance criterion in the issue is demonstrably met, at the proof level `.claude/rules/verification.md` requires (user-visible criteria run in the real app);
+  - the `impact-check` safety fact reached proof level 4, and the PR body carries the **Impact** and **Verification** evidence;
+  - the branch is up to date with `origin/main`, with any conflicts resolved per `.claude/rules/conflicts.md` (`resolve-conflicts`);
   - `pnpm check` passes locally;
   - documentation is in sync per `.claude/rules/docs-sync.md`, including `CLAUDE.md`;
-  - the `security-check` skill reports no open **high** finding, when the PR touches dependencies, the lockfile, the server, the protocol, Docker, CI or DOM rendering of user data (`.claude/rules/security.md`);
+  - the `security-check` skill reports no open **high** finding, when the PR touches dependencies, the lockfile, the server, the protocol, Docker, CI or DOM rendering of user data (`.claude/rules/security.md`); a PR that is already open while a high finding is open carries `status:blocked`;
   - CI is green.
 - **Merge only through the auto-merge workflow** (`.github/workflows/auto-merge.yml`, ADR 0012). It squash-merges a PR as soon as CI succeeds on the PR's latest commit, and comments on the PR instead when CI fails. This project does not wait for human review.
   - Never run `gh pr merge` and never use the web UI merge button, even with green checks. Branch protection is unavailable on this plan, so this rule is the only thing that stops a manual merge.

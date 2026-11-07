@@ -20,7 +20,9 @@ Current state: documentation and planning only. No code exists yet. Work is plan
   - Only trivial lookups and single-file edits stay in the main session.
 
 - **Never write code without an issue.** Run the `issue-start` skill before implementing. It moves the issue to `status:in-progress`, creates the branch, and makes you read the cited ADRs.
-- **Finish with `issue-finish`.** It verifies the acceptance criteria, runs `pnpm check` and opens the PR. The auto-merge workflow then squash-merges it as soon as CI passes and marks the issue `status:done`; `issue-finish` waits for the merge and verifies the result.
+- **Check the scope first, and run what you write (`.claude/rules/verification.md`).** `issue-start` runs `impact-check` in scope mode: what changes, who consumes it, and the one fact the change is safe because of. Every code change is then run in the real app (the browser for the client, the Docker container for the server), not just read or unit-tested. `issue-finish` runs `impact-check` in proof mode (safety fact proven by running code, level 4) and drives user-visible criteria in the running game (level 5) with `verify-game`, created by its own issue after #2; until then, run the app manually with the same evidence standard. Evidence stays in the git-ignored `verification/` folder and is summarized in the PR's **Impact** and **Verification** sections.
+- **Resolve conflicts by rebasing (`.claude/rules/conflicts.md`).** When `main` moved or a PR conflicts, run `resolve-conflicts`: back up, rebase onto `origin/main`, keep both sides' intent, check functional compatibility, propagate `main`'s improvements, squash back to one commit and `git push --force-with-lease`. The PR body records it under **Conflicts**.
+- **Finish with `issue-finish`.** It verifies the acceptance criteria, runs `pnpm check`, brings a stale branch up to date and opens the PR. The auto-merge workflow then squash-merges it as soon as CI passes and marks the issue `status:done`; `issue-finish` waits for the merge and verifies the result.
 - Rules live in `.claude/rules/`:
   - `issues.md`
   - `commits.md`
@@ -28,6 +30,8 @@ Current state: documentation and planning only. No code exists yet. Work is plan
   - `labels.md`
   - `security.md`
   - `docker.md`
+  - `verification.md`: scope checks before coding, running every change, proof levels and evidence
+  - `conflicts.md`: rebasing onto `main` and the fixed resolutions per file kind
   - `docs-sync.md`: which docs to update with which change, including this file
 
   Read the matching file before creating an issue, committing (use the `commit` skill), or opening a PR.
@@ -53,9 +57,11 @@ The project skills in `.claude/skills/`:
 | Skill | Use it to |
 |---|---|
 | `issue-create` | file an issue with a detailed implementation plan and labels |
-| `issue-start` | begin an issue: `status:in-progress`, assignee, branch, read the ADRs |
+| `issue-start` | begin an issue: `status:in-progress`, assignee, branch, read the ADRs, check the scope with `impact-check` |
+| `impact-check` | find what a change could break beyond its files: scope mode before coding, proof mode (safety fact proven by running code) before the PR |
 | `commit` | commit on an issue branch with the project's message rules |
-| `issue-finish` | verify, run the docs sync and security checks, open the PR, wait for the auto-merge workflow to merge it on green CI, verify `status:done` and unblocking |
+| `issue-finish` | verify by running the real app, prove the impact, run the docs sync and security checks, bring a stale branch up to date, open the PR, wait for the auto-merge workflow to merge it on green CI, verify `status:done` and unblocking |
+| `resolve-conflicts` | rebase a stale or conflicting branch onto `main`, resolve per `conflicts.md`, squash back to one commit and force-push with lease |
 | `adr-new` | record or supersede a decision |
 | `label-sync` | sync GitHub labels from `.github/labels.json` |
 | `dev-server` | run, rebuild and troubleshoot the server in Docker |

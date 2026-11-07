@@ -14,6 +14,9 @@ Documentation is updated in the **same PR** as the change that makes it stale. A
 | An asset ID is added or its art is replaced | `assets/CATALOG.md` (the status column) and `assets/manifest.json` |
 | A gameplay behaviour is observed or verified against the original | `docs/reference/gameplay.md`, with the source |
 | A server environment variable or port | `.env.example`, `compose.yaml`, and `CLAUDE.md` § Commands if usage changes |
+| A user-facing feature is added or its behaviour, entry points or preconditions change | its file in the verification map, `.claude/skills/verify-game/features/` (once `verify-game` exists; `.claude/rules/verification.md`) |
+| A file kind gains a fixed conflict resolution, or a generated file, lockfile or index-like doc is added | the table in `.claude/rules/conflicts.md`, and `resolve-conflicts` if the procedure changes |
+| A new kind of consumer or hidden coupling (a new message channel, ID namespace, generated file or CI check) | the "Where breakage hides" list in `.claude/skills/impact-check/SKILL.md` |
 
 ## How to keep CLAUDE.md useful
 

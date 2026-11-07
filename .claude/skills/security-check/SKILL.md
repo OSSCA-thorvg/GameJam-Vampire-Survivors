@@ -5,7 +5,7 @@ description: Security pass for a branch before its PR — vet new dependencies a
 
 # security-check
 
-Policy: `docs/adr/0011-security-baseline.md`. Checklist: `.claude/rules/security.md`. This skill reports findings; any **high** finding blocks the merge until it is fixed or accepted in an issue by the user.
+Policy: `docs/adr/0011-security-baseline.md`. Checklist: `.claude/rules/security.md`. This skill reports findings; any **high** finding blocks the merge until it is fixed or accepted in an issue by the user. Because the auto-merge workflow merges a PR as soon as CI is green (ADR 0012), CI passing is not a hold: an open PR with a high finding must carry the `status:blocked` label until the finding is resolved.
 
 Prefer running it in a subagent briefed with the branch name, the issue and this file. The main session reads the report.
 
@@ -71,4 +71,7 @@ Prefer running it in a subagent briefed with the branch name, the issue and this
    - the Dockerfile runtime stage runs as `node`, holds production dependencies only, and contains no `COPY .env` or `ARG`/`ENV` holding a secret.
 8. **CSP.** If the client starts talking to a new origin, or loads a new kind of resource, the CSP in ADR 0011 and the deployed header or meta tag must be updated in the same PR.
 9. Run Claude Code's built-in `/security-review` on the branch and merge its findings with the steps above.
-10. Report a table of severity (high / medium / low), location, finding and fix. Post it as a PR comment with `--body-file` when the PR exists. Do not merge while any **high** finding is open.
+10. Report a table of severity (high / medium / low), location, finding and fix. Post it as a PR comment with `--body-file` when the PR exists. Never merge by hand; instead:
+    - If the PR is not open yet, do not open it while any **high** finding is open.
+    - If the PR is open and any **high** finding is open, hold it at once: `gh issue edit <PR> -R OSSCA-thorvg/GameJam-Vampire-Survivors --add-label status:blocked`. The workflow never merges a PR with that label.
+    - Once every high finding is fixed (squashed into the branch's one commit and pushed with `--force-with-lease`) or accepted in an issue by the user, release the hold: remove the label and re-run the PR's latest CI run (`gh run rerun <run-id>`, the id from `gh run list --workflow ci.yml --branch <branch> --limit 1`), or push a commit.

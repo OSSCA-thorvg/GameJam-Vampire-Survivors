@@ -1,6 +1,6 @@
 ---
 name: issue-start
-description: Begin implementing a GitHub issue — verify it is ready, switch its label from status:ready to status:in-progress, assign yourself, create the branch, and read the ADRs it cites. Use before writing any code for an issue ("start #12", "implement issue 12", "12번 시작").
+description: Begin implementing a GitHub issue — verify it is ready, switch its label from status:ready to status:in-progress, assign yourself, create the branch, read the ADRs it cites, and check the work's scope with impact-check. Use before writing any code for an issue ("start #12", "implement issue 12", "12번 시작").
 ---
 
 # issue-start
@@ -35,10 +35,11 @@ Code for an issue is written only after this skill has run. If the user asks to 
    git switch -c feature/issue-12-wave-spawner
    ```
    Prefix by label: `type:enhancement` → `feature`, `type:bug` → `fix`, `type:refactor` → `refactor`, and anything else → `update`. Inside a secondary git worktree, branch from `origin/main` instead of checking out `main`.
-5. Post a short start comment with the planned approach in 2–4 bullets, written to a file and passed with `--body-file`:
+5. Check the scope before writing code: run the `impact-check` skill in **scope** mode (`.claude/rules/verification.md`). It lists what will change, every consumer of it, and the one fact the change is safe because of. If the consumers reach beyond the issue's plan, update the issue body or split the issue before coding (`.claude/rules/issues.md`).
+6. Post the start comment: the planned approach in 2–4 bullets, followed by the scope result from step 5, written to a file and passed with `--body-file`:
    ```sh
    gh issue comment <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors --body-file /tmp/start.md
    ```
-6. Implement against the acceptance criteria and the implementation plan. When the work reveals a decision that will bind later issues, write an ADR with `adr-new` on the same branch.
+7. Implement against the acceptance criteria and the implementation plan. Run what you write as you go, and keep the evidence for `issue-finish` in `verification/issue-<N>/` (`.claude/rules/verification.md`). When the work reveals a decision that will bind later issues, write an ADR with `adr-new` on the same branch.
 
 To give up an issue: switch the label back to `status:ready`, remove yourself as assignee, and comment what was learned.
