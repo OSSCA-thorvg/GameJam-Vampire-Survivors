@@ -5,7 +5,7 @@ description: Create or update this repository's GitHub labels from .github/label
 
 # label-sync
 
-`.github/labels.json` is the single source of truth for labels. The `status:*`, `type:*` and `priority:*` sets match the user's `dw` plugin (`dw:project-labels`), so `dw` workflows such as `/dw:impl` work in this repository unchanged. `area:*` and `phase:*` are specific to this repository; their meanings are in `.claude/rules/labels.md`.
+`.github/labels.json` is the single source of truth for labels. The `status:*`, `type:*` and `priority:*` sets match the dw plugin's `project-labels` standard, so if the dw plugin is installed its workflows also work here; nothing in this repository needs the plugin. `area:*` and `phase:*` are specific to this repository; their meanings are in `.claude/rules/labels.md`.
 
 Never create a label ad hoc in an issue. Add it to the file first, then run this skill.
 
@@ -15,7 +15,7 @@ Never create a label ad hoc in an issue. Add it to the file first, then run this
    ```sh
    gh repo view OSSCA-thorvg/GameJam-Vampire-Survivors --json nameWithOwner
    ```
-   A "Could not resolve" or 404 error means the active `gh` account lacks access. Stop and ask the user to run `gh auth login`, or `gh auth switch` to an account with access. Do not work around it.
+   A "Could not resolve" or 404 error means the active `gh` account lacks access. Stop and ask the user to get access for their account, or to `gh auth login` / `gh auth switch` to an account that has it. Do not work around it.
 2. Create or update every label. `--force` updates the color and description of labels that already exist:
    ```sh
    jq -c '.[]' .github/labels.json | while read -r l; do

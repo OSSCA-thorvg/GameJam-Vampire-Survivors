@@ -26,10 +26,7 @@ Rules: `.claude/rules/commits.md`.
    - body: why, what changed at the behaviour level, how it was validated, and `Refs #N`; one line per paragraph or bullet;
    - no AI attribution and no `Co-Authored-By` trailers.
 
-   If the `dw` plugin is installed, validate the wrapping:
-   ```sh
-   python3 "$HOME/.claude/plugins/marketplaces/lablup-marketplace/plugins/dw/skills/commit-conventions/scripts/validate_body.py" /tmp/commit-msg.txt
-   ```
+   Check that no paragraph or bullet is split across lines. If the dw plugin is installed, its `commit-conventions` skill ships a `validate_body.py` script that checks this; run it on the message file.
 5. Commit:
    ```sh
    git commit -F /tmp/commit-msg.txt

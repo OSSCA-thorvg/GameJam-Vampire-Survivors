@@ -99,11 +99,13 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: 'Title is "<prefix>: <summary> (#N)" within 72 characters'
+      # No "(#N)" suffix: GitHub appends " (#<PR>)" to the squash commit itself; the issue link is "Closes #N" in the body.
+      - name: 'Title is "<prefix>: <summary>" within 72 characters, without a "(#N)" suffix'
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
-          echo "$TITLE" | grep -Eq '^(feat|fix|update|refactor|test|docs|chore): .+ \(#[0-9]+\)$' || { echo "::error::PR title must be '<prefix>: <summary> (#N)'"; exit 1; }
+          echo "$TITLE" | grep -Eq '^(feat|fix|update|refactor|test|docs|chore): .+' || { echo "::error::PR title must be '<prefix>: <summary>'"; exit 1; }
+          if echo "$TITLE" | grep -Eq '\(#[0-9]+\)[[:space:]]*$'; then echo "::error::PR title must not end in '(#N)': GitHub appends the PR number to the squash commit, and 'Closes #N' in the body links the issue"; exit 1; fi
           [ "${#TITLE}" -le 72 ] || { echo "::error::PR title is longer than 72 characters"; exit 1; }
       - name: Body closes an issue
         env:

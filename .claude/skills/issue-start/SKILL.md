@@ -9,7 +9,7 @@ Code for an issue is written only after this skill has run. If the user asks to 
 
 ## Steps
 
-1. Read the full issue thread, not just the body: later comments may revise the plan. Always pass `--json`; plain `gh issue view` uses a deprecated API (`dw:gh-workflow`):
+1. Read the full issue thread, not just the body: later comments may revise the plan. Always pass `--json`; plain `gh issue view` uses a deprecated API. If the repository is not found (404 or "Could not resolve"), your `gh` account (`gh auth status`) lacks access: stop and ask the user, do not work around it.
    ```sh
    gh issue view <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors \
      --json number,title,state,body,labels,assignees,comments
@@ -26,7 +26,8 @@ Code for an issue is written only after this skill has run. If the user asks to 
      --add-label status:in-progress --add-assignee @me
    gh issue view <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors --json labels -q '[.labels[].name]'
    ```
-4. Create the branch from an up-to-date `main`, following `dw:branch-conventions`: `<prefix>/issue-<N>-<2-4-word-slug>`. Once per clone, make `git pull` rebase and refuse merge commits (linear history, ADR 0012); setting them again is harmless:
+   If `gh issue edit` fails with a missing-scope error (for example `read:org`), use the REST calls in `.claude/rules/pull-requests.md` § Using `gh`, plus `gh api -X POST repos/OSSCA-thorvg/GameJam-Vampire-Survivors/issues/<N>/assignees -f 'assignees[]=<your-login>'` (your login: `gh api user -q .login`).
+4. Create the branch from an up-to-date `main`, named `<prefix>/issue-<N>-<2-4-word-slug>` (`.claude/rules/commits.md`). Once per clone, make `git pull` rebase and refuse merge commits (linear history, ADR 0012); setting them again is harmless:
    ```sh
    git config pull.rebase true
    git config merge.ff only

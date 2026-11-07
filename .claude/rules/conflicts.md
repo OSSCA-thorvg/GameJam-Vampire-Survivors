@@ -1,6 +1,6 @@
 # Conflict resolution rules
 
-Based on the `dw` plugin's `merge-resolver` agent, adapted to this repository's linear history (ADR 0012): a PR branch is exactly one commit rebased onto the current `origin/main`, and it lands with a squash merge. The `resolve-conflicts` skill applies these rules.
+Adapted from the dw plugin's `merge-resolver` agent (the plugin is not needed), and adapted to this repository's linear history (ADR 0012): a PR branch is exactly one commit rebased onto the current `origin/main`, and it lands with a squash merge. The `resolve-conflicts` skill applies these rules.
 
 ## When
 

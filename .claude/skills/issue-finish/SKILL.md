@@ -7,7 +7,7 @@ description: Finish an issue — verify the acceptance criteria by running the r
 
 This project merges its own PRs as soon as CI passes; there is no waiting for human review. Merging is done only by the auto-merge workflow (`.github/workflows/auto-merge.yml`, ADR 0012): never run `gh pr merge` and never use the web UI merge button. A ready PR with green CI is merged immediately, so the quality gate is the acceptance criteria, the impact and verification evidence, and the checks below, done **before** the PR is opened. Do not skip them. If something must still be settled, hold the PR by adding `--label status:blocked` to `gh pr create`; to release it, remove the label and re-run the PR's latest CI run (`gh run rerun <run-id>`, the id from `gh run list --workflow ci.yml --branch <branch> --limit 1`), or push a commit.
 
-Writing rules follow `dw:commit-conventions`: a `<prefix>: <imperative summary>` subject of at most 72 characters (`feat:`, `fix:`, `update:`, `refactor:`, `test:`, `docs:`, `chore:`), bodies without hard wraps, and bodies passed with `--body-file`.
+Writing rules follow `.claude/rules/commits.md`: a `<prefix>: <imperative summary>` subject of at most 72 characters (`feat:`, `fix:`, `update:`, `refactor:`, `test:`, `docs:`, `chore:`), bodies without hard wraps, and bodies passed with `--body-file`.
 
 ## Steps
 
@@ -27,12 +27,12 @@ Writing rules follow `dw:commit-conventions`: a `<prefix>: <imperative summary>`
    git reset --soft origin/main && git commit -F /tmp/commit-msg.txt
    git log --oneline origin/main..HEAD   # exactly one line
    ```
-   Then move the issue to review, push with `--force-with-lease`, and open the PR with the issue's `type:*`, `priority:*`, `area:*` and `phase:*` labels. Labels are applied at creation, because the workflow may merge the PR, and set `status:done`, within a minute of CI starting. The title is `<prefix>: <same summary as the issue> (#N)`; the `(#N)` suffix is what `dw:gh-issue-link` falls back to when looking up the PR for an issue. The body contains `Closes #N`:
+   Then move the issue to review, push with `--force-with-lease`, and open the PR with the issue's `type:*`, `priority:*`, `area:*` and `phase:*` labels. Labels are applied at creation, because the workflow may merge the PR, and set `status:done`, within a minute of CI starting. The title is `<prefix>: <same summary as the issue>` with **no** `(#N)` suffix: GitHub appends the PR number to the squash commit, and CI rejects a trailing `(#N)`. The issue link is `Closes #N` in the body, which CI also checks. `.github/pull_request_template.md` has the body's sections:
    ```sh
    gh issue edit <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors --remove-label status:in-progress --add-label status:review
    git push --force-with-lease -u origin HEAD
    gh pr create -R OSSCA-thorvg/GameJam-Vampire-Survivors \
-     --title "feat: Spawn enemies from the wave table (#12)" --body-file /tmp/pr-body.md \
+     --title "feat: Spawn enemies from the wave table" --body-file /tmp/pr-body.md \
      --label "type:enhancement" --label "priority:high" --label "area:gameplay" --label "phase:1-core-loop"
    ```
    PR body (`.claude/rules/pull-requests.md`): what changed at the behaviour level, how to verify it (exact commands or steps), the ADRs cited or added, `Closes #N`, and three sections:
@@ -49,7 +49,7 @@ Writing rules follow `dw:commit-conventions`: a `<prefix>: <imperative summary>`
    gh pr view <PR> -R OSSCA-thorvg/GameJam-Vampire-Survivors --json state,mergedBy,mergeCommit
    ```
    - The PR is merged by `github-actions[bot]`. Do not merge it yourself, whatever happens.
-   - If a check fails, the workflow leaves one comment on the PR naming the conclusion and the run. Fix it on the branch, squash the fix into the one commit (`git commit --amend`, or step 8 again), and `git push --force-with-lease`; the new commit's CI run is re-evaluated automatically. A PR title or body fixed with `gh pr edit` also re-runs CI.
+   - If a check fails, the workflow leaves one comment on the PR naming the conclusion and the run. Fix it on the branch, squash the fix into the one commit (`git commit --amend`, or step 8 again), and `git push --force-with-lease`; the new commit's CI run is re-evaluated automatically. A PR title or body fixed with `gh pr edit` also re-runs CI; if `gh pr edit` fails with a missing-scope error, use `gh api -X PATCH repos/OSSCA-thorvg/GameJam-Vampire-Survivors/pulls/<PR> -f title=...` or `-F body=@/tmp/pr-body.md` (`.claude/rules/pull-requests.md`).
    - If the PR conflicts with `main`, or `main` moved since the branch was squashed, the workflow (or the `PR rules` check "Branch is one rebased commit") comments asking for a rebase. Run the `resolve-conflicts` skill, which rebases onto `origin/main`, re-runs the checks, squashes back to one commit and runs `git push --force-with-lease`, and add its **Conflicts** note to the PR body.
    - If the PR is still open after the timeout with green checks, read the workflow's run: `gh run list -R OSSCA-thorvg/GameJam-Vampire-Survivors --workflow auto-merge.yml --limit 5`, then `gh run view <run-id> --log -R OSSCA-thorvg/GameJam-Vampire-Survivors`. A PR labelled `status:blocked` (or a draft) is never merged; release the hold as described above.
 10. Verify what the workflow did after the merge, and sync local `main`:
@@ -58,7 +58,7 @@ Writing rules follow `dw:commit-conventions`: a `<prefix>: <imperative summary>`
    gh run list -R OSSCA-thorvg/GameJam-Vampire-Survivors --workflow ci.yml --branch main --limit 1
    git switch main && git pull --ff-only origin main
    ```
-   - The issue must be closed and labelled `status:done`, without `status:review`. If the issue is still open, the closing link failed: close it with a comment naming the PR. If a label is wrong, the workflow's post-merge step failed: read its log and fix the labels by hand with `gh issue edit`. If the `dw` plugin is installed, `dw:gh-issue-link`'s `verify-issue-closed-state.sh <N>` checks the same three conditions: issue closed, `status:done`, and PR merged.
+   - The issue must be closed and labelled `status:done`, without `status:review`. If the issue is still open, the closing link failed: close it with a comment naming the PR. If a label is wrong, the workflow's post-merge step failed: read its log and fix the labels by hand with `gh issue edit`. (If the dw plugin is installed, its `gh-issue-link` skill has a `verify-issue-closed-state.sh` script that checks the same three conditions; it is optional.)
    - A CI run on `main` (event `workflow_dispatch`) must have started after the merge.
 11. Verify the unblocking: open `status:blocked` issues whose "Depends on" lists `#N` and whose dependencies are now all closed must have moved to `status:ready`. Fix any the workflow missed by hand:
    ```sh

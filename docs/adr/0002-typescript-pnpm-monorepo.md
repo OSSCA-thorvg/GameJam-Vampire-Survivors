@@ -57,7 +57,7 @@ docs/       ADRs, roadmap, gameplay reference
 - CI (`.github/workflows/ci.yml`) runs on every PR and every push to `main`, with three jobs:
   - `pnpm check` (format, lint, typecheck, test, build), which starts running automatically once `package.json` exists;
   - `repo rules`: `labels.json` is valid and every ADR is indexed;
-  - `PR rules`: the PR title is `<prefix>: … (#N)`, the body contains `Closes #N`, the branch is `<prefix>/issue-<N>-<slug>`, and commit subjects are prefixed and carry no AI attribution.
+  - `PR rules`: the PR title is `<prefix>: …` with no `(#N)` suffix (changed by #32; GitHub appends the PR number to the squash commit), the body contains `Closes #N`, the branch is `<prefix>/issue-<N>-<slug>`, and commit subjects are prefixed and carry no AI attribution.
 
   A PR is merged only when all three pass (see the `issue-finish` skill). All three should be required status checks in `main`'s branch protection.
 
