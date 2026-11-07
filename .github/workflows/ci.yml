@@ -2,9 +2,12 @@ name: CI
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    # ready_for_review re-runs CI when a draft is released, so the auto-merge workflow (ADR 0012) re-evaluates it.
+    types: [opened, edited, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
+  # The auto-merge workflow dispatches CI on main after each merge: merges made with GITHUB_TOKEN do not trigger push.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -124,5 +127,24 @@ jobs:
           done < <(git log --format=%s "$BASE..$HEAD")
           if git log --format=%B "$BASE..$HEAD" | grep -Eiq 'co-authored-by: .*(claude|anthropic|copilot|codex)|generated with \[?claude'; then
             echo "::error::Commit messages must not contain AI attribution"; bad=1
+          fi
+          exit $bad
+      - name: Branch is one rebased commit (linear history, ADR 0012)
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          fix="Fix: rebase onto origin/main and squash into one commit (resolve-conflicts / issue-finish), then git push --force-with-lease."
+          bad=0
+          if ! git merge-base --is-ancestor "$BASE" "$HEAD"; then
+            echo "::error::The branch does not contain the current tip of the base branch ($BASE). $fix"; bad=1
+          fi
+          merges=$(git rev-list --merges "$BASE..$HEAD")
+          if [ -n "$merges" ]; then
+            echo "::error::The branch contains merge commits: $(echo "$merges" | tr '\n' ' '). $fix"; bad=1
+          fi
+          count=$(git rev-list --count "$BASE..$HEAD")
+          if [ "$count" -ne 1 ]; then
+            echo "::error::The branch has $count commits on top of the base branch; it must have exactly one. $fix"; bad=1
           fi
           exit $bad

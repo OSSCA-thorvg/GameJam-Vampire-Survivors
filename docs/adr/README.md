@@ -15,3 +15,4 @@ Read the ADRs an issue references before implementing it. See [0001](0001-record
 | [0009](0009-no-ui-framework.md) | No UI framework: plain TypeScript DOM for menus and overlays | Accepted |
 | [0010](0010-run-the-server-in-docker.md) | Run the server in Docker in development and deployment | Accepted |
 | [0011](0011-security-baseline.md) | Security baseline: supply chain, server, client, containers, secrets | Accepted |
+| [0012](0012-merge-only-through-the-auto-merge-workflow.md) | Merge only through the auto-merge workflow, on green CI | Accepted |

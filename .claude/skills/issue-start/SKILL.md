@@ -26,8 +26,10 @@ Code for an issue is written only after this skill has run. If the user asks to 
      --add-label status:in-progress --add-assignee @me
    gh issue view <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors --json labels -q '[.labels[].name]'
    ```
-4. Create the branch from an up-to-date `main`, following `dw:branch-conventions`: `<prefix>/issue-<N>-<2-4-word-slug>`.
+4. Create the branch from an up-to-date `main`, following `dw:branch-conventions`: `<prefix>/issue-<N>-<2-4-word-slug>`. Once per clone, make `git pull` rebase and refuse merge commits (linear history, ADR 0012); setting them again is harmless:
    ```sh
+   git config pull.rebase true
+   git config merge.ff only
    git fetch origin main
    git switch main && git pull --ff-only origin main
    git switch -c feature/issue-12-wave-spawner
