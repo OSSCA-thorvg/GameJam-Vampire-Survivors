@@ -15,6 +15,7 @@ The `issue-finish` skill applies these. Writing conventions follow `dw:commit-co
 - **Gate before merge:**
   - every acceptance criterion in the issue is demonstrably met;
   - `pnpm check` passes locally;
+  - documentation is in sync per `.claude/rules/docs-sync.md`, including `CLAUDE.md`;
   - the `security-check` skill reports no open **high** finding, when the PR touches dependencies, the lockfile, the server, the protocol, Docker, CI or DOM rendering of user data (`.claude/rules/security.md`);
   - CI is green.
 - **Merge:** squash-merge immediately once the gate passes (`gh pr merge --squash --delete-branch`). This project does not wait for human review. Never merge with failing or pending checks. Never bypass branch protection.

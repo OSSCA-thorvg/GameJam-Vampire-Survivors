@@ -19,4 +19,4 @@ Rules are in `docs/adr/0001-record-architecture-decisions.md`.
    - Status `Accepted` when the user has made or approved the decision; otherwise `Proposed`, and ask the user.
 4. Add a row to the table in `docs/adr/README.md`.
 5. When superseding, set the old ADR's status line to `Superseded by [NNNN](NNNN-….md)` and update its row in the README. Do not change the old ADR's decision text.
-6. Cite the new ADR in the issue or PR that prompted it, and update `CLAUDE.md` if the decision changes a rule summarized there.
+6. Cite the new ADR in the issue or PR that prompted it, and apply `.claude/rules/docs-sync.md`: update `CLAUDE.md` if the decision changes anything summarized there.
