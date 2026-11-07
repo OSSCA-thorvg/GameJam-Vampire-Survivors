@@ -94,6 +94,9 @@ jobs:
     # Dependabot's action-bump PRs have no issue; repo rules and pnpm check still gate them.
     if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read # read the linked issue and its dependencies
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -112,6 +115,32 @@ jobs:
           BODY: ${{ github.event.pull_request.body }}
         run: |
           echo "$BODY" | grep -Eiq '(close[sd]?|fix(e[sd])?|resolve[sd]?) #[0-9]+' || { echo "::error::PR body must contain 'Closes #N'"; exit 1; }
+      - name: Linked issue has no open dependencies
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Only closing keywords at the start of a line count (e.g. the final "Closes #N"), so issue numbers
+          # quoted elsewhere in the body (test notes, examples) are not mistaken for the linked issue.
+          issues=$(printf '%s\n' "$BODY" | tr -d '\r' | grep -oiE '^(close[sd]?|fix(e[sd])?|resolve[sd]?) #[0-9]+' | grep -oE '[0-9]+$' | sort -un || true)
+          [ -n "$issues" ] || { echo "No linked issue found (the 'Body closes an issue' step reports this)."; exit 0; }
+          bad=0
+          for issue in $issues; do
+            deps=$(gh api "repos/$REPO/issues/$issue" --jq .body | tr -d '\r' \
+              | awk '/^## Depends on/{f=1;next} /^## /{f=0} f' | grep -oE '#[0-9]+' | tr -d '#' | sort -un || true)
+            open=""
+            for d in $deps; do
+              [ "$(gh api "repos/$REPO/issues/$d" --jq .state)" = open ] && open="$open #$d"
+            done
+            if [ -n "$open" ]; then
+              echo "::error::Issue #$issue still has open prerequisites:$open. Finish them first (issue-start prerequisite gate, .claude/rules/issues.md)."
+              bad=1
+            else
+              echo "Issue #$issue: all dependencies closed (${deps:-none})."
+            fi
+          done
+          exit $bad
       - name: Body has Impact and Verification sections
         env:
           BODY: ${{ github.event.pull_request.body }}

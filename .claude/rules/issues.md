@@ -17,7 +17,10 @@ The `issue-create`, `issue-start` and `issue-finish` skills apply these. Label m
 
   `blocked` while a dependency is open or a decision is pending, with a comment saying why. Abandoned work goes back to `ready` with a comment.
 
-- **Dependencies** are listed as `#N` under "Depends on". Do not start an issue while any of them is open.
+- **Dependencies** are listed as `#N` under "Depends on".
+  - The prerequisite gate in `issue-start` is mandatory. Do not start an issue while any of them is open, or while an artifact they promised is missing on `main`. In that case, stop, comment, and set `status:blocked`.
+  - Never work around a missing prerequisite by implementing it inside another issue.
+  - CI enforces the same rule on PRs: the `PR rules` job fails while the linked issue has an open dependency.
 - **Plan changes:** when implementation reveals that the plan was wrong, update the issue body (or add a comment saying what changed and why) before the PR. Later issues are written against what was merged, not the old plan.
 - **Roadmap:** `docs/roadmap.md` maps roadmap IDs to issue numbers. Update it when issues are added, split or dropped.
 

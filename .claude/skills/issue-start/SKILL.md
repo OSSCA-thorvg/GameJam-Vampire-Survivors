@@ -10,14 +10,40 @@ Code for an issue is written only after this skill has run. If the user asks to 
 ## Steps
 
 1. Read the full issue thread, not just the body: later comments may revise the plan. Always pass `--json`; plain `gh issue view` uses a deprecated API. If the repository is not found (404 or "Could not resolve"), your `gh` account (`gh auth status`) lacks access: stop and ask the user, do not work around it.
+
    ```sh
    gh issue view <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors \
      --json number,title,state,body,labels,assignees,comments
    ```
+
    Stop and report to the user if any of these hold:
    - the issue is closed;
-   - it is labelled `status:in-progress` or `status:review` and assigned to someone else;
-   - an issue under "Depends on" is still open.
+   - it is labelled `status:in-progress` or `status:review` and assigned to someone else.
+
+   **Prerequisite gate (mandatory, before any label, branch or code change):**
+
+   ```sh
+   # numbers listed under the issue's "## Depends on" section
+   deps=$(gh api repos/OSSCA-thorvg/GameJam-Vampire-Survivors/issues/<N> --jq .body \
+     | awk '/^## Depends on/{f=1;next} /^## /{f=0} f' | grep -oE '#[0-9]+' | tr -d '#' | sort -un)
+   for d in $deps; do
+     echo "#$d $(gh api repos/OSSCA-thorvg/GameJam-Vampire-Survivors/issues/$d --jq .state)"
+   done
+   ```
+   - If any dependency is `open`:
+     - **stop**;
+     - comment on the issue naming the open prerequisites;
+     - switch it to `status:blocked`;
+     - tell the user.
+   - Do not create a branch or write code, even if asked to "just start". Never implement a missing prerequisite inside this issue: the prerequisite issue has to be finished, or the plan changed, first.
+   - Also confirm that the dependency artifacts this issue names (paths and exported symbols under **Before you start** and **Context**) exist on `origin/main`:
+     ```sh
+     git fetch origin main
+     git ls-tree -r --name-only origin/main | grep -F <path>
+     git grep -n <symbol> origin/main -- packages
+     ```
+     A closed prerequisite whose artifacts are missing is still unmet: stop the same way, and name what is missing.
+
 2. Read `CLAUDE.md`, every ADR the issue cites, and, for gameplay issues, the cited section of `docs/reference/gameplay.md`. If the implementation plan contradicts an accepted ADR, stop and raise it. Do not silently deviate (ADR 0001).
 3. Switch the status label and assign yourself. Removing a label the issue does not have is harmless:
    ```sh
