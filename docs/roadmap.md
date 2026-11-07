@@ -5,33 +5,33 @@ Each row is one GitHub issue, and the issue is the source of truth for scope and
 | ID | Issue | Title | Depends on | Priority |
 |---|---|---|---|---|
 | **Phase 0: foundation** |||||
-| F1 | — | Set up the pnpm monorepo with lint, format, tests and CI | — | high |
-| F2 | — | Boot ThorVG in a game worker on an OffscreenCanvas | F1 | high |
-| F3 | — | Load art through the asset manifest with placeholder assets | F2 | high |
-| F4 | — | Run the server in Docker with docker compose | F1 | high |
-| A1 | — | Create the starter vector asset pack from the asset catalog | F3 | high |
+| F1 | #1 | Set up the pnpm monorepo with lint, format, tests and CI | — | high |
+| F2 | #2 | Boot ThorVG in a game worker on an OffscreenCanvas | F1 | high |
+| F3 | #3 | Load art through the asset manifest with placeholder assets | F2 | high |
+| F4 | #4 | Run the server in Docker with docker compose | F1 | high |
+| A1 | #5 | Create the starter vector asset pack from the asset catalog | F3 | high |
 | **Phase 1: core loop (playable single player)** |||||
-| C1 | — | Add entity storage, a spatial grid and paint pools | F3 | high |
-| C2 | — | Move the player with keyboard input and a following camera | C1 | high |
-| C3 | — | Spawn enemies from a wave table and chase the player | C2 | high |
-| C4 | — | Add player HP, contact damage, death and the screen flow | C3 | high |
-| C5 | — | Add the weapon system with Whip and Magic Wand | C3 | high |
-| C6 | — | Add experience gems, magnet pickup and the level-up choice | C4, C5 | high |
+| C1 | #6 | Add entity storage, a spatial grid and paint pools | F3 | high |
+| C2 | #7 | Move the player with keyboard input and a following camera | C1 | high |
+| C3 | #8 | Spawn enemies from a wave table and chase the player | C2 | high |
+| C4 | #9 | Add player HP, contact damage, death and the screen flow | C3 | high |
+| C5 | #10 | Add the weapon system with Whip and Magic Wand | C3 | high |
+| C6 | #11 | Add experience gems, magnet pickup and the level-up choice | C4, C5 | high |
 | **Phase 2: content** |||||
-| G1 | — | Add passive items and the player stat system | C6 | high |
-| G2 | — | Add the remaining six weapons | G1 | medium |
-| G3 | — | Add three characters and character select | G2 | medium |
-| G4 | — | Add bosses, elites, treasure chests and evolutions | G2 | high |
-| G5 | — | Add light sources and pickups | C6 | medium |
-| G6 | — | Finish the stage: wave table, 15-minute limit and Death | G4, G5 | medium |
+| G1 | #12 | Add passive items and the player stat system | C6 | high |
+| G2 | #13 | Add the remaining six weapons | G1 | medium |
+| G3 | #14 | Add three characters and character select | G2 | medium |
+| G4 | #15 | Add bosses, elites, treasure chests and evolutions | G2 | high |
+| G5 | #16 | Add light sources and pickups | C6 | medium |
+| G6 | #17 | Finish the stage: wave table, 15-minute limit and Death | G4, G5 | medium |
 | **Phase 3: multiplayer** |||||
-| M1 | — | Define the protocol and build the WebSocket room server | F4 | high |
-| M2 | — | Add the lobby: nickname, room codes and ready check | M1, C4 | high |
-| M3 | — | Run versus matches: status relay, opponent panel and result | M2, G6 | high |
-| M4 | — | Add interference items for multiplayer | M3 | high |
+| M1 | #18 | Define the protocol and build the WebSocket room server | F4 | high |
+| M2 | #19 | Add the lobby: nickname, room codes and ready check | M1, C4 | high |
+| M3 | #20 | Run versus matches: status relay, opponent panel and result | M2, G6 | high |
+| M4 | #21 | Add interference items for multiplayer | M3 | high |
 | **Phase 4: release** |||||
-| R1 | — | Measure performance and set entity caps | G6 | medium |
-| R2 | — | Deploy the client and the server | M3 | medium |
+| R1 | #22 | Measure performance and set entity caps | G6 | medium |
+| R2 | #23 | Deploy the client and the server | M3 | medium |
 
 ## Assets
 
