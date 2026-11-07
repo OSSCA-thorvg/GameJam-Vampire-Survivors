@@ -1,0 +1,206 @@
+# Merge gate (ADR 0012). Branch protection, rulesets and native auto-merge are unavailable on this plan,
+# so this workflow is the only way a PR reaches main: it squash-merges a PR when, and only when,
+# the CI workflow on the PR's latest commit succeeded, and comments on the PR when it did not.
+#
+# Security (ADR 0011): workflow_run runs the default-branch version of this file with a write token,
+# so it never checks out or executes PR code, uses no third-party actions, and reads event data only
+# through env (never interpolated into the script).
+name: Auto-merge
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+concurrency:
+  group: auto-merge-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  merge:
+    name: merge on green CI
+    # Only CI runs started by a pull request from this repository (forks are ignored).
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # squash-merge the PR and delete its branch
+      pull-requests: write # read the PR and comment on it
+      issues: write # set status labels on the closed issue and on unblocked dependents
+      actions: write # list CI runs for the commit and dispatch the post-merge CI run on main
+    steps:
+      - name: Merge the PR if CI passed on its head commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+        run: |
+          set -euo pipefail
+
+          # Posts a comment once: skipped when a comment carrying the same hidden marker exists.
+          comment_once() {
+            local pr="$1" marker="$2" text="$3"
+            if gh api --paginate "repos/$REPO/issues/$pr/comments" --jq '.[].body' | grep -qF "$marker"; then
+              echo "Comment $marker already present on #$pr."
+              return 0
+            fi
+            gh api -X POST "repos/$REPO/issues/$pr/comments" -f body="$(printf '%s\n\n%s' "$marker" "$text")" > /dev/null
+          }
+
+          # Removes a label from an issue; a label that is not on the issue is not an error.
+          remove_label() {
+            gh api -X DELETE "repos/$REPO/issues/$1/labels/$2" > /dev/null 2>&1 || true
+          }
+
+          # 1. The open PR whose head is exactly this commit. None means stale, closed or merged.
+          pr_json=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" \
+            --jq "[.[] | select(.state == \"open\" and .head.sha == \"$HEAD_SHA\" and .base.repo.full_name == \"$REPO\")] | first // empty")
+          if [ -z "$pr_json" ]; then
+            echo "No open PR has $HEAD_SHA as its head: nothing to do."
+            exit 0
+          fi
+          pr=$(jq -r '.number' <<< "$pr_json")
+          echo "PR #$pr, CI run $RUN_ID concluded '$CONCLUSION'."
+
+          # Only the newest CI run for this commit decides. An older run (for example, cancelled or
+          # superseded after the PR title was edited) must neither merge nor comment.
+          latest_run=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs?head_sha=$HEAD_SHA&event=pull_request&per_page=100" \
+            --jq '[.workflow_runs[].id] | max // empty')
+          if [ -n "$latest_run" ] && [ "$latest_run" != "$RUN_ID" ]; then
+            echo "CI run $latest_run is newer than $RUN_ID for $HEAD_SHA: leaving the decision to it."
+            exit 0
+          fi
+
+          # 2. Never merge drafts, held PRs, forks or Dependabot PRs. Draft PRs are unavailable for private
+          #    repositories on the free plan, so the status:blocked label on the PR is the hold that always works.
+          if [ "$(jq -r '.draft' <<< "$pr_json")" = "true" ]; then
+            echo "PR #$pr is a draft: not merging."
+            exit 0
+          fi
+          if jq -e 'any(.labels[]; .name == "status:blocked")' <<< "$pr_json" > /dev/null; then
+            echo "PR #$pr is held with status:blocked: not merging."
+            exit 0
+          fi
+          if [ "$(jq -r '.head.repo.full_name // ""' <<< "$pr_json")" != "$REPO" ]; then
+            echo "PR #$pr comes from a fork: not merging."
+            exit 0
+          fi
+          if [ "$(jq -r '.user.login' <<< "$pr_json")" = "dependabot[bot]" ]; then
+            echo "PR #$pr is a Dependabot PR, reviewed by hand: not merging."
+            exit 0
+          fi
+
+          # 3. CI did not pass: explain once per commit, and stop.
+          case "$CONCLUSION" in
+            success) ;;
+            cancelled | skipped | stale)
+              echo "CI run was $CONCLUSION: not merging, no comment (a new run decides)."
+              exit 0
+              ;;
+            *)
+              comment_once "$pr" "<!-- auto-merge:$HEAD_SHA -->" \
+                "CI $CONCLUSION on $HEAD_SHA: not merged. Fix and push; this re-runs automatically. Run: $RUN_URL"
+              echo "CI $CONCLUSION: not merged."
+              exit 0
+              ;;
+          esac
+
+          # 4. Re-read the PR: the head must still be this commit, and it must merge cleanly.
+          #    GitHub computes mergeability lazily, so wait while it is UNKNOWN.
+          for attempt in 1 2 3 4 5 6; do
+            view=$(gh pr view "$pr" -R "$REPO" --json state,isDraft,labels,headRefOid,mergeable,closingIssuesReferences)
+            mergeable=$(jq -r '.mergeable' <<< "$view")
+            [ "$mergeable" != "UNKNOWN" ] && break
+            echo "Mergeability of #$pr is still being computed (attempt $attempt)."
+            sleep 5
+          done
+          if [ "$(jq -r '.state' <<< "$view")" != "OPEN" ] || [ "$(jq -r '.isDraft' <<< "$view")" = "true" ] \
+            || jq -e 'any(.labels[]; .name == "status:blocked")' <<< "$view" > /dev/null; then
+            echo "PR #$pr is no longer an open, ready, unheld PR: not merging."
+            exit 0
+          fi
+          if [ "$(jq -r '.headRefOid' <<< "$view")" != "$HEAD_SHA" ]; then
+            echo "PR #$pr has new commits since CI ran: the next CI run decides."
+            exit 0
+          fi
+          if [ "$mergeable" = "CONFLICTING" ]; then
+            comment_once "$pr" "<!-- auto-merge:conflict:$HEAD_SHA -->" \
+              "CI passed on $HEAD_SHA, but the PR conflicts with main: not merged. Rebase onto main and push; this re-runs automatically."
+            echo "PR #$pr conflicts with main: not merged."
+            exit 0
+          fi
+          # Linear history: the PR must contain the current tip of its base branch (one rebased commit).
+          base_ref=$(jq -r '.base.ref' <<< "$pr_json")
+          behind=$(gh api "repos/$REPO/compare/$base_ref...$HEAD_SHA" --jq '.behind_by')
+          if [ "$behind" != "0" ]; then
+            comment_once "$pr" "<!-- auto-merge:behind:$HEAD_SHA -->" \
+              "CI passed on $HEAD_SHA, but $base_ref moved ($behind commits behind): not merged. Rebase onto origin/$base_ref, squash into one commit, and git push --force-with-lease; this re-runs automatically."
+            echo "PR #$pr is $behind commits behind $base_ref: not merged."
+            exit 0
+          fi
+          issues=$(jq -r '.closingIssuesReferences[].number' <<< "$view")
+
+          # 5. Squash-merge. --match-head-commit makes GitHub refuse if anyone pushed after CI ran.
+          #    -R (not only GH_REPO) also tells gh there is no local branch to delete.
+          gh pr merge "$pr" -R "$REPO" --squash --delete-branch --match-head-commit "$HEAD_SHA"
+          echo "Merged PR #$pr at $HEAD_SHA."
+
+          # Post-merge bookkeeping. A failure here is reported, but does not stop the remaining steps.
+          failed=0
+
+          # 6. Closed issues move to status:done.
+          for issue in $issues; do
+            remove_label "$issue" "status:review"
+            remove_label "$issue" "status:in-progress"
+            if gh api -X POST "repos/$REPO/issues/$issue/labels" -f "labels[]=status:done" > /dev/null; then
+              echo "Issue #$issue: status:done."
+            else
+              echo "::error::Could not label issue #$issue status:done"
+              failed=1
+            fi
+          done
+
+          # 7. Unblock dependents: an open status:blocked issue whose "## Depends on" numbers are all closed
+          #    becomes status:ready. A blocked issue without numbers there waits on something else; leave it.
+          blocked=$(gh api --paginate "repos/$REPO/issues?state=open&labels=status:blocked&per_page=100" \
+            --jq '.[] | select(.pull_request | not) | .number') || { echo "::error::Could not list blocked issues"; blocked=""; failed=1; }
+          for dependent in $blocked; do
+            deps=$(gh api "repos/$REPO/issues/$dependent" --jq '.body // ""' \
+              | tr -d '\r' \
+              | awk '/^##[[:space:]]+Depends on/ { section = 1; next } /^##[[:space:]]/ { section = 0 } section' \
+              | grep -oE '#[0-9]+' | tr -d '#' | sort -un || true)
+            [ -n "$deps" ] || continue
+            all_closed=1
+            for dep in $deps; do
+              state=$(gh api "repos/$REPO/issues/$dep" --jq '.state' 2> /dev/null || echo unknown)
+              [ "$state" = "closed" ] || { all_closed=0; break; }
+            done
+            if [ "$all_closed" = 1 ]; then
+              remove_label "$dependent" "status:blocked"
+              if gh api -X POST "repos/$REPO/issues/$dependent/labels" -f "labels[]=status:ready" > /dev/null; then
+                echo "Issue #$dependent unblocked: status:ready."
+              else
+                echo "::error::Could not label issue #$dependent status:ready"
+                failed=1
+              fi
+            fi
+          done
+
+          # 8. Merges made with GITHUB_TOKEN do not trigger push workflows, so start CI on main explicitly.
+          if gh workflow run ci.yml -R "$REPO" --ref main; then
+            echo "Dispatched CI on main."
+          else
+            echo "::error::Could not dispatch CI on main"
+            failed=1
+          fi
+
+          exit $failed

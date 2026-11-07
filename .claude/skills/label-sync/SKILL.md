@@ -43,9 +43,9 @@ The `status:*` lifecycle:
 |---|---|---|
 | → `status:ready` | Issue created and its dependencies are merged | `issue-create` |
 | → `status:blocked` | Issue created while a dependency is open, or waiting on a decision; comment why | `issue-create` / manual |
-| `status:blocked` → `status:ready` | The blocking issue was merged | `issue-finish` (unblocks dependents) |
+| `status:blocked` → `status:ready` | Every issue under its "Depends on" is closed | auto-merge workflow after a merge (ADR 0012); verified by `issue-finish` |
 | `status:ready` → `status:in-progress` | Someone starts implementing | `issue-start` |
-| `status:in-progress` → `status:review` | PR opened, checks running | `issue-finish` |
-| `status:review` → `status:done` | PR squash-merged right after checks pass; `Closes #N` closes the issue | `issue-finish` |
+| `status:in-progress` → `status:review` | PR about to be opened | `issue-finish` |
+| `status:review` → `status:done` | PR squash-merged by the auto-merge workflow on green CI; `Closes #N` closes the issue | auto-merge workflow (ADR 0012); verified by `issue-finish` |
 | `status:backlog` | Agreed idea, not planned yet | manual |
 | `status:wontfix` | Dropped; close with a comment | manual |

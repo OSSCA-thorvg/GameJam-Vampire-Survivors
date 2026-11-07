@@ -37,7 +37,12 @@ Rules: `.claude/rules/commits.md`.
    The pre-commit hook runs Prettier and ESLint on the staged files.
    - If it fails, fix the reported problems, re-stage the same paths, and commit again. Never use `--no-verify`.
    - If the hook reformatted files, re-stage them and commit again.
-6. Push when the user asks, or as part of `issue-finish`:
+6. Work-in-progress commits on the issue branch are fine. A PR branch, however, must be **one** commit rebased onto `origin/main` (ADR 0012), so before pushing for a PR, squash (this is also `issue-finish` step 6):
    ```sh
-   git push -u origin HEAD
+   git fetch origin main && git rebase origin/main
+   git reset --soft origin/main && git commit -F /tmp/commit-msg.txt   # subject = PR title, body = PR summary
+   git push --force-with-lease -u origin HEAD
    ```
+   - `git reset --soft` keeps the working tree and the index. Never use `--hard`.
+   - For a fix after the PR is open, commit it, then squash it into the one commit again (`git commit --amend`, or the soft reset above) and `git push --force-with-lease`. Never use plain `--force`, and never push to `main`.
+   - If the rebase stops on a conflict, resolve it, `git add` the resolved paths, and `git rebase --continue`. Never resolve by merging `main` into the branch.

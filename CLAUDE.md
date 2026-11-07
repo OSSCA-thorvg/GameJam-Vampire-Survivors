@@ -20,7 +20,7 @@ Current state: documentation and planning only. No code exists yet. Work is plan
   - Only trivial lookups and single-file edits stay in the main session.
 
 - **Never write code without an issue.** Run the `issue-start` skill before implementing. It moves the issue to `status:in-progress`, creates the branch, and makes you read the cited ADRs.
-- **Finish with `issue-finish`.** It verifies the acceptance criteria, runs `pnpm check`, opens the PR, squash-merges it as soon as checks pass, and marks the issue `status:done`.
+- **Finish with `issue-finish`.** It verifies the acceptance criteria, runs `pnpm check` and opens the PR. The auto-merge workflow then squash-merges it as soon as CI passes and marks the issue `status:done`; `issue-finish` waits for the merge and verifies the result.
 - Rules live in `.claude/rules/`:
   - `issues.md`
   - `commits.md`
@@ -33,17 +33,18 @@ Current state: documentation and planning only. No code exists yet. Work is plan
   Read the matching file before creating an issue, committing (use the `commit` skill), or opening a PR.
 - New issues go through `issue-create`; each needs a detailed **Implementation plan** section. Labels come from `.github/labels.json`, synced with `label-sync`; their meanings are in `.claude/rules/labels.md`.
 - A decision that binds later work gets an ADR through `adr-new` in the same PR. Do not contradict an accepted ADR. Supersede it.
-- These skills follow the conventions of the user's `dw` plugin (`dw:project-labels`, `dw:branch-conventions`, `dw:commit-conventions`, `dw:gh-workflow`), so `dw` skills such as `/dw:impl` and `/dw:ship` also work here. The project skills above take precedence where they differ (for example, merging immediately).
+- These skills follow the conventions of the user's `dw` plugin (`dw:project-labels`, `dw:branch-conventions`, `dw:commit-conventions`, `dw:gh-workflow`), so `dw` skills such as `/dw:impl` and `/dw:ship` also work here. The project skills above take precedence where they differ: for example, merging happens only through the auto-merge workflow, so skip any `dw` step that runs `gh pr merge`.
 - Commit, PR and issue text is written in English with a `feat:`/`fix:`/`update:`/`refactor:`/`test:`/`docs:`/`chore:` subject. Paragraphs are not hard-wrapped, and bodies are passed with `--body-file`. Do not add AI attribution or `Co-Authored-By` trailers.
 - The pre-commit hook (ADR 0002) runs Prettier and ESLint on staged files, and must pass. Never commit with `--no-verify`. If the hook fails, fix the code and commit again.
 - **Security (ADR 0011):**
   - Follow `.claude/rules/security.md`.
   - Packages install only versions at least 7 days old (`minimumReleaseAge`), and dependency build scripts are blocked unless listed in `allowBuilds`.
   - Run the `security-check` skill before PRs touching dependencies, the server, the protocol, Docker, CI or user-data rendering.
+- **Linear history (ADR 0012):** a PR branch is one commit rebased onto the current `origin/main`, with the PR title as subject; squash merges only. Work-in-progress commits are fine locally; squash before pushing and after every fix, then `git push --force-with-lease` (never plain `--force`, never on `main`). Never create merge commits: each clone sets `pull.rebase true` and `merge.ff only` (`issue-start`). CI rejects a branch with more than one commit or behind `main`.
 - Stage files by path. Never use `git add -A`, `git add .`, `git stash` or `git clean` on the user's working tree.
 - Always pass `--json <fields>` to `gh issue view` and `gh pr view`. Change labels with `gh issue edit`, which also works on PRs.
 - GitHub repo: `OSSCA-thorvg/GameJam-Vampire-Survivors` (private, owned through the `nowgnuesLeee` account). If `gh` reports the repo is not found, the active `gh` account lacks access. Do not switch the user's global account. Run `gh` with that account's token from the git credential store for the command, or ask the user.
-- Branch protection is unavailable on this plan. The merge gate (green CI before merge) is enforced by `issue-finish`, so never merge any other way.
+- **Merging (ADR 0012):** branch protection and native auto-merge are unavailable on this plan, so `.github/workflows/auto-merge.yml` is the merge gate. It squash-merges a PR only when CI succeeds on its latest commit, comments on the PR when CI fails, then labels the issue `status:done`, unblocks dependents and runs CI on `main`. Never run `gh pr merge` or use the web UI merge button. Label a PR `status:blocked` to hold it (`.claude/rules/pull-requests.md`).
 
 ## Skills
 
@@ -54,7 +55,7 @@ The project skills in `.claude/skills/`:
 | `issue-create` | file an issue with a detailed implementation plan and labels |
 | `issue-start` | begin an issue: `status:in-progress`, assignee, branch, read the ADRs |
 | `commit` | commit on an issue branch with the project's message rules |
-| `issue-finish` | verify, run the docs sync and security checks, open the PR, squash-merge on green CI, mark the issue `status:done` |
+| `issue-finish` | verify, run the docs sync and security checks, open the PR, wait for the auto-merge workflow to merge it on green CI, verify `status:done` and unblocking |
 | `adr-new` | record or supersede a decision |
 | `label-sync` | sync GitHub labels from `.github/labels.json` |
 | `dev-server` | run, rebuild and troubleshoot the server in Docker |
