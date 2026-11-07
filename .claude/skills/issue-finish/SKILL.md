@@ -53,15 +53,20 @@ Writing rules follow `.claude/rules/commits.md`: a `<prefix>: <imperative summar
    - If the PR conflicts with `main`, or `main` moved since the branch was squashed, the workflow (or the `PR rules` check "Branch is one rebased commit") comments asking for a rebase. Run the `resolve-conflicts` skill, which rebases onto `origin/main`, re-runs the checks, squashes back to one commit and runs `git push --force-with-lease`, and add its **Conflicts** note to the PR body.
    - If the PR is still open after the timeout with green checks, read the workflow's run: `gh run list -R OSSCA-thorvg/GameJam-Vampire-Survivors --workflow auto-merge.yml --limit 5`, then `gh run view <run-id> --log -R OSSCA-thorvg/GameJam-Vampire-Survivors`. A PR labelled `status:blocked` (or a draft) is never merged; release the hold as described above.
 10. Verify what the workflow did after the merge, and sync local `main`:
-   ```sh
-   gh issue view <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors --json state,labels
-   gh run list -R OSSCA-thorvg/GameJam-Vampire-Survivors --workflow ci.yml --branch main --limit 1
-   git switch main && git pull --ff-only origin main
-   ```
-   - The issue must be closed and labelled `status:done`, without `status:review`. If the issue is still open, the closing link failed: close it with a comment naming the PR. If a label is wrong, the workflow's post-merge step failed: read its log and fix the labels by hand with `gh issue edit`. (If the dw plugin is installed, its `gh-issue-link` skill has a `verify-issue-closed-state.sh` script that checks the same three conditions; it is optional.)
-   - A CI run on `main` (event `workflow_dispatch`) must have started after the merge.
+
+```sh
+gh issue view <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors --json state,labels
+gh run list -R OSSCA-thorvg/GameJam-Vampire-Survivors --workflow ci.yml --branch main --limit 1
+git switch main && git pull --ff-only origin main
+```
+
+- The issue must be closed and labelled `status:done`, without `status:review`. If the issue is still open, the closing link failed: close it with a comment naming the PR. If a label is wrong, the workflow's post-merge step failed: read its log and fix the labels by hand with `gh issue edit`. (If the dw plugin is installed, its `gh-issue-link` skill has a `verify-issue-closed-state.sh` script that checks the same three conditions; it is optional.)
+- A CI run on `main` (event `workflow_dispatch`) must have started after the merge.
+
 11. Verify the unblocking: open `status:blocked` issues whose "Depends on" lists `#N` and whose dependencies are now all closed must have moved to `status:ready`. Fix any the workflow missed by hand:
-   ```sh
-   gh issue list -R OSSCA-thorvg/GameJam-Vampire-Survivors --label status:blocked --search "#<N> in:body" --json number,title,labels
-   ```
+
+```sh
+gh issue list -R OSSCA-thorvg/GameJam-Vampire-Survivors --label status:blocked --search "#<N> in:body" --json number,title,labels
+```
+
 12. Report the PR URL, the merge commit, and any issues that were unblocked.

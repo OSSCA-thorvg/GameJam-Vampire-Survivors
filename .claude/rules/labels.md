@@ -4,17 +4,17 @@ Source of truth: `.github/labels.json`. Sync it with the `label-sync` skill. `st
 
 ## area:* (one or more; pick the ones a triager would filter by)
 
-| Label | Covers |
-|---|---|
-| `area:client` | `packages/client/src/main/`: DOM UI, input capture, app flow, WebSocket client |
-| `area:engine` | `packages/client/src/worker/`: game loop, ThorVG rendering, entity storage, collision |
-| `area:gameplay` | Weapon behaviour, enemies, waves, pickups, balance numbers |
-| `area:multiplayer` | Rooms, match flow, interference items, opponent panel, across client and server |
-| `area:server` | `packages/server/` |
-| `area:shared` | `packages/shared/`: protocol types and content data |
-| `area:assets` | `assets/` and `assets/manifest.json` |
-| `area:infra` | Workspace setup, CI, deployment |
-| `area:docs` | ADRs, `docs/reference/`, `CLAUDE.md` (code-area tag; `type:docs` is the change kind) |
+| Label              | Covers                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| `area:client`      | `packages/client/src/main/`: DOM UI, input capture, app flow, WebSocket client        |
+| `area:engine`      | `packages/client/src/worker/`: game loop, ThorVG rendering, entity storage, collision |
+| `area:gameplay`    | Weapon behaviour, enemies, waves, pickups, balance numbers                            |
+| `area:multiplayer` | Rooms, match flow, interference items, opponent panel, across client and server       |
+| `area:server`      | `packages/server/`                                                                    |
+| `area:shared`      | `packages/shared/`: protocol types and content data                                   |
+| `area:assets`      | `assets/` and `assets/manifest.json`                                                  |
+| `area:infra`       | Workspace setup, CI, deployment                                                       |
+| `area:docs`        | ADRs, `docs/reference/`, `CLAUDE.md` (code-area tag; `type:docs` is the change kind)  |
 
 ## phase:* (exactly one; the roadmap stage in docs/roadmap.md)
 

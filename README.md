@@ -4,7 +4,31 @@ A browser game in the style of Vampire Survivors, for single player and 2-player
 
 ## Current state
 
-Documentation and planning only: no code exists yet. Work is planned as GitHub issues in phases, starting with the monorepo setup (#1). Issue #1 will add a Development section to this file with the setup and run commands.
+The toolchain is in place: a pnpm workspace with the `@vs/client`, `@vs/server` and `@vs/shared` packages, ESLint, Prettier, Vitest, a pre-commit hook and CI. No game code exists yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
+
+## Development
+
+Prerequisites: Git, nvm (or fnm or volta) and Corepack, which ships with Node 24. Docker is needed from #4 on, for the server. Then, once per clone:
+
+```sh
+nvm use           # Node 24 from .nvmrc
+corepack enable   # the pnpm version pinned in package.json
+pnpm install      # npm and yarn are rejected; also installs the pre-commit hook
+```
+
+Everyday commands (the full list, including single-test commands, is in [`CLAUDE.md`](CLAUDE.md) § Commands):
+
+```sh
+pnpm dev            # client on http://localhost:5173, server on http://localhost:8787
+pnpm check          # format:check → lint → typecheck → test → build; CI runs the same
+pnpm lint / pnpm lint:fix
+pnpm format / pnpm format:check
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+The pre-commit hook runs Prettier and ESLint on staged files; never bypass it with `--no-verify`. `.env.example` lists the environment variables (`VITE_SERVER_URL`, `PORT`) with their defaults.
 
 ## Where to look
 

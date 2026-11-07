@@ -12,11 +12,11 @@
 
 Thread split:
 
-| Main thread (`packages/client/src/main/`) | Game worker (`packages/client/src/worker/`) |
-|---|---|
-| DOM UI: title, character select, lobby (nickname, room code), level-up choice, pause, results | Fixed-timestep simulation of the local player's world |
-| Keyboard input capture | ThorVG initialization and all rendering, including the in-game HUD (HP, XP bar, timer, level) |
-| WebSocket connection (ADR 0006) | Asset loading from the manifest (ADR 0007) |
+| Main thread (`packages/client/src/main/`)                                                     | Game worker (`packages/client/src/worker/`)                                                   |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| DOM UI: title, character select, lobby (nickname, room code), level-up choice, pause, results | Fixed-timestep simulation of the local player's world                                         |
+| Keyboard input capture                                                                        | ThorVG initialization and all rendering, including the in-game HUD (HP, XP bar, timer, level) |
+| WebSocket connection (ADR 0006)                                                               | Asset loading from the manifest (ADR 0007)                                                    |
 
 - The canvas is transferred with `canvas.transferControlToOffscreen()`. The main thread never touches it again.
 - Main → worker and worker → main messages are a typed discriminated union defined in `packages/client/src/protocol/worker-messages.ts`. Input is sent as the current pressed-direction state on change, not per frame.

@@ -16,6 +16,7 @@ The `issue-create`, `issue-start` and `issue-finish` skills apply these. Label m
   - `review` → `done` (merged and closed).
 
   `blocked` while a dependency is open or a decision is pending, with a comment saying why. Abandoned work goes back to `ready` with a comment.
+
 - **Dependencies** are listed as `#N` under "Depends on". Do not start an issue while any of them is open.
 - **Plan changes:** when implementation reveals that the plan was wrong, update the issue body (or add a comment saying what changed and why) before the PR. Later issues are written against what was merged, not the old plan.
 - **Roadmap:** `docs/roadmap.md` maps roadmap IDs to issue numbers. Update it when issues are added, split or dropped.

@@ -30,6 +30,7 @@ git rebase origin/main
 ```
 
 For each stop:
+
 1. Run `git status` and `git diff` to see the conflicted files. During a rebase, `--ours` is `main` plus the commits already replayed, and `--theirs` is the branch commit being replayed.
 2. Resolve each file following the table in `.claude/rules/conflicts.md`, keeping both sides' intent. Regenerate the lockfile and generated files with their tools; never hand-merge them.
 3. Check that no markers remain: `git diff --check` and `grep -rnE '^(<<<<<<<|=======|>>>>>>>)' -- <files>` print nothing.
@@ -40,6 +41,7 @@ To back out entirely, run `git rebase --abort`. The backup branch is still there
 ## 3. Check functional compatibility
 
 Even if git reported no conflicts:
+
 - Run `pnpm install` if any `package.json` or the lockfile changed, then `pnpm check`.
 - Look at the files both sides touched: protocol message shapes, worker messages, content IDs, asset IDs, config and environment variables. Make sure this branch's code uses `main`'s current names and shapes.
 - If the server or Docker files changed on either side, run `pnpm server:up` and check `/healthz` (`dev-server` skill).

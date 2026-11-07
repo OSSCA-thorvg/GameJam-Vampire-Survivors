@@ -27,6 +27,7 @@ Rules: `.claude/rules/commits.md`.
    - no AI attribution and no `Co-Authored-By` trailers.
 
    Check that no paragraph or bullet is split across lines. If the dw plugin is installed, its `commit-conventions` skill ships a `validate_body.py` script that checks this; run it on the message file.
+
 5. Commit:
    ```sh
    git commit -F /tmp/commit-msg.txt

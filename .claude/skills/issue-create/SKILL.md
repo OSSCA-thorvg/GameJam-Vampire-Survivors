@@ -20,21 +20,26 @@ Writing rules (`.claude/rules/commits.md`; the same as `dw:commit-conventions` i
 4. Write the body in a scratch file outside the repository (for example `/tmp/issue-body.md`), using this template. It follows the readiness standard in `.claude/rules/issues.md`, and `.github/ISSUE_TEMPLATE/task.md` mirrors it:
    ```markdown
    ## Goal
+
    One or two sentences: what exists after this issue that did not before.
 
    ## Before you start
+
    - Setup, once per clone: `nvm use`, `corepack enable`, `pnpm install` (plus `pnpm server:up` when the server is needed).
    - Read: `CLAUDE.md`, the ADRs below, docs/reference/gameplay.md § <section>, `assets/CATALOG.md`, the verification map files.
    - Skills: `issue-start`, `impact-check`, `verify-game` (once #31 has merged), `issue-finish`, `security-check` (when it applies).
 
    ## Context
+
    - Requirements: REQUIREMENTS.md #<n>, …
    - ADRs, each with the 1–3 constraints that bind this issue restated: [0004](docs/adr/0004-….md): …
    - User decisions that bind this issue, with their dates.
    - From earlier issues: the exact paths, exported symbols, message types and field names this issue builds on (#N).
 
    ## Implementation plan
+
    Numbered steps in build order, so each can be compiled and tested before the next. Across them, cover:
+
    - **Files and modules:** the paths to create or change, and what each owns.
    - **Types and data:** interfaces, data shapes, message types and constants, with field names.
    - **Algorithm and flow:** per-frame vs one-time work, which thread runs it, and edge cases.
@@ -43,20 +48,25 @@ Writing rules (`.claude/rules/commits.md`; the same as `dw:commit-conventions` i
    - **Security:** (required when the issue touches the server, the protocol, dependencies, Docker, CI, or renders user data in the DOM) which rules of `.claude/rules/security.md` apply and how the plan satisfies them.
 
    ## How to verify
+
    - The exact commands, browser actions or `verify-game` journeys, and the expected observations.
    - The proof level each criterion needs: 5 for user-visible behaviour, 4 for the safety fact (`.claude/rules/verification.md`).
 
    ## Acceptance criteria
+
    - [ ] Observable behaviour or test that proves it.
    - [ ] Each docs-sync target this issue touches (`CLAUDE.md` Commands or Architecture, `assets/CATALOG.md` and the manifest, the verification map feature file, `docs/reference/gameplay.md`, `.env.example`) is updated.
 
    ## Out of scope
+
    - What a reader might expect here but belongs elsewhere (#N).
 
    ## Depends on
+
    - #N (or "none")
 
    ## Size
+
    S | M | L (S under half a day, M about a day, L 2–3 days; an L says why it is not split)
    ```
    Every acceptance criterion must be checkable by running something or looking at something.

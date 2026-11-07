@@ -15,16 +15,16 @@
 
 **Scope**
 
-| Category | Included |
-|---|---|
+| Category                             | Included                                                                                                                                                                            |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Weapons (8), each with its evolution | Whip → Bloody Tear, Magic Wand → Holy Wand, Knife → Thousand Edge, Axe → Death Spiral, Cross → Heaven Sword, King Bible → Unholy Vespers, Fire Wand → Hellfire, Garlic → Soul Eater |
-| Passives (8) | Hollow Heart, Empty Tome, Bracer, Candelabrador, Clover, Spellbinder, Spinach, Pummarola. Each is the evolution partner of one weapon. |
-| Characters (3) | Each starts with a different weapon and has different base stats. Names and numbers are defined in the character issue. |
-| Stage (1) | One endless forest-like field with a wave table, timed bosses and breakable light sources |
-| Experience gems | Blue/green/red values; gems merge when too many are on the ground |
-| Pickups | Floor Chicken (heal), Rosary (clear screen), Orologion (freeze), Vacuum (collect all gems), Little Clover (+luck) |
-| Treasure chests | Dropped by bosses and elites; grant a weapon/passive level or an evolution, never gold |
-| Interference items | Multiplayer only (ADR 0005): Swarm, Gem Thief, Elite Call |
+| Passives (8)                         | Hollow Heart, Empty Tome, Bracer, Candelabrador, Clover, Spellbinder, Spinach, Pummarola. Each is the evolution partner of one weapon.                                              |
+| Characters (3)                       | Each starts with a different weapon and has different base stats. Names and numbers are defined in the character issue.                                                             |
+| Stage (1)                            | One endless forest-like field with a wave table, timed bosses and breakable light sources                                                                                           |
+| Experience gems                      | Blue/green/red values; gems merge when too many are on the ground                                                                                                                   |
+| Pickups                              | Floor Chicken (heal), Rosary (clear screen), Orologion (freeze), Vacuum (collect all gems), Little Clover (+luck)                                                                   |
+| Treasure chests                      | Dropped by bosses and elites; grant a weapon/passive level or an evolution, never gold                                                                                              |
+| Interference items                   | Multiplayer only (ADR 0005): Swarm, Gem Thief, Elite Call                                                                                                                           |
 
 **Level-up rules** (to verify against `docs/reference/gameplay.md` before implementing): up to 6 weapons and 6 passives, 3 or 4 choices per level-up, weapons max at level 8, and an evolution is offered by a chest once the weapon is at max level, its passive is owned, and the run time is at least 5:00. The original game uses 10:00; it was shortened for the 15-minute run on 2026-11-07, and lives in a content constant.
 

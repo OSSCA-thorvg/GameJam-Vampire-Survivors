@@ -11,15 +11,15 @@
 
 A benchmark (2026-11-01, Chrome 156, Apple M4 Pro, 1280x720, enemies chasing two players with grid separation plus N/2 bullets) measured median milliseconds per frame. Frame interval is capped by 60 Hz vsync, so 16.7 means "held 60 fps".
 
-| Renderer / art | Entities | Game logic | JS→WASM calls | `update` | `render` | Frame interval |
-|---|---:|---:|---:|---:|---:|---:|
-| gl / PNG picture | 3000 | 1.4 | 0 | 0.3 | 0.2 | 16.7 |
-| wg / PNG picture | 3000 | 1.9 | 0 | 0.2 | 0.4 | 16.7 |
-| sw / PNG picture | 3000 | 1.1 | 0 | 0.3 | 17.4 | 16.7 (p95 33.4) |
-| gl / one-circle shape | 3000 | 1.3 | 0.1 | 3.4 | 0.4 | 16.7 |
-| gl / SVG, 10 stroked paths | 300 | 0 | 0 | 6.4 | 1.8 | 16.7 |
-| gl / SVG, 10 stroked paths | 1000 | 0.2 | 0.1 | 21.7 | 14.1 | 33.3 |
-| gl / PNG picture, in a worker | 3000 | 1.6 | 0 | 0.3 | 0.2 | 16.7 |
+| Renderer / art                | Entities | Game logic | JS→WASM calls | `update` | `render` |  Frame interval |
+| ----------------------------- | -------: | ---------: | ------------: | -------: | -------: | --------------: |
+| gl / PNG picture              |     3000 |        1.4 |             0 |      0.3 |      0.2 |            16.7 |
+| wg / PNG picture              |     3000 |        1.9 |             0 |      0.2 |      0.4 |            16.7 |
+| sw / PNG picture              |     3000 |        1.1 |             0 |      0.3 |     17.4 | 16.7 (p95 33.4) |
+| gl / one-circle shape         |     3000 |        1.3 |           0.1 |      3.4 |      0.4 |            16.7 |
+| gl / SVG, 10 stroked paths    |      300 |          0 |             0 |      6.4 |      1.8 |            16.7 |
+| gl / SVG, 10 stroked paths    |     1000 |        0.2 |           0.1 |     21.7 |     14.1 |            33.3 |
+| gl / PNG picture, in a worker |     3000 |        1.6 |             0 |      0.3 |      0.2 |            16.7 |
 
 Limits of that benchmark: a high-end machine, one sprite type, no animation, no real weapon logic.
 

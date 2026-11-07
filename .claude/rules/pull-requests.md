@@ -14,6 +14,7 @@ The `issue-finish` skill applies these. Writing conventions are those of `commit
   - `Closes #N`.
 
   Do not narrate the diff file by file, and do not add AI attribution.
+
 - **One rebased commit:** the PR branch is exactly one commit on top of the current `origin/main`, with no merge commits. Its subject is the PR title and its body the PR summary (`.claude/rules/commits.md`). After every fix or every move of `main`, rebase (`resolve-conflicts` when it conflicts), squash again and `git push --force-with-lease`. CI (`PR rules`) and the auto-merge workflow both refuse a branch that is behind `main`.
 - **Using `gh`:** run it with your own account (`gh auth status`). Always pass `--json <fields>` to `gh issue view` and `gh pr view`, and pass bodies with `--body-file`. If `gh pr edit` or `gh issue edit` fails with a missing-scope error (for example `read:org`), make the same change with the REST API, which needs no extra scope:
   ```sh
@@ -41,4 +42,5 @@ The `issue-finish` skill applies these. Writing conventions are those of `commit
   - CI is dispatched on `main`.
 
   `issue-finish` then fast-forwards local `main`.
+
 - A PR that introduces a decision binding later work includes its ADR (`adr-new`). A PR that contradicts an accepted ADR without superseding it must not be merged.

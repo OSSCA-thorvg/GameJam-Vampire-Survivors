@@ -10,6 +10,7 @@ Rules: `.claude/rules/verification.md`. Listing callers is not the job; grep doe
 ## Where breakage hides in this project
 
 Check each of these that the change touches:
+
 - **Thread boundary (ADR 0004):** messages in `packages/client/src/protocol/worker-messages.ts`. Both the sender and the receiver must handle a changed shape, and nothing may cross the boundary per frame per entity.
 - **Network protocol (ADRs 0005, 0006):** `packages/shared/src/protocol.ts`, the server validators, rate limits and size limits, and the protocol version. An old client against a new server must fail cleanly.
 - **Content data (ADR 0008):** IDs referenced across characters, weapons, evolutions, passives, waves and pickups, plus the debug keys that grant them.
