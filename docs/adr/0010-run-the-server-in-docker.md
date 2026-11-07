@@ -12,9 +12,9 @@
 
 **What runs where**
 
-| Part | Development | Deployment |
-|---|---|---|
-| Server (`packages/server`) | Always in Docker, through `docker compose` | The same image's `runtime` target |
+| Part                       | Development                                                                                              | Deployment                                   |
+| -------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Server (`packages/server`) | Always in Docker, through `docker compose`                                                               | The same image's `runtime` target            |
 | Client (`packages/client`) | On the host with `pnpm --filter client dev` (Node from `.nvmrc`), connecting to the containerized server | Static files (ADR for hosting in roadmap R2) |
 
 **Files** (created by roadmap item F4)

@@ -7,15 +7,15 @@ These rules are complete on their own; they match the dw plugin's `commit-conven
 - Write in English.
 - Subject: `<prefix>: <imperative summary>`, at most 72 characters, no trailing period.
 
-  | Prefix | Use for |
-  |---|---|
-  | `feat:` | new capability |
-  | `fix:` | bug fix |
-  | `update:` | improvement to an existing feature, or a dependency bump |
-  | `refactor:` | restructuring without behaviour change |
-  | `test:` | tests only |
-  | `docs:` | documentation, ADRs, references |
-  | `chore:` | build, CI, tooling, repo config |
+  | Prefix      | Use for                                                  |
+  | ----------- | -------------------------------------------------------- |
+  | `feat:`     | new capability                                           |
+  | `fix:`      | bug fix                                                  |
+  | `update:`   | improvement to an existing feature, or a dependency bump |
+  | `refactor:` | restructuring without behaviour change                   |
+  | `test:`     | tests only                                               |
+  | `docs:`     | documentation, ADRs, references                          |
+  | `chore:`    | build, CI, tooling, repo config                          |
 
 - A body is required for anything beyond a trivial change. It says why the change was made, what changed at the behaviour or module level (not file by file), how it was validated, and which issue it relates to (`Refs #N`).
 - Bodies are not hard-wrapped: one paragraph or one bullet per physical line.

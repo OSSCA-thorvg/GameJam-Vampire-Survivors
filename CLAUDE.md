@@ -9,7 +9,7 @@ Keep this file current: any PR that changes commands, architecture, workflow, ru
 For a new contributor in a fresh clone. Nothing here depends on a particular machine, account or plugin.
 
 - **Prerequisites:** Git, nvm, Docker (Docker Desktop, OrbStack or Colima, running), the GitHub CLI `gh` logged in with your own account that has access to `OSSCA-thorvg/GameJam-Vampire-Survivors` (`gh auth status`, then `gh repo view OSSCA-thorvg/GameJam-Vampire-Survivors --json nameWithOwner`), and Claude Code. The `dw` plugin is optional.
-- **First session:** `nvm use`, `corepack enable`, then `pnpm install` once #1 (the monorepo) has merged. Before that there is nothing to install.
+- **First session:** `nvm use`, `corepack enable`, then `pnpm install`. The install also registers the pre-commit hook (`.git/hooks/pre-commit`), so there is no manual hook setup.
 - **Pick work:** `gh issue list -R OSSCA-thorvg/GameJam-Vampire-Survivors --label status:ready`. Every `status:ready` issue meets the readiness standard (`.claude/rules/issues.md`): it says what to set up, read and run, so you can start without asking. `docs/roadmap.md` shows the order.
 - **The loop:** `/issue-start #N` → implement → `/issue-finish`. The auto-merge workflow merges the PR when CI passes.
 - **When blocked:** comment on the issue saying what is missing, and label it `status:blocked` (`gh issue edit <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors --remove-label status:in-progress --add-label status:blocked`).
@@ -18,7 +18,7 @@ For a new contributor in a fresh clone. Nothing here depends on a particular mac
 
 A browser game in the style of Vampire Survivors, for single player and 2-player online versus play, rendered with ThorVG's `@thorvg/webcanvas`. Requirements are in `REQUIREMENTS.md`, written in Korean; ADRs cite its items by number. Every architectural choice is an ADR in `docs/adr/`. Read `docs/adr/README.md` first.
 
-Current state: documentation and planning only. No code exists yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
+Current state: the toolchain exists (pnpm workspace with `@vs/client`, `@vs/server` and `@vs/shared`, lint, format, tests, the pre-commit hook and CI's `pnpm check`); no game code yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
 
 ## Workflow (mandatory)
 
@@ -45,6 +45,7 @@ Current state: documentation and planning only. No code exists yet. Work is plan
   - `docs-sync.md`: which docs to update with which change, including this file
 
   Read the matching file before creating an issue, committing (use the `commit` skill), or opening a PR.
+
 - New issues go through `issue-create`; each needs a detailed **Implementation plan** section. Labels come from `.github/labels.json`, synced with `label-sync`; their meanings are in `.claude/rules/labels.md`.
 - A decision that binds later work gets an ADR through `adr-new` in the same PR. Do not contradict an accepted ADR. Supersede it.
 - The project's rules and skills are complete on their own; the `dw` plugin is not needed. Its label, branch, commit and `gh` conventions are restated in `.claude/rules/labels.md`, `commits.md` and `pull-requests.md`. If the dw plugin is installed, its skills such as `/dw:impl` also work here, but the project skills take precedence where they differ: for example, merging happens only through the auto-merge workflow, so skip any `dw` step that runs `gh pr merge`.
@@ -65,30 +66,30 @@ Current state: documentation and planning only. No code exists yet. Work is plan
 
 The project skills in `.claude/skills/`:
 
-| Skill | Use it to |
-|---|---|
-| `issue-create` | file an issue with a detailed implementation plan and labels |
-| `issue-start` | begin an issue: `status:in-progress`, assignee, branch, read the ADRs, check the scope with `impact-check` |
-| `impact-check` | find what a change could break beyond its files: scope mode before coding, proof mode (safety fact proven by running code) before the PR |
-| `commit` | commit on an issue branch with the project's message rules |
-| `issue-finish` | verify by running the real app, prove the impact, run the docs sync and security checks, bring a stale branch up to date, open the PR, wait for the auto-merge workflow to merge it on green CI, verify `status:done` and unblocking |
-| `resolve-conflicts` | rebase a stale or conflicting branch onto `main`, resolve per `conflicts.md`, squash back to one commit and force-push with lease |
-| `adr-new` | record or supersede a decision |
-| `label-sync` | sync GitHub labels from `.github/labels.json` |
-| `dev-server` | run, rebuild and troubleshoot the server in Docker |
-| `security-check` | do the supply-chain and security pass before a PR |
+| Skill               | Use it to                                                                                                                                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `issue-create`      | file an issue with a detailed implementation plan and labels                                                                                                                                                                         |
+| `issue-start`       | begin an issue: `status:in-progress`, assignee, branch, read the ADRs, check the scope with `impact-check`                                                                                                                           |
+| `impact-check`      | find what a change could break beyond its files: scope mode before coding, proof mode (safety fact proven by running code) before the PR                                                                                             |
+| `commit`            | commit on an issue branch with the project's message rules                                                                                                                                                                           |
+| `issue-finish`      | verify by running the real app, prove the impact, run the docs sync and security checks, bring a stale branch up to date, open the PR, wait for the auto-merge workflow to merge it on green CI, verify `status:done` and unblocking |
+| `resolve-conflicts` | rebase a stale or conflicting branch onto `main`, resolve per `conflicts.md`, squash back to one commit and force-push with lease                                                                                                    |
+| `adr-new`           | record or supersede a decision                                                                                                                                                                                                       |
+| `label-sync`        | sync GitHub labels from `.github/labels.json`                                                                                                                                                                                        |
+| `dev-server`        | run, rebuild and troubleshoot the server in Docker                                                                                                                                                                                   |
+| `security-check`    | do the supply-chain and security pass before a PR                                                                                                                                                                                    |
 
 ## Commands
 
-The toolchain is created by the monorepo setup issue (roadmap item F1). Until then, these commands do not exist. Do not invent others.
+Created by #1 (roadmap F1). Every command below is real except `pnpm server:up` / `server:logs` / `server:down`, which arrive with #4. Later issues add `pnpm assets:sync` (#3) and `pnpm verify:*` (#31); do not use them before those merge, and do not invent others. `npm install` and `yarn` are rejected by the `preinstall` check, and Node or pnpm versions outside `engines` fail the install (`engineStrict` in `pnpm-workspace.yaml`).
 
 ```sh
 nvm use                 # Node version from .nvmrc (24)
 corepack enable         # provides the pnpm version pinned in package.json
 pnpm install            # npm and yarn are blocked; use pnpm only
-pnpm dev                # client (Vite) on the host; the server runs in Docker (pnpm server:up)
+pnpm dev                # every package's dev script: client (Vite) on :5173, server (tsx watch) on :8787; #4 narrows it to the client
 pnpm --filter client dev
-pnpm server:up / server:logs / server:down   # server in Docker (ADR 0010, dev-server skill)
+pnpm server:up / server:logs / server:down   # server in Docker (ADR 0010, dev-server skill); arrives with #4
 pnpm check              # format:check → lint → typecheck → test → build; must pass before merge
 pnpm lint / pnpm lint:fix
 pnpm format / pnpm format:check
@@ -104,9 +105,10 @@ pnpm build
 Read the ADR for the full reasoning.
 
 - **Monorepo (ADR 0002):**
-  - `packages/client` is the Vite app with no UI framework (ADR 0009);
-  - `packages/server` is the Node + `ws` relay;
-  - `packages/shared` holds protocol types and content data, with no DOM, worker or Node APIs;
+  - `packages/client` (`@vs/client`) is the Vite app with no UI framework (ADR 0009); its only runtime dependency is `@thorvg/webcanvas` (ADR 0011). `src/main` and `src/worker` are type-checked against DOM and WebWorker libs by separate tsconfigs (`tsconfig.main.json`, `tsconfig.worker.json`);
+  - `packages/server` (`@vs/server`) is the Node + `ws` relay; `GET /healthz` answers `ok`, and `PORT` defaults to 8787 (`.env.example`);
+  - `packages/shared` (`@vs/shared`) holds protocol types and content data, with no DOM, worker or Node APIs; it is consumed as TypeScript source (`exports` points at `src/index.ts`);
+  - the root `tsconfig.json` references every package, so `tsc -b` checks them all; `eslint.config.js`, `.prettierrc.json` and `vitest.config.ts` (projects `packages/*`) live at the root;
   - `assets/` holds the art and `manifest.json`.
 - **Threads (ADR 0004):** the main thread (`client/src/main/`) owns the DOM UI, keyboard capture and the WebSocket. A dedicated module worker (`client/src/worker/`) owns the simulation and all ThorVG rendering, including the HUD, on an `OffscreenCanvas` transferred at startup. The two talk only through the typed messages in `client/src/protocol/worker-messages.ts`. Nothing in the worker may touch the DOM; nothing on the main thread may touch the canvas.
 - **Rendering (ADR 0003):**

@@ -5,6 +5,10 @@ packages:
 # Malicious releases are usually detected and unpublished within days; waiting a week avoids installing them.
 minimumReleaseAge: 10080
 
+# Fail `pnpm install` on a Node or pnpm version outside the root `engines` (ADR 0002). pnpm 11 reads its settings
+# from this file and ignores `.npmrc` apart from auth and registry, so `.npmrc`'s `engine-strict=true` only covers npm.
+engineStrict: true
+
 # The ONLY way to bypass minimumReleaseAge. Every entry needs a comment with the reason and a link to the issue or ADR
 # that approved it, e.g. an urgent security fix. Remove the entry once the version is older than 7 days.
 minimumReleaseAgeExclude: []
@@ -16,3 +20,6 @@ allowBuilds:
   # esbuild (via Vite/tsx): its postinstall only verifies/optimizes the platform binary; the binary comes from
   # an optional dependency and works without it (verified with pnpm 11.1.2, 2026-11-07).
   esbuild: false
+  # simple-git-hooks: its postinstall only installs the git hooks, which the root `prepare` script
+  # (`simple-git-hooks`) already does on every `pnpm install` (ADR 0002).
+  simple-git-hooks: false

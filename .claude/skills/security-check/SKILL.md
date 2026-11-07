@@ -23,12 +23,15 @@ Prefer running it in a subagent briefed with the branch name, the issue and this
    - every `allowBuilds` entry set to `true` has a reason.
 
    Any violation is **high**.
+
 3. **New or upgraded dependencies.** For each package added or bumped in a `package.json`:
+
    ```sh
    pnpm why <pkg>
    npm view <pkg> time.modified maintainers dependencies dist-tags --json
    npm view <pkg>@<resolved-version> time --json   # confirm the resolved version is ≥ 7 days old
    ```
+
    Check:
    - the PR body justifies it;
    - it is not a typo-squat of a well-known name;
@@ -37,6 +40,7 @@ Prefer running it in a subagent briefed with the branch name, the issue and this
    - its transitive dependency count is reasonable.
 
    Flag runtime dependencies added to `packages/client` other than `@thorvg/webcanvas` as **high**.
+
 4. **Known advisories:**
    ```sh
    pnpm install --frozen-lockfile && pnpm audit --audit-level=high
@@ -60,6 +64,7 @@ Prefer running it in a subagent briefed with the branch name, the issue and this
    - no body logging.
 
    A missing control is **high**; a missing test for a present control is **medium**.
+
 7. **CI and Docker changes:**
    ```sh
    grep -nE '^\s*-?\s*uses:' .github/workflows/*.yml | grep -vE '@[0-9a-f]{40}( |$)'   # must print nothing

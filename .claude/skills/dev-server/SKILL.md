@@ -16,15 +16,15 @@ test -f .env || cp .env.example .env         # local env, never committed
 
 ## Common tasks
 
-| Task | Command |
-|---|---|
-| Start, building if needed | `pnpm server:up` |
-| Follow logs | `pnpm server:logs` |
-| Health check | `curl -fsS http://localhost:8787/healthz` |
-| Shell inside the container | `pnpm server:sh` |
-| Stop | `pnpm server:down` |
-| Build the deployable image | `pnpm server:image` (target `runtime`, tag `vs-server:local`) |
-| Run the client against it | `nvm use && pnpm --filter client dev` with `VITE_SERVER_URL=ws://localhost:8787/ws` |
+| Task                       | Command                                                                             |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| Start, building if needed  | `pnpm server:up`                                                                    |
+| Follow logs                | `pnpm server:logs`                                                                  |
+| Health check               | `curl -fsS http://localhost:8787/healthz`                                           |
+| Shell inside the container | `pnpm server:sh`                                                                    |
+| Stop                       | `pnpm server:down`                                                                  |
+| Build the deployable image | `pnpm server:image` (target `runtime`, tag `vs-server:local`)                       |
+| Run the client against it  | `nvm use && pnpm --filter client dev` with `VITE_SERVER_URL=ws://localhost:8787/ws` |
 
 Source edits in `packages/server` and `packages/shared` hot-reload inside the container. After changing dependencies or the lockfile, run `pnpm server:up` again so the image and its dependency volume are rebuilt.
 

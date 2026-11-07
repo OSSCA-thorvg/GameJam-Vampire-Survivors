@@ -12,6 +12,7 @@ The auto-merge workflow merges a PR as soon as CI is green (ADR 0012), so all of
   - the **one fact the change is safe because of**.
 
   This goes in the issue's start comment.
+
 - If the scope turns out larger than the issue's plan (for example, it changes a protocol message that other issues rely on), update the issue body or split the issue before coding (`.claude/rules/issues.md`).
 
 ## Every change is run, not just read
@@ -27,6 +28,7 @@ The auto-merge workflow merges a PR as soon as CI is green (ADR 0012), so all of
   5. reproduced it in the running app.
 
   The safety fact from `impact-check` must reach **level 4**. User-visible acceptance criteria must reach **level 5**.
+
 - **What counts as evidence:**
   - the user action and the resulting state, not only the final screen;
   - side effects checked too (messages sent, server room state, files);
@@ -34,6 +36,7 @@ The auto-merge workflow merges a PR as soon as CI is green (ADR 0012), so all of
   - command output and `/healthz` or WebSocket transcripts for the server.
 
   Use real user paths, not test-only setters. Dev debug keys (the dev-only debug-tools module from #2) are allowed only to reach a precondition, such as fast-forwarding to 5:00. The behaviour under test is then driven normally.
+
 - **Where evidence goes:** files under `verification/issue-<N>/` (git-ignored, never committed). The PR body summarizes them in a **Verification** section: the feature map entries driven, the proof level of each criterion, and the commands run with their key output or attached screenshots. Re-run the evidence after a rebase that changed the code under test.
 - **A failing journey is reported, never weakened.** If a precondition is missing, say so, and note it in the feature's `Gotchas`.
 - **Before `verify-game` exists** (until its issue merges), verify by running the app manually with the same evidence standard, and say so in the PR. Before the app exists at all (roadmap F1 and F2), level 4 is the ceiling: say which criteria could not reach level 5 and why.

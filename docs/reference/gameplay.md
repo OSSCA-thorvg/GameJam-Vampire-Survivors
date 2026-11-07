@@ -12,12 +12,12 @@ Each fact is tagged with where it came from. **[unverified]** marks common knowl
 
 Watch these, and add better ones with what to look for:
 
-| Source | What to watch for |
-|---|---|
-| [Steam store page](https://store.steampowered.com/app/1794680/Vampire_Survivors/) (trailers at the top) | Overall pacing, screen density in late game, level-up screen flow |
-| [Official Local Co-op Trailer](https://www.dailymotion.com/video/x8nbkwd) | How two players and their effects read on one screen |
-| [Console launch trailer](https://www.gamepressure.com/games/movie.asp?ID=45426) | Weapon visuals and evolutions |
-| Long, unedited single-player runs on YouTube (search "Vampire Survivors full run no commentary") | Minute-by-minute wave growth, boss timing, chest opening, gem magnet range |
+| Source                                                                                                  | What to watch for                                                          |
+| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [Steam store page](https://store.steampowered.com/app/1794680/Vampire_Survivors/) (trailers at the top) | Overall pacing, screen density in late game, level-up screen flow          |
+| [Official Local Co-op Trailer](https://www.dailymotion.com/video/x8nbkwd)                               | How two players and their effects read on one screen                       |
+| [Console launch trailer](https://www.gamepressure.com/games/movie.asp?ID=45426)                         | Weapon visuals and evolutions                                              |
+| Long, unedited single-player runs on YouTube (search "Vampire Survivors full run no commentary")        | Minute-by-minute wave growth, boss timing, chest opening, gem magnet range |
 
 Things to measure from footage and write down here: player move speed (screen widths per second), the minute enemies first fill the screen, the knockback distance on hit, how long the level-up choice takes, and when the first chest appears.
 
@@ -44,13 +44,13 @@ Things to measure from footage and write down here: player move speed (screen wi
 
 Source: Namu Wiki item page §7.3, plus this game's rules in ADR 0008.
 
-| Pickup | Effect in the original |
-|---|---|
-| Floor Chicken | Restores 30 HP |
-| Rosary | Destroys all enemies on screen |
-| Orologion | Freezes all enemies for 10 seconds |
-| Vacuum | Pulls every gem on the map to the player |
-| Little Clover | +10% luck |
+| Pickup        | Effect in the original                   |
+| ------------- | ---------------------------------------- |
+| Floor Chicken | Restores 30 HP                           |
+| Rosary        | Destroys all enemies on screen           |
+| Orologion     | Freezes all enemies for 10 seconds       |
+| Vacuum        | Pulls every gem on the map to the player |
+| Little Clover | +10% luck                                |
 
 Pickups come from breakable light sources (braziers and candles) on the map. Higher luck raises the drop chance. **[Namu Wiki §6, §7.3]**
 

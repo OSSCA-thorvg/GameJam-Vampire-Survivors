@@ -1,6 +1,7 @@
 # Security rules (ADR 0011)
 
 Run the `security-check` skill before opening a PR that touches any of these:
+
 - dependencies, `pnpm-lock.yaml` or `pnpm-workspace.yaml`;
 - `packages/server` or `packages/shared/src/protocol.ts`;
 - Docker files or `.github/workflows`;

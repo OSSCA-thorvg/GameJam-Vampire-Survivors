@@ -17,9 +17,25 @@
 {
   "version": 1,
   "assets": {
-    "enemy.bat": { "file": "enemies/bat.svg", "format": "svg", "size": [32, 32], "anchor": [0.5, 0.5] },
-    "player.knight.walk": { "file": "players/knight-walk.json", "format": "lottie", "size": [48, 48], "anchor": [0.5, 0.9] },
-    "fx.hit": { "file": "fx/hit.png", "format": "png", "size": [24, 24], "anchor": [0.5, 0.5], "filter": "nearest" }
+    "enemy.bat": {
+      "file": "enemies/bat.svg",
+      "format": "svg",
+      "size": [32, 32],
+      "anchor": [0.5, 0.5]
+    },
+    "player.knight.walk": {
+      "file": "players/knight-walk.json",
+      "format": "lottie",
+      "size": [48, 48],
+      "anchor": [0.5, 0.9]
+    },
+    "fx.hit": {
+      "file": "fx/hit.png",
+      "format": "png",
+      "size": [24, 24],
+      "anchor": [0.5, 0.5],
+      "filter": "nearest"
+    }
   }
 }
 ```
@@ -32,6 +48,7 @@
 - Only original or properly licensed art goes in `assets/`. Do not copy art from Vampire Survivors.
 
 **Performance guardrails** for vector art used in large numbers (enemies, projectiles, gems):
+
 - At most 4 paths, no strokes, and no gradients per entity. Bosses, players, UI and effects are exempt.
 - Load each asset once, then clone instances with `duplicate()` from a pool (ADR 0003).
 - Live entity caps are content constants: start at 400 enemies, 600 projectiles and 400 gems. Raise them only with a measurement on a mid-range laptop.

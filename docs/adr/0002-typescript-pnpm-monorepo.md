@@ -35,7 +35,7 @@ docs/       ADRs, roadmap, gameplay reference
 - Node: `.nvmrc` pins the major version, `24`. Run `nvm use` (or fnm or volta, which read the same file) before working. CI reads `.nvmrc` through `actions/setup-node`'s `node-version-file`.
 - pnpm is the only package manager:
   - root `package.json` sets `"packageManager": "pnpm@<exact version>"`, and Corepack (`corepack enable`) provides that exact pnpm;
-  - `"engines": { "node": ">=24 <25", "pnpm": ">=11" }`, with `.npmrc` `engine-strict=true`, makes installs on the wrong versions fail;
+  - `"engines": { "node": ">=24 <25", "pnpm": ">=11" }`, with `engineStrict: true` in `pnpm-workspace.yaml`, makes installs on the wrong versions fail (pnpm 11 ignores `.npmrc` settings other than auth and registry, found in #1; `.npmrc` keeps `engine-strict=true` for npm);
   - a `"preinstall": "npx only-allow pnpm"` script makes `npm install` and `yarn` fail;
   - `pnpm-lock.yaml` is committed, while `package-lock.json` and `yarn.lock` are git-ignored.
 
