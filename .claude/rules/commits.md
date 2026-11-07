@@ -1,6 +1,6 @@
 # Commit rules
 
-Based on `dw:commit-conventions`. The `commit` skill applies them.
+These rules are complete on their own; they match the dw plugin's `commit-conventions` if the dw plugin is installed, but nothing here needs it. The `commit` skill applies them.
 
 ## Message
 
@@ -24,7 +24,7 @@ Based on `dw:commit-conventions`. The `commit` skill applies them.
 ## Content
 
 - One issue, one PR, one commit: logical separation happens per issue and PR, not per commit. Local work-in-progress commits are fine while working.
-- Before pushing for a PR, rebase the branch onto `origin/main` and squash it into **one** commit. Its subject is the PR title, `<prefix>: <summary> (#N)`, and its body is the PR summary, following the message rules above. CI rejects a PR branch with more than one commit, with merge commits, or without the current tip of `main` (ADR 0012).
+- Before pushing for a PR, rebase the branch onto `origin/main` and squash it into **one** commit. Its subject is the PR title, `<prefix>: <summary>` with no `(#N)` suffix, and its body is the PR summary, following the message rules above. CI rejects a PR branch with more than one commit, with merge commits, or without the current tip of `main` (ADR 0012).
   ```sh
   git fetch origin main && git rebase origin/main
   git reset --soft origin/main && git commit -F /tmp/commit-msg.txt
@@ -43,6 +43,6 @@ Based on `dw:commit-conventions`. The `commit` skill applies them.
 
 ## Where commits go
 
-- All work happens on an issue branch, `<prefix>/issue-<N>-<slug>` (see `issue-start`), and reaches `main` only through a PR that the auto-merge workflow squash-merges on green CI (`issue-finish`, ADR 0012). The repository allows squash merges only. The squash commit's subject is the PR title, `<prefix>: <summary> (#N)`, and its body is the PR body, so `main` stays a linear list of one commit per PR.
+- All work happens on an issue branch, `<prefix>/issue-<N>-<slug>` with a 2–4 word kebab-case slug, where the prefix comes from the issue's type label: `type:enhancement` → `feature`, `type:bug` → `fix`, `type:refactor` → `refactor`, anything else → `update` (see `issue-start`; CI checks the pattern). The branch reaches `main` only through a PR that the auto-merge workflow squash-merges on green CI (`issue-finish`, ADR 0012). The repository allows squash merges only. The squash commit's subject is the PR title, `<prefix>: <summary>`, to which GitHub appends ` (#<PR>)` itself, and its body is the PR body, so `main` stays a linear list of one commit per PR.
 - Do not commit to `main` directly. The only exception was the bootstrap commit that created the repository's first content.
 - Do not rewrite pushed history on `main`. On your own issue branch, rewriting is expected: push with `git push --force-with-lease` after every rebase or squash.

@@ -8,8 +8,8 @@ Documentation is updated in the **same PR** as the change that makes it stale. A
 | Package layout, threads, rendering, simulation, protocol, content or asset conventions | `CLAUDE.md` § Architecture (a summary that points to the ADR) |
 | An ADR is added or superseded | `docs/adr/README.md`, and the `CLAUDE.md` summary if the decision changes a rule stated there |
 | A rule file in `.claude/rules/` or a skill in `.claude/skills/` is added, renamed or removed | `CLAUDE.md` § Workflow (rules list) or § Skills |
-| Workflow, label, branch, commit or PR conventions | the matching `.claude/rules/*.md`, the skills that apply them, and `CLAUDE.md` § Workflow |
-| The project's state (for example, the first code lands, or a phase completes) | `CLAUDE.md` § Project "Current state" line |
+| Workflow, label, branch, commit or PR conventions | the matching `.claude/rules/*.md`, the skills that apply them, `CLAUDE.md` § Workflow, and the issue and PR templates in `.github/` |
+| The project's state (for example, the first code lands, or a phase completes) | `CLAUDE.md` § Project "Current state" line, and `README.md` § Current state |
 | Issues are added, split, dropped or renumbered | `docs/roadmap.md` |
 | An asset ID is added or its art is replaced | `assets/CATALOG.md` (the status column) and `assets/manifest.json` |
 | A gameplay behaviour is observed or verified against the original | `docs/reference/gameplay.md`, with the source |

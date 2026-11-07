@@ -1,9 +1,9 @@
 # Pull request rules
 
-The `issue-finish` skill applies these. Writing conventions follow `dw:commit-conventions` and `dw:gh-workflow`.
+The `issue-finish` skill applies these. Writing conventions are those of `commits.md` (they match the dw plugin's `commit-conventions` and `gh-workflow` if the dw plugin is installed, but nothing here needs it).
 
 - **One PR per issue.** It is opened from the issue branch, and its body contains `Closes #N`. A PR without an issue is not allowed; create the issue first (`issue-create`).
-- **Title:** `<prefix>: <imperative summary> (#N)`, in English, at most 72 characters. The `(#N)` suffix is required; tooling uses it to find the PR for an issue.
+- **Title:** `<prefix>: <imperative summary>`, in English, at most 72 characters, with **no** `(#N)` suffix, for example `feat: Spawn enemies from the wave table`. GitHub appends ` (#<PR>)` to the squash commit's subject itself, so a suffix in the title produced subjects like `… (#28) (#29)`. The issue link comes from `Closes #N` in the body. CI (`PR rules`) rejects a title that does not match `^(feat|fix|update|refactor|test|docs|chore): .+`, that ends in `(#N)`, or that is longer than 72 characters.
 - **Body:** English, no hard wraps, passed with `--body-file`, with a summary of about 250 words; the Impact, Verification and Conflicts sections come on top of it and stay as short as their evidence allows. Contents:
   - what changed at the behaviour level;
   - **How to verify**: exact commands or browser steps;
@@ -15,6 +15,12 @@ The `issue-finish` skill applies these. Writing conventions follow `dw:commit-co
 
   Do not narrate the diff file by file, and do not add AI attribution.
 - **One rebased commit:** the PR branch is exactly one commit on top of the current `origin/main`, with no merge commits. Its subject is the PR title and its body the PR summary (`.claude/rules/commits.md`). After every fix or every move of `main`, rebase (`resolve-conflicts` when it conflicts), squash again and `git push --force-with-lease`. CI (`PR rules`) and the auto-merge workflow both refuse a branch that is behind `main`.
+- **Using `gh`:** run it with your own account (`gh auth status`). Always pass `--json <fields>` to `gh issue view` and `gh pr view`, and pass bodies with `--body-file`. If `gh pr edit` or `gh issue edit` fails with a missing-scope error (for example `read:org`), make the same change with the REST API, which needs no extra scope:
+  ```sh
+  gh api -X PATCH repos/OSSCA-thorvg/GameJam-Vampire-Survivors/pulls/<PR> -F body=@/tmp/pr-body.md       # PR title (-f title=...) or body
+  gh api -X POST repos/OSSCA-thorvg/GameJam-Vampire-Survivors/issues/<N>/labels -f 'labels[]=status:blocked'   # add a label (issues and PRs)
+  gh api -X DELETE repos/OSSCA-thorvg/GameJam-Vampire-Survivors/issues/<N>/labels/status:blocked              # remove a label
+  ```
 - **Labels:** the same `type:*`, `priority:*`, `area:*` and `phase:*` as the issue, applied when the PR is created (`gh pr create --label`), or later with `gh issue edit <PR>`.
 - **Gate before merge**, all done before the PR is opened (or before its hold is released), because green CI merges it immediately:
   - every acceptance criterion in the issue is demonstrably met, at the proof level `.claude/rules/verification.md` requires (user-visible criteria run in the real app);

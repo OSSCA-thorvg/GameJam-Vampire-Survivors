@@ -5,7 +5,7 @@ description: Bring an issue branch up to date with main and resolve git and func
 
 # resolve-conflicts
 
-Rules: `.claude/rules/conflicts.md`. The procedure follows the `dw` plugin's `merge-resolver` agent, but rebases instead of merging: under ADR 0012 a PR branch is exactly one commit on top of the current `origin/main`, and CI ("Branch is one rebased commit") and the auto-merge workflow both refuse merge commits and stale branches. Run it in a subagent when the conflict spans many files, and give the subagent this skill, the rules file and both issues.
+Rules: `.claude/rules/conflicts.md`. The procedure is adapted from the dw plugin's `merge-resolver` agent (the plugin is not needed), but rebases instead of merging: under ADR 0012 a PR branch is exactly one commit on top of the current `origin/main`, and CI ("Branch is one rebased commit") and the auto-merge workflow both refuse merge commits and stale branches. Run it in a subagent when the conflict spans many files, and give the subagent this skill, the rules file and both issues.
 
 ## 1. Analyse
 
@@ -50,7 +50,7 @@ Update this branch's new code to follow anything `main` introduced: upgraded lib
 
 ## 5. Validate, squash and push
 
-Squash the branch back into **one** commit on top of `origin/main` (ADR 0012, `commit` skill step 6). Its subject is the PR title, `<prefix>: <summary> (#N)`, and its body the PR summary, written to a scratch file outside the repository. If the branch is already one commit and the rebase only replayed it, keep its message (`git log -1 --format=%B > /tmp/commit-msg.txt`). `git reset --soft` keeps the working tree and the index; never use `--hard`.
+Squash the branch back into **one** commit on top of `origin/main` (ADR 0012, `commit` skill step 6). Its subject is the PR title, `<prefix>: <summary>` with no `(#N)` suffix, and its body the PR summary, written to a scratch file outside the repository. If the branch is already one commit and the rebase only replayed it, keep its message (`git log -1 --format=%B > /tmp/commit-msg.txt`). `git reset --soft` keeps the working tree and the index; never use `--hard`.
 
 ```sh
 pnpm check                               # once package.json exists (roadmap F1)
@@ -64,7 +64,7 @@ git push --force-with-lease -u origin "$BR"
 Only run the `reset --soft` when `origin/main` is an ancestor of `HEAD`; on a stale base it would fold `main`'s newer changes into the commit in reverse.
 
 - Never plain `--force`, and never push to `main`.
-- Add a **Conflicts** section to the PR body: which files conflicted and how each was resolved, or "none" with what the functional check covered. Write the body to a file and update it with `gh pr edit <PR> --body-file /tmp/pr-body.md`.
+- Add a **Conflicts** section to the PR body: which files conflicted and how each was resolved, or "none" with what the functional check covered. Write the body to a file and update it with `gh pr edit <PR> --body-file /tmp/pr-body.md` (if that fails with a missing-scope error, use `gh api -X PATCH repos/OSSCA-thorvg/GameJam-Vampire-Survivors/pulls/<PR> -F body=@/tmp/pr-body.md`, `.claude/rules/pull-requests.md`).
 - The pushed commit re-runs CI, and the auto-merge workflow merges on green. Never run `gh pr merge`.
 - Delete the backup branch after the PR merges: `git branch -D backup/...`.
 - If a resolution required a binding decision, write an ADR with `adr-new`. If two intents could not both be kept, stop and ask the user instead of choosing silently; hold an open PR meanwhile with `gh issue edit <PR> --add-label status:blocked`.

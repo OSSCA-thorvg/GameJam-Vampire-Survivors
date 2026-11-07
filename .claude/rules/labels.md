@@ -1,6 +1,6 @@
 # Labels in this repository
 
-Source of truth: `.github/labels.json`. Sync it with the `label-sync` skill. `status:*`, `type:*` and `priority:*` follow the `dw:project-labels` standard.
+Source of truth: `.github/labels.json`. Sync it with the `label-sync` skill. `status:*`, `type:*` and `priority:*` match the dw plugin's `project-labels` standard if the dw plugin is installed; the file and this page are complete without it.
 
 ## area:* (one or more; pick the ones a triager would filter by)
 
