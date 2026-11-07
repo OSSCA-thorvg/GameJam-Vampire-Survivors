@@ -13,21 +13,22 @@ Writing rules follow `dw:commit-conventions`: a `<prefix>: <imperative summary>`
 
 1. Go through the issue's acceptance criteria one by one and confirm each with evidence: a test, a command's output, or a screenshot for visual behaviour. If one is not met, do not open the PR; report what is missing.
 2. Run the repository checks listed in `CLAUDE.md` under Commands (lint, typecheck, test, build). All must pass locally.
-3. If the branch touches dependencies, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `packages/server`, `packages/shared/src/protocol.ts`, Docker files, `.github/workflows`, or code that puts user data into the DOM, run the `security-check` skill (preferably in a subagent). Do not open the PR while a **high** finding is open.
-4. If the change touched gameplay feel, compare it with `docs/reference/gameplay.md` and update that file with any new observations.
-5. Push and open the PR. Its title is `<prefix>: <same summary as the issue> (#N)`; the `(#N)` suffix is what `dw:gh-issue-link` falls back to when looking up the PR for an issue. Its body contains `Closes #N`:
+3. **Sync the docs** (`.claude/rules/docs-sync.md`). For each row whose trigger applies to this branch, make sure the listed document is updated in this branch. Always re-read `CLAUDE.md` § Commands and § Architecture against the diff. Add the forgotten updates as a separate `docs:` commit.
+4. If the branch touches dependencies, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `packages/server`, `packages/shared/src/protocol.ts`, Docker files, `.github/workflows`, or code that puts user data into the DOM, run the `security-check` skill (preferably in a subagent). Do not open the PR while a **high** finding is open.
+5. If the change touched gameplay feel, compare it with `docs/reference/gameplay.md` and update that file with any new observations.
+6. Push and open the PR. Its title is `<prefix>: <same summary as the issue> (#N)`; the `(#N)` suffix is what `dw:gh-issue-link` falls back to when looking up the PR for an issue. Its body contains `Closes #N`:
    ```sh
    git push -u origin HEAD
    gh pr create -R OSSCA-thorvg/GameJam-Vampire-Survivors \
      --title "feat: Spawn enemies from the wave table (#12)" --body-file /tmp/pr-body.md
    ```
    PR body: what changed at the behaviour level, how to verify it (exact commands or steps), the ADRs cited or added, and `Closes #N`.
-6. Copy the issue's `type:*`, `priority:*`, `area:*` and `phase:*` labels to the PR, and move the issue to review:
+7. Copy the issue's `type:*`, `priority:*`, `area:*` and `phase:*` labels to the PR, and move the issue to review:
    ```sh
    gh issue edit <PR> -R OSSCA-thorvg/GameJam-Vampire-Survivors --add-label "type:enhancement" --add-label "priority:high" --add-label "area:gameplay" --add-label "phase:1-core-loop"
    gh issue edit <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors --remove-label status:in-progress --add-label status:review
    ```
-7. Wait for CI, then squash-merge:
+8. Wait for CI, then squash-merge:
    ```sh
    gh pr checks <PR> --watch -R OSSCA-thorvg/GameJam-Vampire-Survivors
    gh pr merge <PR> --squash --delete-branch -R OSSCA-thorvg/GameJam-Vampire-Survivors
@@ -35,15 +36,15 @@ Writing rules follow `dw:commit-conventions`: a `<prefix>: <imperative summary>`
    - If a check fails, fix it on the branch, push, and wait again. Never merge with failing checks, and never bypass branch protection.
    - If the PR has merge conflicts, rebase onto `main`, re-run step 2, and force-push the branch with `--force-with-lease`.
    - Until a CI workflow exists (it is added by the monorepo setup issue), merge after the local checks pass.
-8. Close the loop:
+9. Close the loop:
    ```sh
    gh issue edit <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors --remove-label status:review --add-label status:done
    gh issue view <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors --json state,labels
    git switch main && git pull --ff-only origin main
    ```
    - If the issue is still open, the closing link failed. Close it with a comment naming the PR. If the `dw` plugin is installed, `dw:gh-issue-link`'s `verify-issue-closed-state.sh <N>` checks the same three conditions: issue closed, `status:done`, and PR merged.
-9. Unblock dependents: find open `status:blocked` issues whose "Depends on" lists `#N`. If all of their dependencies are now closed, switch them to `status:ready`:
+10. Unblock dependents: find open `status:blocked` issues whose "Depends on" lists `#N`. If all of their dependencies are now closed, switch them to `status:ready`:
    ```sh
    gh issue list -R OSSCA-thorvg/GameJam-Vampire-Survivors --label status:blocked --search "#<N> in:body" --json number,title
    ```
-10. Report the PR URL, the merge commit, and any issues that were unblocked.
+11. Report the PR URL, the merge commit, and any issues that were unblocked.

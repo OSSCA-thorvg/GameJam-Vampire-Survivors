@@ -62,6 +62,18 @@ jobs:
             grep -q "($name)" docs/adr/README.md || { echo "::error file=$f::$name is not listed in docs/adr/README.md"; missing=1; }
           done
           exit $missing
+      - name: CLAUDE.md mentions every rule and skill (docs-sync)
+        run: |
+          missing=0
+          for f in .claude/rules/*.md; do
+            n=$(basename "$f")
+            grep -qF "$n" CLAUDE.md || { echo "::error file=CLAUDE.md::rule $n is not mentioned in CLAUDE.md"; missing=1; }
+          done
+          for d in .claude/skills/*/; do
+            n=$(basename "$d")
+            grep -qF "\`$n\`" CLAUDE.md || { echo "::error file=CLAUDE.md::skill $n is not mentioned in CLAUDE.md"; missing=1; }
+          done
+          exit $missing
       - name: Node version is pinned
         run: grep -Eq '^[0-9]+' .nvmrc
       - name: Supply-chain settings are intact (ADR 0011)
