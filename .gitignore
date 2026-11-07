@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+.vite/
+
+# Test and coverage
+coverage/
+test-results/
+playwright-report/
+
+# Environment (commit .env.example only)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Lockfiles of other package managers (this repo uses pnpm)
+package-lock.json
+yarn.lock
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+
+# Claude Code: keep shared project config, ignore personal and runtime state
+.claude/settings.local.json
+.claude/worktrees/

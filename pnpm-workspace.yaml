@@ -1,0 +1,18 @@
+packages:
+  - 'packages/*'
+
+# Supply-chain guard (ADR 0011): only resolve versions published at least 7 days ago (10080 minutes).
+# Malicious releases are usually detected and unpublished within days; waiting a week avoids installing them.
+minimumReleaseAge: 10080
+
+# The ONLY way to bypass minimumReleaseAge. Every entry needs a comment with the reason and a link to the issue or ADR
+# that approved it, e.g. an urgent security fix. Remove the entry once the version is older than 7 days.
+minimumReleaseAgeExclude: []
+
+# Dependency lifecycle scripts (preinstall/install/postinstall) are a common supply-chain attack vector.
+# pnpm 11 fails `pnpm install` when a dependency wants to run a script that is not listed here.
+# Every entry needs a reason; prefer `false` when the package works without its script.
+allowBuilds:
+  # esbuild (via Vite/tsx): its postinstall only verifies/optimizes the platform binary; the binary comes from
+  # an optional dependency and works without it (verified with pnpm 11.1.2, 2026-11-07).
+  esbuild: false

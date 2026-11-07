@@ -1,0 +1,39 @@
+[
+  { "name": "status:backlog", "color": "C5C5C5", "description": "In the backlog, not yet ready" },
+  { "name": "status:ready", "color": "22863A", "description": "Ready to be worked on" },
+  { "name": "status:in-progress", "color": "FBCA04", "description": "Currently being worked on" },
+  { "name": "status:review", "color": "0366D6", "description": "PR open, checks running" },
+  { "name": "status:done", "color": "6F42C1", "description": "Completed" },
+  { "name": "status:blocked", "color": "FF0000", "description": "Blocked by dependencies or a pending decision" },
+  { "name": "status:wontfix", "color": "FFFFFF", "description": "This will not be worked on" },
+
+  { "name": "type:enhancement", "color": "0052CC", "description": "New features, capabilities, or significant additions" },
+  { "name": "type:bug", "color": "D73A49", "description": "Bug fixes, error corrections, or issue resolutions" },
+  { "name": "type:refactor", "color": "C5C5C5", "description": "Code restructuring without changing functionality" },
+  { "name": "type:chore", "color": "FEF2C0", "description": "Maintenance tasks (build, CI, etc.)" },
+  { "name": "type:docs", "color": "C5DEF5", "description": "Documentation improvements or additions" },
+  { "name": "type:test", "color": "00D400", "description": "Test related changes" },
+  { "name": "type:performance", "color": "FF6B6B", "description": "Performance improvements" },
+
+  { "name": "priority:critical", "color": "9B0000", "description": "Requires immediate attention" },
+  { "name": "priority:high", "color": "D73A49", "description": "High priority" },
+  { "name": "priority:medium", "color": "FB8500", "description": "Medium priority" },
+  { "name": "priority:low", "color": "FBCA04", "description": "Low priority" },
+  { "name": "priority:backlog", "color": "D4D4D4", "description": "Future considerations" },
+
+  { "name": "area:client", "color": "BFD4F2", "description": "Main thread: DOM UI, input, app shell" },
+  { "name": "area:engine", "color": "BFD4F2", "description": "Game worker: loop, ThorVG rendering, entities, collision" },
+  { "name": "area:gameplay", "color": "BFD4F2", "description": "Weapons, enemies, waves, pickups, balance" },
+  { "name": "area:multiplayer", "color": "BFD4F2", "description": "Rooms, protocol, interference, match flow" },
+  { "name": "area:server", "color": "BFD4F2", "description": "packages/server WebSocket relay" },
+  { "name": "area:shared", "color": "BFD4F2", "description": "packages/shared protocol and content data" },
+  { "name": "area:assets", "color": "BFD4F2", "description": "assets/ and the manifest" },
+  { "name": "area:infra", "color": "BFD4F2", "description": "Repo setup, CI, deployment" },
+  { "name": "area:docs", "color": "BFD4F2", "description": "ADRs, references, CLAUDE.md" },
+
+  { "name": "phase:0-foundation", "color": "D4C5F9", "description": "Repository, worker, renderer, asset pipeline" },
+  { "name": "phase:1-core-loop", "color": "D4C5F9", "description": "Playable single-player loop" },
+  { "name": "phase:2-content", "color": "D4C5F9", "description": "Full weapon, character and stage content" },
+  { "name": "phase:3-multiplayer", "color": "D4C5F9", "description": "Rooms and versus play" },
+  { "name": "phase:4-release", "color": "D4C5F9", "description": "Performance, polish, deployment" }
+]
