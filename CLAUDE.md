@@ -22,6 +22,7 @@ Current state: the toolchain exists (pnpm workspace with `@vs/client`, `@vs/serv
 
 ## Workflow (mandatory)
 
+- **Prerequisite gate:** before starting an issue, `issue-start` checks its "Depends on" issues. If any is open, or an artifact it promised is missing on `main`, stop, comment, and set `status:blocked`. CI also fails a PR whose issue still has open dependencies.
 - **Delegate to subagents by default** (requested by the user):
   - Implement each issue in a subagent, briefed with the issue body, the ADRs it cites and this file.
   - Run independent issues (for example, parallel roadmap tracks) in parallel subagents, each in its own git worktree.
