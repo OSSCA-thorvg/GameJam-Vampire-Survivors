@@ -112,6 +112,25 @@ jobs:
           BODY: ${{ github.event.pull_request.body }}
         run: |
           echo "$BODY" | grep -Eiq '(close[sd]?|fix(e[sd])?|resolve[sd]?) #[0-9]+' || { echo "::error::PR body must contain 'Closes #N'"; exit 1; }
+      - name: Body has Impact and Verification sections
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          # A section counts only if a non-blank line that is not an HTML comment follows its heading
+          # before the next "## " heading (an unfilled template fails). See .claude/rules/verification.md.
+          bad=0
+          for section in Impact Verification; do
+            content=$(printf '%s\n' "$BODY" | tr -d '\r' | awk -v h="## $section" '
+              $0 == h { inside = 1; next }
+              inside && /^## / { exit }
+              inside { print }' | sed -e 's/<!--.*-->//g' | grep -v '^[[:space:]]*$' || true)
+            if ! printf '%s\n' "$BODY" | tr -d '\r' | grep -qx "## $section"; then
+              echo "::error::PR body has no '## $section' section. Run the impact-check / verify-game steps of issue-finish and fill it in (.claude/rules/verification.md)."; bad=1
+            elif [ -z "$content" ]; then
+              echo "::error::PR body section '## $section' is empty. Fill it with the evidence from impact-check / verify-game (.claude/rules/verification.md)."; bad=1
+            fi
+          done
+          exit $bad
       - name: Branch name is "<prefix>/issue-<N>-<slug>"
         env:
           HEAD_REF: ${{ github.head_ref }}

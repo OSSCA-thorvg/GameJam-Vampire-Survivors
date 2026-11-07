@@ -22,6 +22,7 @@ The `issue-finish` skill applies these. Writing conventions are those of `commit
   gh api -X DELETE repos/OSSCA-thorvg/GameJam-Vampire-Survivors/issues/<N>/labels/status:blocked              # remove a label
   ```
 - **Labels:** the same `type:*`, `priority:*`, `area:*` and `phase:*` as the issue, applied when the PR is created (`gh pr create --label`), or later with `gh issue edit <PR>`.
+- **CI enforces the evidence sections:** the `PR rules` job fails unless the body has non-empty `## Impact` and `## Verification` sections. The template's HTML-comment placeholders do not count, so an unfilled template fails.
 - **Gate before merge**, all done before the PR is opened (or before its hold is released), because green CI merges it immediately:
   - every acceptance criterion in the issue is demonstrably met, at the proof level `.claude/rules/verification.md` requires (user-visible criteria run in the real app);
   - the `impact-check` safety fact reached proof level 4, and the PR body carries the **Impact** and **Verification** evidence;
