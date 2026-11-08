@@ -1,6 +1,5 @@
 // Game worker entry (ADR 0004): owns the simulation and all ThorVG rendering on the transferred OffscreenCanvas.
 // It talks to the main thread only through the messages in ../protocol/worker-messages.ts.
-import type { Shape } from '@thorvg/webcanvas';
 import { assertNever } from '../protocol/assert-never';
 import type {
   Axis,
@@ -10,7 +9,6 @@ import type {
   TestSnapshotRequest,
   WorkerToMain,
 } from '../protocol/worker-messages';
-import { VIEW_HEIGHT, VIEW_WIDTH } from './constants';
 import {
   installWorkerDebugTools,
   dispatchDebug,
@@ -21,18 +19,15 @@ import {
 import { createLoop, type Loop } from './loop';
 import { HUD_FONT, initThorVG, type ThorVGContext } from './render/thorvg';
 import { loadManifest } from './assets/manifest';
-import { AssetLibrary, type AssetInstance } from './assets/library';
-import { setTransform } from './render/transform';
+import { AssetLibrary } from './assets/library';
+import { createLayers } from './render/layers';
+import { createWorld, type World } from './game/world';
+import { readPlayerSnapshot } from './game/snapshot';
 import { buildGallery, type Gallery } from './debug/gallery';
 import { noteFrame, registerSnapshotField, takeSnapshot } from './test-bridge';
 import type { StressScene } from './debug/stress';
 
 declare const self: DedicatedWorkerGlobalScope;
-
-/** Test scene (until #3/#7): rotation speed of the square and movement speed of the dot. */
-const SPIN_DEG_PER_SEC = 90;
-const DOT_UNITS_PER_SEC = 200;
-const DOT_RADIUS = 12;
 
 const post = (message: WorkerToMain): void => {
   self.postMessage(message);
@@ -51,15 +46,11 @@ let inputY: Axis = 0;
 /** Latest backing size and scale; a `resize` that arrives during boot is applied once ThorVG is ready. */
 let size = { width: 0, height: 0, scale: 1 };
 
-/** Simulation steps since boot, for the test bridge's `steps` and `timeS`. */
+/** Simulation steps since boot, for the test bridge's `steps` (and `timeS` when no run exists). */
 let stepCount = 0;
 
-// Test-scene state, advanced only by `step`.
-let simTime = 0;
-let angle = 0;
-let dotX = VIEW_WIDTH / 2;
-let dotY = VIEW_HEIGHT / 2 + 200;
-let square: AssetInstance | null = null;
+/** The current run (#7); `null` in `?gallery` and `?stress`. #9 replaces the auto-start with `startRun`. */
+let world: World | null = null;
 let library: AssetLibrary | null = null;
 let gallery: Gallery | null = null;
 let stress: StressScene | null = null;
@@ -70,57 +61,29 @@ const assetState = {
   placeholders: [] as string[],
   font: 'default',
 };
-let dot: Shape | null = null;
 
 const describeScene = (): string =>
-  `simTime ${simTime.toFixed(2)} s, angle ${angle.toFixed(1)} deg, dot (${dotX.toFixed(0)}, ${dotY.toFixed(0)})`;
+  world
+    ? `run ${world.time.toFixed(2)} s, player (${world.player.x.toFixed(0)}, ${world.player.y.toFixed(0)})`
+    : `steps ${String(stepCount)}`;
 
 function step(dtSec: number): void {
   stepCount++;
   library?.tick(dtSec);
   gallery?.step(inputX, inputY, dtSec);
   if (import.meta.env.DEV || import.meta.env.MODE === 'perf') stress?.step(dtSec);
-  simTime += dtSec;
-  angle = (angle + SPIN_DEG_PER_SEC * dtSec) % 360;
-  if (inputX !== 0 || inputY !== 0) {
-    const norm = inputX !== 0 && inputY !== 0 ? Math.SQRT1_2 : 1;
-    dotX = Math.min(
-      VIEW_WIDTH - DOT_RADIUS,
-      Math.max(DOT_RADIUS, dotX + inputX * norm * DOT_UNITS_PER_SEC * dtSec),
-    );
-    dotY = Math.min(
-      VIEW_HEIGHT - DOT_RADIUS,
-      Math.max(DOT_RADIUS, dotY + inputY * norm * DOT_UNITS_PER_SEC * dtSec),
-    );
-  }
+  world?.step(dtSec);
   if (import.meta.env.DEV) debugHooks?.onStep();
 }
 
-function render(): void {
+function render(alpha: number): void {
   if (!ctx) return;
   if (import.meta.env.DEV || import.meta.env.MODE === 'perf') stress?.render();
-  if (square) setTransform(square, VIEW_WIDTH / 2, VIEW_HEIGHT / 2, angle, 4);
-  dot?.translate(dotX, dotY);
+  world?.render(alpha);
   if (import.meta.env.DEV) debugHooks?.onRender();
   if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') noteFrame(performance.now());
   ctx.canvas.update();
   ctx.canvas.render();
-}
-
-/** Creates the test scene's Paints once (ADR 0003): a backdrop for the logical view, a rotating square and a dot. */
-function buildTestScene({ TVG, root }: ThorVGContext, assets: AssetLibrary): void {
-  const backdrop = new TVG.Shape();
-  backdrop.appendRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT).fill(24, 28, 40, 255);
-  root.add(backdrop);
-
-  square = assets.create('enemy.bat');
-  setTransform(square, VIEW_WIDTH / 2, VIEW_HEIGHT / 2, 0, 4);
-  root.add(square.paint);
-
-  dot = new TVG.Shape();
-  dot.appendCircle(0, 0, DOT_RADIUS).fill(120, 220, 255, 255);
-  dot.translate(dotX, dotY);
-  root.add(dot);
 }
 
 async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<void> {
@@ -152,9 +115,6 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
       size.scale !== message.scale
     )
       applySize();
-    if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
-      registerSnapshotField('testScene', () => ({ angleDeg: angle, dotX, dotY }));
-    }
     assetState.font = HUD_FONT;
     library = await AssetLibrary.load(
       context.TVG,
@@ -185,7 +145,6 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         const { parseStressCount, createStressScene } = await import('./debug/stress');
         const count = parseStressCount(message.debug.stress);
         if (count !== null) {
-          const { createLayers } = await import('./render/layers');
           const layers = createLayers(context.root);
           stress = createStressScene(library, layers.enemies, count);
           if (import.meta.env.DEV) {
@@ -199,7 +158,21 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         }
       }
     }
-    if (!gallery && !stress) buildTestScene(context, library);
+    if (!gallery && !stress) {
+      const layers = createLayers(context.root);
+      const run = createWorld({
+        seed: Date.now() >>> 0,
+        characterId: 'warden',
+        view: { library, layers, scale: () => size.scale },
+      });
+      run.input.dx = inputX;
+      run.input.dy = inputY;
+      world = run;
+      if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
+        registerSnapshotField('timeS', () => run.time);
+        registerSnapshotField('player', () => readPlayerSnapshot(run));
+      }
+    }
     assetState.placeholders = [...library.placeholders];
     assetState.ready = true;
     const gameLoop = createLoop({ step, render });
@@ -259,6 +232,10 @@ function handle(message: GameMainToWorker): void {
     case 'input':
       inputX = message.dx;
       inputY = message.dy;
+      if (world) {
+        world.input.dx = message.dx;
+        world.input.dy = message.dy;
+      }
       break;
     case 'pause':
       paused = true;

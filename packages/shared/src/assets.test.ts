@@ -15,6 +15,10 @@ describe('manifest', () => {
     for (const entry of Object.values(result.manifest.assets))
       expect(existsSync(new URL(entry.file, assets))).toBe(true);
   });
+  it('anchors stage.ground at its top-left corner, which the ground tiling relies on (#7)', () => {
+    const ground = validateManifest(json).manifest.assets['stage.ground'];
+    expect(ground && 'anchor' in ground ? ground.anchor : null).toEqual([0, 0]);
+  });
   it('generated IDs and sizes match the source catalog exactly', async () => {
     const { renderAssetIds } = await import('../../../scripts/assets-sync.js');
     const rows = parseCatalog(readFileSync(new URL('CATALOG.md', assets), 'utf8'));

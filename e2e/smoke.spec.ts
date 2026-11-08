@@ -10,7 +10,7 @@ import {
   waitForSnapshot,
 } from './helpers';
 
-test('boot: the worker starts ThorVG with gl and the test scene animates and moves', async ({
+test('boot: the worker starts ThorVG with gl, the run steps and the keyboard moves the player', async ({
   page,
 }, testInfo) => {
   const ev = startEvidence(page, 'boot');
@@ -23,21 +23,20 @@ test('boot: the worker starts ThorVG with gl and the test scene animates and mov
     expect(ready.state).toBe('running');
     await expect(page.locator('#app canvas')).toHaveCount(1);
 
-    // The simulation steps and the square rotates.
+    // The simulation steps and the run's clock advances.
     const later = await waitForSnapshot(page, (s) => s.steps >= ready.steps + 30, 10_000);
-    const sceneBefore = ready.testScene as { angleDeg: number; dotX: number; dotY: number };
-    const sceneLater = later.testScene as { angleDeg: number; dotX: number; dotY: number };
-    expect(sceneLater.angleDeg).not.toBe(sceneBefore.angleDeg);
-    await ev.shot('animating');
+    expect(later.timeS).toBeGreaterThan(ready.timeS);
+    await ev.shot('stepping');
 
-    // Real keyboard input moves the dot right.
+    // Real keyboard input moves the player right (#7).
+    const before = later.player as { x: number; y: number };
     await holdKeys(page, ['ArrowRight'], 500);
     const moved = await snapshot(page);
     await ev.shot('after-arrow-right');
     ev.json('snapshot-after-arrow-right', moved);
-    const sceneMoved = moved.testScene as { dotX: number; dotY: number };
-    expect(sceneMoved.dotX).toBeGreaterThan(sceneLater.dotX + 20);
-    expect(sceneMoved.dotY).toBe(sceneLater.dotY);
+    const after = moved.player as { x: number; y: number };
+    expect(after.x).toBeGreaterThan(before.x + 20);
+    expect(after.y).toBe(before.y);
 
     expect(pageErrors(ev)).toEqual([]);
     expect(ev.workerLog.some((l) => l.includes('[worker started]'))).toBe(true);
