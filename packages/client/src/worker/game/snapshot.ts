@@ -1,7 +1,7 @@
 import type { WeaponId } from '@vs/shared';
 import type { World } from './world';
 
-/** The `player` snapshot field (test bridge): position, facing and HP (#9). #11 adds `level`, `xp` here. */
+/** The `player` snapshot field (test bridge): position, facing and HP (#9), level and XP toward the next level (#11). */
 export function readPlayerSnapshot(world: World): {
   x: number;
   y: number;
@@ -9,9 +9,11 @@ export function readPlayerSnapshot(world: World): {
   hp: number;
   maxHp: number;
   invulnerable: boolean;
+  level: number;
+  xp: number;
 } {
-  const { x, y, facingX, hp, maxHp, invulnTime } = world.player;
-  return { x, y, facingX, hp, maxHp, invulnerable: invulnTime > 0 };
+  const { x, y, facingX, hp, maxHp, invulnTime, level, xp } = world.player;
+  return { x, y, facingX, hp, maxHp, invulnerable: invulnTime > 0, level, xp };
 }
 
 /**
@@ -34,4 +36,22 @@ export function readEnemyPositions(world: World): [number, number, number, numbe
 /** The `weapons` snapshot field (test bridge, #10): each owned weapon's ID and level, in slot order. */
 export function readWeapons(world: World): { id: WeaponId; level: number }[] {
   return world.weapons.map((w) => ({ id: w.def.id, level: w.level }));
+}
+
+/**
+ * The `gemPositions` snapshot field (test bridge, #11): `[uid, tier, x, y, value]` per live gem (`tier` indexes
+ * `GEM_ASSETS`: 0 blue, 1 green, 2 red), positions rounded to whole units. Built only when a snapshot is taken.
+ */
+export function readGemPositions(world: World): [number, number, number, number, number][] {
+  const { count, uid, cols } = world.gems;
+  const out: [number, number, number, number, number][] = [];
+  for (let i = 0; i < count; i++)
+    out.push([
+      uid[i] ?? 0,
+      cols.tier[i] ?? 0,
+      Math.round(cols.x[i] ?? 0),
+      Math.round(cols.y[i] ?? 0),
+      cols.value[i] ?? 0,
+    ]);
+  return out;
 }

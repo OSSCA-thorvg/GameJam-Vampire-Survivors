@@ -23,7 +23,13 @@ import { AssetLibrary } from './assets/library';
 import { createLayers } from './render/layers';
 import { createGameView } from './game/view';
 import { createSession, type Session } from './game/session';
-import { readEnemyPositions, readPlayerSnapshot, readWeapons } from './game/snapshot';
+import { createLevelUpFlow, xpForNextLevel } from './game/level';
+import {
+  readEnemyPositions,
+  readGemPositions,
+  readPlayerSnapshot,
+  readWeapons,
+} from './game/snapshot';
 import { grantNextWeapon } from './game/weapons/owned';
 import { buildGallery, type Gallery } from './debug/gallery';
 import { noteFrame, registerSnapshotField, takeSnapshot } from './test-bridge';
@@ -56,6 +62,18 @@ let stepCount = 0;
  * `session.world` is the current run, `null` on the title screen.
  */
 let session: Session | null = null;
+/** The level-up choice (#11): pauses the loop after a step that levelled up and posts one `levelUp` at a time. */
+const levelUps = createLevelUpFlow({
+  post,
+  pause: () => {
+    paused = true;
+    loop?.pause();
+  },
+  resume: () => {
+    paused = false;
+    loop?.resume();
+  },
+});
 let library: AssetLibrary | null = null;
 let gallery: Gallery | null = null;
 let stress: StressScene | null = null;
@@ -79,7 +97,11 @@ function step(dtSec: number): void {
   library?.tick(dtSec);
   gallery?.step(inputX, inputY, dtSec);
   if (import.meta.env.DEV || import.meta.env.MODE === 'perf') stress?.step(dtSec);
-  session?.world?.step(dtSec);
+  const world = session?.world;
+  if (world) {
+    world.step(dtSec);
+    levelUps.afterStep(world);
+  }
   if (import.meta.env.DEV) debugHooks?.onStep();
 }
 
@@ -188,12 +210,24 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         registerSnapshotField('kills', () => runs.world?.stats.kills ?? 0);
         registerSnapshotField('projectiles', () => runs.world?.projectiles.count ?? 0);
         registerSnapshotField('weapons', () => (runs.world ? readWeapons(runs.world) : []));
+        registerSnapshotField('gems', () => runs.world?.gems.count ?? 0);
+        registerSnapshotField('gemPositions', () =>
+          runs.world ? readGemPositions(runs.world) : [],
+        );
         registerSnapshotField('debug', () => ({ paintsCreated: gameView.countPaints() }));
       }
       if (import.meta.env.DEV)
         registerDebugHandler('grantWeapon', () => {
           const granted = runs.world ? grantNextWeapon(runs.world) : null;
           console.warn(`[debug] grantWeapon: ${granted ?? 'nothing to grant'}`);
+        });
+      if (import.meta.env.DEV)
+        registerDebugHandler('levelUp', () => {
+          const world = runs.world;
+          if (!world || levelUps.open) return;
+          const xp = xpForNextLevel(world);
+          world.player.xp += xp;
+          console.warn(`[debug] levelUp: +${String(xp)} XP`);
         });
     }
     assetState.placeholders = [...library.placeholders];
@@ -235,6 +269,7 @@ function startRun(seed: number, characterId: string): void {
     console.warn('[worker] startRun before the game view is ready; ignored');
     return;
   }
+  levelUps.reset();
   const run = session.start(seed, characterId);
   run.input.dx = inputX;
   run.input.dy = inputY;
@@ -245,6 +280,7 @@ function startRun(seed: number, characterId: string): void {
 
 /** Clears the run and draws one empty frame (#9); the loop keeps running under the screens. */
 function endRun(): void {
+  levelUps.reset();
   session?.end();
   paused = false;
   loop?.resume();
@@ -308,6 +344,9 @@ function handle(message: GameMainToWorker): void {
       break;
     case 'endRun':
       endRun();
+      break;
+    case 'levelUpChoice':
+      if (session?.world) levelUps.choose(session.world, message.index);
       break;
     case 'debug':
       if (import.meta.env.DEV) dispatchDebug(message.command);

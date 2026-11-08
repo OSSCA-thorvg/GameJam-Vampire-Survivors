@@ -1,6 +1,6 @@
 # Debug tools
 
-Dev-only tools from #2: `` ` `` (`Backquote`) toggles the perf overlay and `]` (`BracketRight`) fast-forwards 60 s of simulation; later issues add gameplay precondition keys such as `G` (`KeyG`, #10); production builds contain neither them nor the test bridge.
+Dev-only tools from #2: `` ` `` (`Backquote`) toggles the perf overlay and `]` (`BracketRight`) fast-forwards 60 s of simulation; later issues add gameplay precondition keys such as `G` (`KeyG`, #10) and `L` (`KeyL`, #11); production builds contain neither them nor the test bridge.
 
 ## Sub-features
 
@@ -8,6 +8,7 @@ Dev-only tools from #2: `` ` `` (`Backquote`) toggles the perf overlay and `]` (
 - **Fast-forward:** `BracketRight` raises `steps` by 3600 at once, without rendering in between; during a run `timeS` rises by 60 too, unless the player dies on the way (contact damage, #9: a standing player dies within 60 s, and the run then stops). The journey runs it on the title screen, where `timeS` stays 0. Worker log: `[debug] fastForward 60 s in <t> ms: simTime a -> simTime a+60`.
 - **Stress scene (#6):** `/?stress=3000` in dev or `perf` mode creates 3000 pooled `enemy.bat` instances, moves/separates them and replaces 1000 every 2 simulated seconds. In dev/e2e, `snapshot().debug` reports actual `entities`, `paintsCreated`, `visiblePaints`, `churnCycles` and `stepMs`. The overlay adds `entities`, `paints created` and `step ms`. Counts stay constant as churn advances. Numeric values clamp to 4096, zero is valid, invalid names warn and fall back to normal boot, and gallery takes precedence when both flags are present.
 - **Grant weapon (#10):** `G` (`KeyG`) during a run adds the first weapon of `WEAPON_LIST` the player does not own, at level 1: `snapshot().weapons` goes from `[{ id: 'whip', level: 1 }]` to also list `{ id: 'magicWand', level: 1 }`; once every weapon is owned it adds nothing. Worker log: `[debug] grantWeapon: magicWand` (or `nothing to grant`). Driven in `weapons.md` journey 3.
+- **Level up (#11):** `L` (`KeyL`) during a run grants exactly the XP missing for the next level: on the next step `player.level` rises by one and the level-up dialog opens (`level-up.md`). Worker log: `[debug] levelUp: +<n> XP`. Ignored while the dialog is open. Driven in `level-up.md` journey 2.
 - **Absent from production:** `pnpm build` passes `check-prod-bundle.mjs` (no `__vsTest`, `__vsDebug`, `testSnapshot`, `togglePerfOverlay` in `packages/client/dist`); in `vite preview`, `typeof __vsDebug` and `typeof __vsTest` are `undefined` and the two keys change nothing.
 
 ## How to get to it (user POV)
@@ -174,6 +175,7 @@ Production absence: `pnpm build` (its last line is `check-prod-bundle: ok, …`)
 
 ## Gotchas
 
+- Since #11 `]` during a run stops simulating at the first level-up: the world does not step while a choice is pending, so `timeS` rises by less than 60 and the dialog opens when the fast-forward returns (2026-11-08, #11).
 - Since #9 a fast-forward inside a run usually ends in death (the dead world stops at the death time, so `timeS` rises by less than 60); fast-forwarding to a later minute needs the invulnerability precondition from #17 (`KeyI`). The journey fast-forwards on the title screen (2026-11-08, #9).
 - The overlay's first second reads `fps 0` and `steps/s 0`: the numbers come from the once-per-second `stats` window (2026-11-08, #31).
 - The overlay uses `HUD_FONT`, the bundled ASCII subset since #46 (ADR 0013); if manifest entry `font.hud` fails to load, the worker logs one warning and falls back to the built-in font, which lacks `/`.

@@ -66,13 +66,14 @@ export function createLoop(opts: LoopOptions): Loop {
     if (!canStep()) return;
     acc += elapsed;
     let steps = 0;
-    while (acc >= STEP_MS && steps < cap) {
+    // `canStep()` again per step: a step may pause the loop (the level-up choice, #11), and then the frame stops there.
+    while (acc >= STEP_MS && steps < cap && canStep()) {
       step(stepSec);
       acc -= STEP_MS;
       steps++;
     }
-    // Hitting the cap drops the remainder (ADR 0004): no spiral of death, no catch-up burst.
-    if (steps === cap) acc = 0;
+    // Hitting the cap drops the remainder (ADR 0004): no spiral of death, no catch-up burst; so does a pause.
+    if (steps === cap || !canStep()) acc = 0;
   };
 
   const frame = (): void => {

@@ -190,3 +190,37 @@ describe('createLoop', () => {
     expect(h.timers.size).toBe(0);
   });
 });
+
+it('stops stepping within the frame once a step pauses the loop, and resumes with no catch-up burst (#11)', () => {
+  let time = 0;
+  let pending: (() => void) | null = null;
+  let steps = 0;
+  const loop = createLoop({
+    step: () => {
+      steps++;
+      // The level-up choice: the second step of the frame pauses the loop.
+      if (steps === 2) loop.pause();
+    },
+    render: () => undefined,
+    now: () => time,
+    raf: (cb) => {
+      pending = cb;
+      return 1;
+    },
+    cancelRaf: () => undefined,
+  });
+  const frame = (ms: number): void => {
+    time += ms;
+    const cb = pending;
+    pending = null;
+    cb?.();
+  };
+  loop.start();
+  frame(STEP_MS * MAX_STEPS);
+  expect(steps).toBe(2);
+  frame(1000);
+  expect(steps).toBe(2);
+  loop.resume();
+  frame(STEP_MS);
+  expect(steps).toBe(3);
+});

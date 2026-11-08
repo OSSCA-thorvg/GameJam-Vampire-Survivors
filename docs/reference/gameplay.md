@@ -63,6 +63,9 @@ Things to measure from footage and write down here: player move speed (screen wi
 
 - Gems come in blue (1 XP), green (5 XP) and red (10+ XP); stronger enemies drop higher tiers. **[Namu Wiki §7.1]**
 - When too many gems are on the ground, their value is folded into a single red gem. That is why a player sometimes gains several levels from one gem. **[Namu Wiki §7.1]**
+- **Not yet checked against footage:** the magnet radius, how fast gems fly in, and the on-ground limit before merging. The session that implemented #11 could not watch video and the project owner decided not to tune against footage for now. **[unverified]**
+- **This game, untuned initial values** (`packages/shared/src/content/constants.ts`, #11): a gem's tier comes from its value (blue under 5, green under 10, red otherwise); gems within 60 units (`BASE_PICKUP_RANGE`, × the magnet stat from #12) start flying at 150 units/s, accelerate by 600 units/s² toward the player and are collected within 14 units; idle gems never despawn; at most 400 normal gems (`GEM_CAP`) lie on the ground, and every further drop adds its value to one red merge gem.
+- **Observed in this game** (source: `verify-game` `features/xp-gems.md`, issue #11 verification, 2026-11-08): standing still at minute 0, bats killed by the Whip close to the player are pulled in at once and the first level-up comes after about 7–8 s; gems of bats killed farther out (100–170 units) stay where they died until the player walks within 60 units.
 
 ## Pickups kept in this game
 
@@ -87,12 +90,13 @@ Pickups come from breakable light sources (braziers and candles) on the map. Hig
 
 ## Level-up and evolution rules
 
-All tagged **[unverified]**. Check footage or the wiki before implementing the level-up issue.
-
-- Up to 6 weapons and 6 passives.
-- 3 choices per level-up, or 4 with enough luck.
-- Weapons reach max level at 8.
-- An evolution happens when a chest is opened while a max-level weapon and its paired passive are both owned.
+- Up to 6 weapons and 6 passives. **[unverified]**
+- Each level-up offers 3 or 4 unique options of weapons and passives; the fourth depends on Luck. **[vampire.survivors.wiki: Level up]** This game offers 3 (`LEVELUP_CHOICES`, #11); #12 adds the fourth with luck.
+- XP curve: 5 XP to reach level 2, then the requirement grows by 10 per level up to level 20, by 13 per level from 21 to 40 and by 16 per level after that; at levels 20 and 40 an extra 600 and 2400 XP are required, with +100% Growth until the next level. **[vampire.survivors.wiki: Level up]** This game's `xpToNext` (`packages/shared/src/content/xp.ts`, #11) uses the per-level increments but not the extra 600/2400 XP or the Growth bonus, so the curve keeps its **[unverified]** tag: the owner deferred tuning, and footage has not been checked.
+- With nothing left to upgrade, the original offers Gold or Floor Chicken. **[vampire.survivors.wiki: Level up]** This game has no gold (ADR 0008, REQUIREMENTS #8, #9) and offers a single heal of 30 HP (`LEVELUP_HEAL`, untuned) instead.
+- Weapons reach max level at 8. **[unverified]**
+- An evolution happens when a chest is opened while a max-level weapon and its paired passive are both owned. **[unverified]**
+- **Observed in this game** (source: `verify-game` `features/level-up.md`, issue #11 verification, 2026-11-08): the dialog freezes `timeS` and every enemy until a card is chosen, Escape does nothing, and play resumes at the same `timeS`; with the Whip and the Magic Wand at level 8 (16 level-ups through the `L` key) the only card is the heal.
 
 ## Multiplayer in the original (context only)
 
@@ -103,4 +107,5 @@ Local co-op arrived in version 1.6 (August 2023), for up to 4 players, without s
 - Namu Wiki, [Vampire Survivors/아이템](https://namu.wiki/w/Vampire%20Survivors/%EC%95%84%EC%9D%B4%ED%85%9C), §6–§9
 - [Vampire Survivors Wiki (Fandom): Enemies](https://vampire-survivors.fandom.com/wiki/Enemies)
 - [vampire.survivors.wiki: Boss](https://vampire.survivors.wiki/w/Boss)
+- [vampire.survivors.wiki: Level up](https://vampire.survivors.wiki/w/Level_up), read 2026-11-08 (#11)
 - [Wikipedia: Vampire Survivors](https://en.wikipedia.org/wiki/Vampire_Survivors)

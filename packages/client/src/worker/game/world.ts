@@ -6,6 +6,8 @@ import { cleanupSystem } from './combat';
 import { createEnemyState, type EnemyState } from './enemies';
 import { createEventQueue, type EventQueue } from './events';
 import { createFxState, fxSystem, type FxState } from './fx';
+import { createGemState, gemDropSystem, gemSystem, type GemState } from './gems';
+import { levelSystem } from './level';
 import { createPlayer, playerMovementSystem, type PlayerState } from './player';
 import { createProjectileState, projectileSystem, type ProjectileState } from './projectiles';
 import { contactDamageSystem } from './systems/contact-damage';
@@ -25,12 +27,14 @@ export interface WorldOptions {
   /** The view's projectile and effect pools (`GameView.projectilePools`, `GameView.fxPools`, #10); omitted like `enemyPools`. */
   projectilePools?: readonly PaintPool[];
   fxPools?: readonly PaintPool[];
+  /** The view's gem pools (`GameView.gemPools`, #11), in `GEM_ASSETS` order; omitted like `enemyPools`. */
+  gemPools?: readonly PaintPool[];
   /** Called once, with the final stats, in the step where HP reaches 0. */
   onGameOver?: (stats: RunStats) => void;
 }
 
 /** All state for one run. Later issues add their state here. */
-export interface World extends EnemyState, ProjectileState, FxState, WeaponsState {
+export interface World extends EnemyState, ProjectileState, FxState, WeaponsState, GemState {
   readonly seed: number;
   readonly characterId: string;
   /** Simulated seconds. */
@@ -61,9 +65,19 @@ export interface World extends EnemyState, ProjectileState, FxState, WeaponsStat
   readonly events: EventQueue;
   /** Set to `'dead'` by the contact damage system when HP reaches 0; that step ends early and a dead world no longer steps. */
   state: 'running' | 'dead';
+  /** `rng.fork('levelup')`: the level-up options' only randomness (#11). */
+  readonly levelUpRng: Rng;
+  /**
+   * Level-ups gained and not chosen yet (#11). While above 0 the world does not step: the level-up screen is open
+   * (`createLevelUpFlow`), and only the local world pauses (ADR 0004).
+   */
+  pendingLevelUps: number;
   /** Shown on the results screen. `kills` rises from #10, `level` from #11; `timeSec` mirrors `time`. */
   readonly stats: RunStats;
-  /** Runs `SYSTEMS` in order, then advances `time`; calls `onGameOver` in the step that ends dead. Does nothing once dead. */
+  /**
+   * Runs `SYSTEMS` in order, then advances `time`; calls `onGameOver` in the step that ends dead. Does nothing once
+   * dead, or while a level-up choice is pending.
+   */
   step(dt: number): void;
 }
 
@@ -91,6 +105,9 @@ export const SYSTEMS: readonly System[] = [
   projectileSystem,
   fxSystem,
   cleanupSystem,
+  gemDropSystem,
+  gemSystem,
+  levelSystem,
 ];
 
 export function createWorld({
@@ -99,6 +116,7 @@ export function createWorld({
   enemyPools,
   projectilePools,
   fxPools,
+  gemPools,
   onGameOver,
 }: WorldOptions): World {
   const rng = createRng(seed);
@@ -116,6 +134,7 @@ export function createWorld({
     ...createEnemyState(enemyPools),
     ...createProjectileState(projectilePools),
     ...createFxState(fxPools),
+    ...createGemState(gemPools),
     weapons: [],
     weaponRng: rng.fork('weapons'),
     get weaponContext() {
@@ -126,11 +145,13 @@ export function createWorld({
     spawnQueue: 0,
     relocateRng: rng.fork('relocate'),
     relocateTimer: 0,
+    levelUpRng: rng.fork('levelup'),
+    pendingLevelUps: 0,
     events: createEventQueue(),
     state: 'running',
     stats: { timeSec: 0, kills: 0, level: 1 },
     step(dt) {
-      if (dead()) return;
+      if (dead() || world.pendingLevelUps > 0) return;
       world.events.clear();
       for (const system of SYSTEMS) {
         system(world, dt);
@@ -147,8 +168,9 @@ export function createWorld({
   return world;
 }
 
-/** Empties every store of `world` (enemies, projectiles, effects), as the session does before reusing the pools. */
+/** Empties every store of `world` (enemies, projectiles, effects, gems), as the session does before reusing the pools. */
 export function clearWorld(world: World): void {
+  world.gems.clear();
   world.enemies.clear();
   world.projectiles.clear();
   world.fx.clear();

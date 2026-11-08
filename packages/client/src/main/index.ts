@@ -7,6 +7,7 @@ import { createApp, type App } from './app';
 import { installDebugTools, recordStats, registerDebugKey } from './debug';
 import { createInput } from './input';
 import { checkSupport } from './support';
+import { loadAssetUrls, type AssetUrl } from './ui/asset-url';
 import { installTestBridge, registerMainSnapshotField, type MainTestBridge } from './test-bridge';
 import { computeViewport, type Viewport } from './viewport';
 
@@ -65,6 +66,13 @@ async function boot(): Promise<void> {
     worker.postMessage(message, transfer);
   };
 
+  const assetBaseUrl = new URL(import.meta.env.BASE_URL, location.href).href;
+  /** Icons for the DOM screens (#11), resolved through the same manifest as the worker; `null` until it loads. */
+  let iconUrl: AssetUrl = () => null;
+  void loadAssetUrls(assetBaseUrl).then((resolve) => {
+    iconUrl = resolve;
+  });
+
   /** The screens (#9), started on the title once the worker is ready; none in the `?gallery` and `?stress` scenes. */
   let app: App | null = null;
   /** Set inside the dev/e2e/perf guard below, so production bundles do not name the debug scenes. */
@@ -74,7 +82,7 @@ async function boot(): Promise<void> {
     const screens = document.createElement('div');
     screens.id = 'screens';
     appRoot().append(screens);
-    const started = createApp(screens, post);
+    const started = createApp(screens, post, undefined, (id) => iconUrl(id));
     app = started;
     if (import.meta.env.DEV || import.meta.env.MODE === 'e2e')
       registerMainSnapshotField('state', () => started.state.name);
@@ -115,6 +123,9 @@ async function boot(): Promise<void> {
       case 'gameOver':
         app?.dispatch({ type: 'gameOver', stats: message.stats });
         break;
+      case 'levelUp':
+        app?.dispatch({ type: 'levelUp', level: message.level, options: message.options });
+        break;
       default:
         assertNever(message);
     }
@@ -142,7 +153,7 @@ async function boot(): Promise<void> {
       width: viewport.width,
       height: viewport.height,
       scale: viewport.scale,
-      assetBaseUrl: new URL(import.meta.env.BASE_URL, location.href).href,
+      assetBaseUrl,
       ...(debug ? { debug } : {}),
     },
     [offscreen],
@@ -175,6 +186,7 @@ async function boot(): Promise<void> {
   if (import.meta.env.DEV) {
     if (debug?.gallery) registerDebugKey('KeyV', { kind: 'galleryPreview' });
     registerDebugKey('KeyG', { kind: 'grantWeapon' });
+    registerDebugKey('KeyL', { kind: 'levelUp' });
     installDebugTools(worker);
   }
 }

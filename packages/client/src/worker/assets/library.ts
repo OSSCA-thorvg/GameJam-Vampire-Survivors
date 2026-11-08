@@ -213,6 +213,13 @@ export class AssetLibrary {
       );
     }
   }
+  /** Restarts a Lottie instance's playback at frame 0 (a pooled one-shot effect being reused, #11). */
+  restart(instance: AssetInstance): void {
+    const playback = this.live.get(instance);
+    if (!playback) return;
+    playback.time = 0;
+    playback.animation.frame(0);
+  }
   release(instance: AssetInstance): void {
     this.live.delete(instance);
   }

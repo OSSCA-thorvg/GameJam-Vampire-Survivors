@@ -38,6 +38,7 @@ Save the spec as `verification/issue-<N>/journeys/enemies.spec.ts`. After `pnpm 
 // Feature-map journeys for .claude/skills/verify-game/features/enemies.md (#8).
 import { expect, test, type Page } from '@playwright/test';
 import {
+  answerLevelUps,
   noteEvidence,
   pageErrors,
   snapshot,
@@ -99,6 +100,7 @@ test('enemies 1: spawn just outside the view and close in', async ({ page }, tes
   noteEvidence(testInfo, ev);
   try {
     const ready = await startRun(page);
+    answerLevelUps(page); // #11: a run pauses on each level-up; answer it with 1 and keep playing
     expect(ready.renderer).toBe('gl');
     const minAlive = Number(process.env.VERIFY_MIN_ALIVE ?? 15);
     const result = await watchSpawns(page, 10_000, 100, async (_s, i) => {

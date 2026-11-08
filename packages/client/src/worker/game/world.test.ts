@@ -2,6 +2,8 @@ import { expect, it } from 'vitest';
 import { cameraSystem } from './camera';
 import { cleanupSystem } from './combat';
 import { fxSystem } from './fx';
+import { gemDropSystem, gemSystem } from './gems';
+import { levelSystem } from './level';
 import { projectileSystem } from './projectiles';
 import { playerMovementSystem } from './player';
 import { readEnemyPositions, readPlayerSnapshot } from './snapshot';
@@ -12,7 +14,7 @@ import { spawnerSystem } from './systems/spawner';
 import { weaponSystem } from './weapons/system';
 import { createWorld, inputSystem, SYSTEMS } from './world';
 
-it('runs input, movement, camera, the spawner, enemy movement, relocation, contact damage, then the combat systems', () => {
+it('runs input, movement, camera, the spawner, enemy movement, relocation, contact damage, the combat systems, then gems and levels', () => {
   expect(SYSTEMS).toEqual([
     inputSystem,
     playerMovementSystem,
@@ -25,6 +27,9 @@ it('runs input, movement, camera, the spawner, enemy movement, relocation, conta
     projectileSystem,
     fxSystem,
     cleanupSystem,
+    gemDropSystem,
+    gemSystem,
+    levelSystem,
   ]);
 });
 
@@ -49,6 +54,8 @@ it('stores the seed and character, seeds the root stream and reports the player 
     hp: 100,
     maxHp: 100,
     invulnerable: false,
+    level: 1,
+    xp: 0,
   });
 });
 

@@ -140,3 +140,34 @@ export async function startRun(page: Page, path = '/'): Promise<GameSnapshot> {
   await page.keyboard.press('Enter');
   return waitForSnapshot(page, (s) => s.state === 'playing', 5_000);
 }
+
+/**
+ * Answers every level-up dialog (#11) with a real press of `1` while a journey that is not about level-ups plays a
+ * run: since #11 a run pauses on each level-up, and a journey that waits for time to pass or for death would wait
+ * forever. Polls every 100 ms; returns the function that stops it (await it before the test ends) and resolves to the
+ * number of dialogs answered.
+ */
+export function answerLevelUps(page: Page): () => Promise<number> {
+  // An object, so the loop re-reads the flag the stop function clears.
+  const control = { running: true };
+  let answered = 0;
+  const loop = (async () => {
+    while (control.running && !page.isClosed()) {
+      try {
+        const s = await snapshot(page);
+        if (s.state === 'levelUp') {
+          await page.keyboard.press('1');
+          answered++;
+        }
+      } catch {
+        // The page is navigating or closing; try again on the next poll.
+      }
+      await page.waitForTimeout(100).catch(() => undefined);
+    }
+  })();
+  return async () => {
+    control.running = false;
+    await loop;
+    return answered;
+  };
+}

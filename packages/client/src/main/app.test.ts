@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import type { MainToWorker } from '../protocol/worker-messages';
+import type { LevelUpOption, MainToWorker } from '../protocol/worker-messages';
 import { createApp, effects, reduce, type AppEvent, type AppState } from './app';
 
 const stats = { timeSec: 75.4, kills: 3, level: 1 };
@@ -8,6 +8,17 @@ const title: AppState = { name: 'title' };
 const playing: AppState = { name: 'playing', paused: false };
 const paused: AppState = { name: 'playing', paused: true };
 const results: AppState = { name: 'results', stats };
+const options: LevelUpOption[] = [
+  { kind: 'heal', amount: 30, description: 'Recover 30 HP.', iconId: null },
+  {
+    kind: 'newWeapon',
+    weaponId: 'magicWand',
+    name: 'Magic Wand',
+    description: 'Zap.',
+    iconId: 'icon.weapon.magicWand',
+  },
+];
+const levelUp: AppState = { name: 'levelUp', level: 2, options };
 
 describe('reduce', () => {
   it.each<[AppState, AppEvent, AppState]>([
@@ -19,6 +30,9 @@ describe('reduce', () => {
     [playing, { type: 'gameOver', stats }, results],
     [results, { type: 'retry' }, playing],
     [results, { type: 'quitToTitle' }, title],
+    [playing, { type: 'levelUp', level: 2, options }, levelUp],
+    [paused, { type: 'levelUp', level: 2, options }, levelUp],
+    [levelUp, { type: 'chosen', index: 1 }, playing],
   ])('%j + %j → %j', (state, event, next) => {
     expect(reduce(state, event)).toEqual(next);
   });
@@ -36,6 +50,14 @@ describe('reduce', () => {
     [results, { type: 'hidden' }],
     [results, { type: 'start' }],
     [results, { type: 'gameOver', stats }],
+    [title, { type: 'levelUp', level: 2, options }],
+    [results, { type: 'levelUp', level: 2, options }],
+    [playing, { type: 'chosen', index: 0 }],
+    [levelUp, { type: 'pauseToggle' }],
+    [levelUp, { type: 'hidden' }],
+    [levelUp, { type: 'quitToTitle' }],
+    [levelUp, { type: 'chosen', index: 2 }],
+    [levelUp, { type: 'chosen', index: -1 }],
   ])('ignores %j + %j (same state object)', (state, event) => {
     expect(reduce(state, event)).toBe(state);
   });
@@ -54,6 +76,13 @@ describe('effects', () => {
     [title, title, []],
   ])('%j → %j sends %j', (from, to, messages) => {
     expect(effects(from, to, seed)).toEqual(messages);
+  });
+
+  it('sends the chosen index when leaving the level-up screen, and nothing when entering it', () => {
+    expect(effects(playing, levelUp, seed, { type: 'levelUp', level: 2, options })).toEqual([]);
+    expect(effects(levelUp, playing, seed, { type: 'chosen', index: 1 })).toEqual([
+      { type: 'levelUpChoice', index: 1 },
+    ]);
   });
 });
 
@@ -115,6 +144,35 @@ describe('createApp (happy-dom)', () => {
       { type: 'resume' },
       { type: 'startRun', seed: 2, characterId: 'warden' },
       { type: 'endRun' },
+    ]);
+  });
+
+  it('mounts the level-up screen on levelUp, ignores Escape there, and a digit sends levelUpChoice', () => {
+    document.body.replaceChildren();
+    const root = document.createElement('div');
+    document.body.append(root);
+    const sent: MainToWorker[] = [];
+    const app = createApp(
+      root,
+      (m) => sent.push(m),
+      () => 1,
+    );
+    button('Start')?.click();
+    app.dispatch({ type: 'levelUp', level: 2, options });
+    expect(app.state).toEqual(levelUp);
+    expect(root.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Level up');
+    key('Escape');
+    expect(app.state).toEqual(levelUp);
+    key('Digit2');
+    expect(app.state).toEqual(playing);
+    expect(root.children).toHaveLength(0);
+    // The worker posts the next level-up right away when more are pending.
+    app.dispatch({ type: 'levelUp', level: 3, options });
+    key('Enter');
+    expect(app.state).toEqual(playing);
+    expect(sent.slice(1)).toEqual([
+      { type: 'levelUpChoice', index: 1 },
+      { type: 'levelUpChoice', index: 0 },
     ]);
   });
 

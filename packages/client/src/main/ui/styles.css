@@ -97,3 +97,60 @@
   text-align: left;
   font-variant-numeric: tabular-nums;
 }
+
+/* The level-up choice (#11): one card per option, icon on the left. */
+.screen.levelup .cards {
+  width: min(32rem, 92vw);
+}
+
+.screen .card {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.6rem 0.9rem;
+  text-align: left;
+}
+
+.screen .card .icon {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+}
+
+.screen .card .icon.missing {
+  background: #f0f;
+}
+
+.screen .card .icon.heal {
+  background:
+    linear-gradient(#e74c3c, #e74c3c) center / 12px 36px no-repeat,
+    linear-gradient(#e74c3c, #e74c3c) center / 36px 12px no-repeat;
+}
+
+.screen .card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.screen .card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.screen .card-key {
+  opacity: 0.6;
+  font-size: 0.9rem;
+}
+
+.screen .card-tag {
+  color: var(--focus);
+  font-size: 0.9rem;
+}
+
+.screen .card-desc {
+  font-size: 0.95rem;
+  opacity: 0.85;
+}

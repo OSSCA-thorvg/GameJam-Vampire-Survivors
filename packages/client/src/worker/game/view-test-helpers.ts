@@ -84,6 +84,7 @@ export function fakeGameView() {
         translate: (x: number, y: number) => (translations.push([x, y]), undefined as never),
       },
       ground: { add },
+      pickups: { add },
       enemies: { add },
       projectiles: { add },
       player: { add },
