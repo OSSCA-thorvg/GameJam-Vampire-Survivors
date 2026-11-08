@@ -4,7 +4,7 @@ A browser game in the style of Vampire Survivors, for single player and 2-player
 
 ## Current state
 
-The toolchain is in place: a pnpm workspace with the `@vs/client`, `@vs/server` and `@vs/shared` packages, ESLint, Prettier, Vitest, a pre-commit hook and CI. No game code exists yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
+The toolchain is in place: a pnpm workspace with the `@vs/client`, `@vs/server` and `@vs/shared` packages, ESLint, Prettier, Vitest, a pre-commit hook and CI. The client boots ThorVG (WebGL) in a game worker on an `OffscreenCanvas` and runs the fixed-step loop on a test scene; no gameplay exists yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
 
 ## Development
 

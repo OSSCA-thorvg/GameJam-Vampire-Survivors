@@ -18,7 +18,7 @@ For a new contributor in a fresh clone. Nothing here depends on a particular mac
 
 A browser game in the style of Vampire Survivors, for single player and 2-player online versus play, rendered with ThorVG's `@thorvg/webcanvas`. Requirements are in `REQUIREMENTS.md`, written in Korean; ADRs cite its items by number. Every architectural choice is an ADR in `docs/adr/`. Read `docs/adr/README.md` first.
 
-Current state: the toolchain exists (pnpm workspace with `@vs/client`, `@vs/server` and `@vs/shared`, lint, format, tests, the pre-commit hook and CI's `pnpm check`); no game code yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
+Current state: the toolchain exists (pnpm workspace with `@vs/client`, `@vs/server` and `@vs/shared`, lint, format, tests, the pre-commit hook and CI's `pnpm check`), and the client boots: the main thread transfers the canvas to the game worker, which runs ThorVG (`gl`) and the fixed-step loop on a test scene (#2). No gameplay yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
 
 ## Workflow (mandatory)
 
@@ -96,6 +96,7 @@ pnpm server:logs / server:sh / server:down   # follow logs, shell inside the con
 pnpm server:image       # build the runtime image vs-server:local (non-root, production dependencies only)
 pnpm --filter server test                   # server unit tests on the host (allowed by .claude/rules/docker.md)
 pnpm --filter server exec node scripts/ws-hello.mjs http://localhost:5173   # WebSocket check against :8787/ws
+pnpm --filter client build && pnpm --filter client exec vite preview   # production build on :4173 under the ADR 0011 CSP
 pnpm check              # format:check → lint → typecheck → test → build; must pass before merge
 pnpm lint / pnpm lint:fix
 pnpm format / pnpm format:check
@@ -103,6 +104,7 @@ pnpm typecheck
 pnpm test                                   # all packages (Vitest)
 pnpm --filter shared test -- src/content    # one package, one path
 pnpm --filter client exec vitest run -t "spawns enemies"   # single test by name
+pnpm --filter client exec vitest run src/worker/loop.test.ts   # one client test file
 pnpm build
 ```
 
@@ -122,13 +124,33 @@ Read the ADR for the full reasoning.
   - Paints are created once and pooled, cloned with `duplicate()` from a loaded master. Per frame, only transforms, visibility and opacity change, followed by one `canvas.update()` and one `canvas.render()`.
   - Never create or dispose Paints per frame.
   - Do not use the `/thread` build.
+  - `worker/render/thorvg.ts` `initThorVG` returns `{ TVG, canvas, root }`; later layers go under the scaled `root` scene. `thorvg.wasm` is served from `/thorvg/thorvg.wasm` by the `copyThorvgWasm` plugin in `vite.config.ts`.
+  - Every ThorVG `Text` uses `text.font(HUD_FONT)` (`'default'`, the font built into `@thorvg/webcanvas`; no font file is fetched). ThorVG text stays ASCII (numbers, English labels), and the built-in font covers only letters, digits, space and `( ) + - . =` (no `/`, `:`, `%` or other punctuation; verified in #2); Korean text and every nickname are DOM text set with `textContent` (ADR 0009).
 - **Simulation (ADR 0004):**
   - Fixed 60 Hz step with an accumulator, at most 5 steps per frame.
   - In a hidden tab, a `setTimeout` loop keeps simulating without rendering (cap of 120 steps per tick). In single player, hiding the tab pauses the game instead.
   - The view is a fixed 1280×720 logical area, letterboxed.
   - Typed-array struct-of-arrays plus a uniform-grid spatial hash.
   - No per-entity allocation in the frame loop.
-  - All randomness comes from the seeded PRNG.
+  - All randomness comes from the seeded PRNG: `createRng(seed)` in `shared/src/random.ts` (mulberry32; `next`, `range`, `int`, `pick`), with `rng.fork(label)` giving each system its own stream. Never `Math.random()`.
+  - `worker/loop.ts` `createLoop` implements the step, the hidden-tab policy (`setBackgroundPolicy('pause' | 'simulate')`, default `'pause'`) and `fastForward`; constants are in `worker/constants.ts`. It never runs more than `MAX_STEPS` per visible frame and never renders while hidden (`loop.test.ts`).
+- **Thread messages (ADR 0004):** `client/src/protocol/worker-messages.ts` holds `MainToWorker`, `WorkerToMain` and `DebugCommand`. Every `switch` on a message `type` or `kind` is exhaustive and ends in `assertNever` (`protocol/assert-never.ts`). Browsers missing `transferControlToOffscreen`, WebGL 2 on `OffscreenCanvas` or module workers get a DOM message instead of the game (`main/support.ts`; `?forceUnsupported=<name>` in dev).
+- **Dev-only debug tools:** `main/debug.ts` (`installDebugTools`, `registerDebugKey(code, command)`, `globalThis.__vsDebug.post(message)` and `__vsDebug.stats`) and `worker/debug.ts` (`registerDebugHandler(kind, fn)`, `dispatchDebug`, `registerPerfStat(label, read)`, the perf overlay). Every call into them is wrapped in `if (import.meta.env.DEV) { … }` and they have no top-level side effects, so production builds drop them (the bundle contains neither `togglePerfOverlay` nor `__vsDebug`). Add a debug command by adding its `DebugCommand` kind, calling `registerDebugKey` and `registerDebugHandler`, and adding a row here; never edit a switch. A new key must not reuse a code below or a gameplay key (arrows, `KeyW`/`KeyA`/`KeyS`/`KeyD`, `Enter`, `Escape`, `Tab`, `Digit1`–`Digit3`). Debug keys only reach preconditions in verification (`.claude/rules/verification.md`).
+
+  | Key (`code`)   | `DebugCommand` kind  | Owner                  | Purpose                                 |
+  | -------------- | -------------------- | ---------------------- | --------------------------------------- |
+  | `Backquote`    | `togglePerfOverlay`  | #2 (#6, #22 add lines) | perf overlay                            |
+  | `BracketRight` | `fastForward`        | #2                     | 60 s of steps                           |
+  | `KeyV`         | `galleryPreview`     | #5                     | gallery speed preview (`?gallery` only) |
+  | `KeyG`         | `grantWeapon`        | #10                    | next weapon                             |
+  | `KeyL`         | `levelUp`            | #11                    | XP to the next level                    |
+  | `KeyP`         | `grantPassive`       | #12                    | next passive                            |
+  | `KeyE`         | `forceEvolution`     | #15                    | evolution preconditions                 |
+  | `KeyB`         | `spawnBoss`          | #15                    | spawn `reaper5`                         |
+  | `KeyK`         | `spawnPickup`        | #16                    | next pickup                             |
+  | `KeyI`         | `toggleInvulnerable` | #17                    | toggle invulnerability                  |
+  | `KeyJ`         | `spawnInterference`  | #21                    | next interference pickup (versus only)  |
+
 - **Multiplayer (ADRs 0005, 0006):**
   - Each player simulates their own world, and worlds are never synchronized.
   - The server handles rooms (6-character codes, nicknames), match start (seed), status relay (at most 4 Hz), interference routing and the result. WebSocket upgrades happen only on `/ws`.
