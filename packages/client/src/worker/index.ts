@@ -15,6 +15,7 @@ import {
   installWorkerDebugTools,
   dispatchDebug,
   registerDebugHandler,
+  registerPerfStat,
   type WorkerDebugHooks,
 } from './debug';
 import { createLoop, type Loop } from './loop';
@@ -24,6 +25,7 @@ import { AssetLibrary, type AssetInstance } from './assets/library';
 import { setTransform } from './render/transform';
 import { buildGallery, type Gallery } from './debug/gallery';
 import { noteFrame, registerSnapshotField, takeSnapshot } from './test-bridge';
+import type { StressScene } from './debug/stress';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -60,6 +62,7 @@ let dotY = VIEW_HEIGHT / 2 + 200;
 let square: AssetInstance | null = null;
 let library: AssetLibrary | null = null;
 let gallery: Gallery | null = null;
+let stress: StressScene | null = null;
 const assetState = {
   ready: false,
   loaded: 0,
@@ -76,6 +79,7 @@ function step(dtSec: number): void {
   stepCount++;
   library?.tick(dtSec);
   gallery?.step(inputX, inputY, dtSec);
+  if (import.meta.env.DEV || import.meta.env.MODE === 'perf') stress?.step(dtSec);
   simTime += dtSec;
   angle = (angle + SPIN_DEG_PER_SEC * dtSec) % 360;
   if (inputX !== 0 || inputY !== 0) {
@@ -94,6 +98,7 @@ function step(dtSec: number): void {
 
 function render(): void {
   if (!ctx) return;
+  if (import.meta.env.DEV || import.meta.env.MODE === 'perf') stress?.render();
   if (square) setTransform(square, VIEW_WIDTH / 2, VIEW_HEIGHT / 2, angle, 4);
   dot?.translate(dotX, dotY);
   if (import.meta.env.DEV) debugHooks?.onRender();
@@ -175,7 +180,26 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
           });
       }
     }
-    if (!gallery) buildTestScene(context, library);
+    if (import.meta.env.DEV || import.meta.env.MODE === 'perf') {
+      if (!gallery && message.debug?.stress !== undefined) {
+        const { parseStressCount, createStressScene } = await import('./debug/stress');
+        const count = parseStressCount(message.debug.stress);
+        if (count !== null) {
+          const { createLayers } = await import('./render/layers');
+          const layers = createLayers(context.root);
+          stress = createStressScene(library, layers.enemies, count);
+          if (import.meta.env.DEV) {
+            registerPerfStat('entities', () => stress?.entities ?? 0);
+            registerPerfStat('paints created', () => stress?.paintsCreated ?? 0);
+            registerPerfStat('step ms', () => stress?.stepMs.toFixed(2) ?? '0');
+          }
+          if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
+            registerSnapshotField('debug', () => stress?.snapshot());
+          }
+        }
+      }
+    }
+    if (!gallery && !stress) buildTestScene(context, library);
     assetState.placeholders = [...library.placeholders];
     assetState.ready = true;
     const gameLoop = createLoop({ step, render });

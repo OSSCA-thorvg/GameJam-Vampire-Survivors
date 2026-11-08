@@ -104,9 +104,14 @@ async function boot(): Promise<void> {
     showMessage('The game could not start.', [event.message || 'The game worker failed to load.']);
   });
 
-  let debug: { gallery: boolean } | undefined;
-  if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
-    debug = { gallery: new URLSearchParams(location.search).has('gallery') };
+  let debug: { gallery: boolean; stress: string } | undefined;
+  if (import.meta.env.DEV || import.meta.env.MODE === 'e2e' || import.meta.env.MODE === 'perf') {
+    const query = new URLSearchParams(location.search);
+    debug = {
+      gallery: (import.meta.env.DEV || import.meta.env.MODE === 'e2e') && query.has('gallery'),
+      stress:
+        import.meta.env.DEV || import.meta.env.MODE === 'perf' ? (query.get('stress') ?? '') : '',
+    };
   }
   const offscreen = canvas.transferControlToOffscreen();
   post(

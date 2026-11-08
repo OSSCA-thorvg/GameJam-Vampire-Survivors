@@ -14,6 +14,8 @@ Use Node 24: `nvm use`, `corepack enable`, `pnpm install`.
 
 Add asset IDs to `assets/CATALOG.md`, run `pnpm assets:sync`, then add the file (style guide and naming rule in `assets/README.md`) and manifest entry; `/?gallery` in development previews drawable IDs and anchors, and `V` there previews mass art at game speed. Fonts remain non-drawable manifest entries with their source/license records.
 
+Engine state lives in `worker/ecs/`; `render/pool.ts` exports paint pools/bindings. Unbind before removing a slot; new runs release all pools before clearing stores. Use `createRng`, since worker/shared code forbids `Math.random`.
+
 Use two spaces, single quotes, semicolons, strict TypeScript, ESLint, and Prettier. Name colocated Vitest tests `*.test.ts`.
 
 ## Required stage checks

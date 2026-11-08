@@ -20,7 +20,7 @@ For a new contributor in a fresh clone. Nothing here depends on a particular mac
 
 A browser game in the style of Vampire Survivors, for single player and 2-player online versus play, rendered with ThorVG's `@thorvg/webcanvas`. Requirements are in `REQUIREMENTS.md`, written in Korean; ADRs cite its items by number. Every architectural choice is an ADR in `docs/adr/`. Read `docs/adr/README.md` first.
 
-Current state: the toolchain exists (pnpm workspace with `@vs/client`, `@vs/server` and `@vs/shared`, lint, format, tests, the pre-commit hook and CI's `pnpm check`), and the client boots: the main thread transfers the canvas to the game worker, which runs ThorVG (`gl`) and the fixed-step loop on a test scene (#2). The server speaks the full room protocol (#18), with no client UI for it yet. The manifest asset library, cached masters, loading progress and development gallery are available (#3), and every catalog ID has rough original starter art (#5). No gameplay yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
+Current state: the toolchain exists (pnpm workspace with `@vs/client`, `@vs/server` and `@vs/shared`, lint, format, tests, the pre-commit hook and CI's `pnpm check`), and the client boots: the main thread transfers the canvas to the game worker, which runs ThorVG (`gl`) and the fixed-step loop on a test scene (#2). The server speaks the full room protocol (#18), with no client UI for it yet. The manifest asset library, cached masters, loading progress and development gallery are available (#3), and every catalog ID has rough original starter art (#5). Entity stores, a spatial grid and reusable render pools are available with a numeric stress scene (#6). No gameplay yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
 
 ## Workflow (mandatory)
 
@@ -114,6 +114,7 @@ pnpm --filter shared test -- src/content    # one package, one path
 pnpm --filter shared test -- src/assets-catalog   # catalog == manifest, naming, mass budget, inert assets
 pnpm --filter client exec vitest run -t "spawns enemies"   # single test by name
 pnpm --filter client exec vitest run src/worker/loop.test.ts   # one client test file
+pnpm --filter client exec vitest run src/worker/ecs src/worker/render/pool.test.ts src/worker/debug/stress.test.ts   # engine primitives and pool-reuse proof
 pnpm build                                  # also runs scripts/verify/check-prod-bundle.mjs (no dev-only code in dist)
 pnpm exec playwright install chromium       # once per clone: the browser for verify-game (never an install script)
 pnpm verify:launch      # client in --mode e2e on :5180, ready when __vsTest reports gl (--with-server adds Docker :8787)
@@ -150,6 +151,11 @@ Read the ADR for the full reasoning.
   - `worker/render/thorvg.ts` `initThorVG` returns `{ TVG, canvas, root }`; later layers go under the scaled `root` scene. `thorvg.wasm` is served from `/thorvg/thorvg.wasm` by the `copyThorvgWasm` plugin in `vite.config.ts`.
   - Every ThorVG `Text` uses `text.font(HUD_FONT)`, read after `initThorVG` resolves (ADR 0013). `initThorVG` resolves `font.hud` through the already validated asset manifest and fetches its `fonts/hud.ttf` file (`assets/fonts/hud.ttf`, asset ID `font.hud`: Noto Sans Mono Regular subset to printable ASCII `U+0020`–`U+007E`, OFL, under 15 KB) and registers it as `'hud'`; if that fails it logs one warning and `HUD_FONT` stays `'default'`, the built-in font, which lacks `:`, `/`, `%` and most punctuation. ThorVG text stays printable ASCII (numbers, English labels); Korean text and every nickname are DOM text set with `textContent` (ADR 0009). Rebuild the subset only with `scripts/make-hud-font.sh`.
   - Production builds remove only the unused `assets/thorvg-*.wasm` copy through `removeDuplicateThorvgWasm`. `src/build.test.ts` checks the real output with `vitest.build.config.ts` after `pnpm build`; ordinary unit tests exclude it through `vitest.config.ts`.
+- **Engine primitives (#6, ADRs 0003, 0004, 0007):**
+  - `worker/ecs/store.ts` preallocates typed-array columns and sparse stable UIDs, swap-removes slots and retires an ID index at generation exhaustion. `ecs/spatial-grid.ts` hashes world cells; queries use caller-owned buffers and a bounded direct scan when the fixed key scratch cannot cover a large query.
+  - `render/layers.ts` creates ordered world layers and a camera-independent HUD. `render/pool.ts` exports `PaintPool` and `RenderBinding`: pool releases hide instances without unregistering Lottie playback; bindings keep actual handles in their columns and follow store swaps. Unbind before ordinary removal; reset a run with all pools' `releaseAll()` followed by store `clear()`.
+  - `shared/src/content/constants.ts` exports the initial `ENEMY_CAP`, `PROJECTILE_CAP` and `GEM_CAP`. Worker/shared code cannot call `Math.random`; ESLint requires `createRng`.
+  - Dev/perf `?stress=3000` prewarms bat paints, moves/separates entities and replaces up to 1000 every 2 simulated seconds. Dev/e2e snapshots expose `debug.entities`, `paintsCreated`, `visiblePaints` and `churnCycles`; the overlay reads actual pool counters. Invalid named scenarios warn and fall back to the normal scene. Gallery takes precedence when both flags are set. Normal production excludes stress; the `perf` build retains it. Pinned ThorVG transform wrappers allocate transient views internally; pool reuse does not claim an allocation-free dependency stack.
 - **Simulation (ADR 0004):**
   - Fixed 60 Hz step with an accumulator, at most 5 steps per frame.
   - In a hidden tab, a `setTimeout` loop keeps simulating without rendering (cap of 120 steps per tick). In single player, hiding the tab pauses the game instead.
