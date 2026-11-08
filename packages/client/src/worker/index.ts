@@ -11,7 +11,12 @@ import type {
   WorkerToMain,
 } from '../protocol/worker-messages';
 import { VIEW_HEIGHT, VIEW_WIDTH } from './constants';
-import { installWorkerDebugTools, dispatchDebug, type WorkerDebugHooks } from './debug';
+import {
+  installWorkerDebugTools,
+  dispatchDebug,
+  registerDebugHandler,
+  type WorkerDebugHooks,
+} from './debug';
 import { createLoop, type Loop } from './loop';
 import { HUD_FONT, initThorVG, type ThorVGContext } from './render/thorvg';
 import { loadManifest } from './assets/manifest';
@@ -160,6 +165,14 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
       if (message.debug?.gallery) {
         gallery = buildGallery(context, library);
         registerSnapshotField('gallery', () => gallery?.snapshot());
+        registerSnapshotField('galleryPreview', () => gallery?.previewVisible() ?? false);
+        if (import.meta.env.DEV)
+          registerDebugHandler('galleryPreview', () => {
+            gallery?.togglePreview();
+            console.warn(
+              `[debug] gallery preview ${gallery?.previewVisible() ? 'shown' : 'hidden'}`,
+            );
+          });
       }
     }
     if (!gallery) buildTestScene(context, library);

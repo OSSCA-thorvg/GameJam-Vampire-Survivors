@@ -1,36 +1,39 @@
 # Asset gallery
 
-Development/e2e `/?gallery` shows every drawable catalog ID through the replaceable manifest loader (#3).
+Development/e2e `/?gallery` shows every drawable catalog ID through the replaceable manifest loader (#3), with the starter art pack for every ID and a speed preview of mass art (#5).
 
 ## Sub-features
 
-- Loading text shows `Loading n/total` until assetsReady; the `assets` snapshot reports `ready`, `loaded`, `total`, `placeholders`, `font`. Baseline is 5/5, font `hud`, 77 placeholders.
+- Loading text shows `Loading n/total` until assetsReady; the `assets` snapshot reports `ready`, `loaded`, `total`, `placeholders`, `font`. Baseline is 82/82, font `hud`, no placeholders (`placeholders` is `[]`).
 - `gallery` reports `ids`, `panX`, `panY`, `width`, `height`, `lottieFrame`: all 81 drawable IDs, fonts excluded; real arrow input pans through all groups; white crosses mark anchors.
-- The bat, placeholder reference, favicon and level-up ring draw as art. The ring advances its frame; remaining IDs are magenta. Static instance creation makes no requests after loading.
+- Every drawable ID draws as art (#5 starter pack); the only magenta on screen is the `ui.placeholder` reference itself. Both Lottie effects, `fx.levelUp` and `fx.chestOpen`, animate. Static instance creation makes no requests after loading.
+- Speed preview (#5, dev builds only): `V` (`KeyV`, debug command `galleryPreview`) toggles a view of `stage.ground` tiled across the screen with a labelled cluster of 30 instances for each of the 18 mass IDs (six enemies, three gems, nine mass projectiles) drifting at 100 units/s, odd rows rightward and the middle row leftward, flipped. The `galleryPreview` snapshot field is `true` while it shows; the worker logs `[debug] gallery preview shown`/`hidden`. Ground tiles show no seams. Its Paints are created once, the first time it opens.
+- Replacing one SVG file (for example `enemies/ghoul.svg` with another 36×40 SVG) and reloading changes only that asset.
 - File-only SVG replacement and manifest PNG format switching preserve the logical size/anchor after reload. Broken drawables warn once, render magenta, and keep simulating.
 - `font.hud` can move to a different manifest path; absent/invalid fonts including HTML returned with HTTP 200 warn once and select `default`, with boot continuing.
-- Catalog edits without assets:sync fail the real check; after syncing a new ID is labelled and magenta.
+- Catalog edits without assets:sync fail the real check; after syncing, a new `needed` ID is labelled and magenta in the gallery, and `pnpm check` still fails, naming the ID, until its art, manifest entry and `placeholder` status exist (`assets-catalog.test.ts`, #5).
 
 ## How to get to it (user POV)
 
-Open `/?gallery` after verify:launch and Doctor succeed. No server is needed. Hold arrow keys to pan. Production does not contain this entry point. Mutation journeys use the isolated verification worktree and restore every modified file in finally; stop other file editors while running them.
+Open `/?gallery` after verify:launch and Doctor succeed. No server is needed. Hold arrow keys to pan. Press `V` for the speed preview, `V` again to return. Production does not contain this entry point. Mutation journeys use the isolated verification worktree and restore every modified file in finally; stop other file editors while running them.
 
 ## Driving it
 
 ### Claude in Chrome
 
 1. Detect the extension with tabs_context_mcp, create a new verification tab, start GIF recording and navigate to `http://localhost:5180/?gallery`. Use Playwright when the extension is unavailable.
-2. Read `await window.__vsTest.waitFor(s => s.assets?.ready, 30000)` and capture a screenshot. Check 5/5, hud, 81 drawable IDs, 77 placeholders and no font.hud in gallery.ids.
-3. Use real ArrowDown key presses with repeat, taking screenshots after each pan; inspect every group, readable labels and white anchor crosses. Record the ring before/after its frame advances. ArrowUp returns toward the top.
-4. In the isolated verification worktree, save the bat and manifest, replace the bat with a cyan SVG, reload and record the changed bat. Write a green 32×32 PNG, switch only the manifest file/format, reload and record the same anchor/size. Restore files after the journey.
-5. Temporarily rename the bat file and reload: magenta bat, one worker warning and continuing steps. Restore. Read worker logs through the Playwright companion because extension console cannot inspect workers.
-6. Temporarily relocate identical font bytes and edit font.hud: hud still works. Then reference an absent .ttf and an HTML .ttf: default font, one clear warning each, continuing steps. Restore all files.
-7. Add a temporary catalog ID, run pnpm check (fails generated IDs), assets:sync, check (passes), reload and pan to the new magenta ID. Restore catalog and generated IDs.
-8. Export the GIF, screenshots, snapshot JSON and companion worker/network logs to verification/issue-3/, close only the created tab, then cleanup.
+2. Read `await window.__vsTest.waitFor(s => s.assets?.ready, 30000)` and capture a screenshot. Check 82/82, hud, 81 drawable IDs, an empty placeholders list and no font.hud in gallery.ids.
+3. Press `v` once with `computer` `key`, wait for `s.galleryPreview === true`, screenshot, wait 1 s, screenshot again (the clusters moved; the middle row drifts left, flipped), zoom on tile corners to check for seams, press `v` again and wait for `false`.
+4. Use real ArrowDown key presses with repeat, taking screenshots after each pan; inspect every group, readable labels and white anchor crosses. Record the ring before/after its frame advances. ArrowUp returns toward the top.
+5. In the isolated verification worktree, save the bat and manifest, replace the bat with a cyan SVG, reload and record the changed bat. Write a green 32×32 PNG, switch only the manifest file/format, reload and record the same anchor/size. Restore files after the journey.
+6. Temporarily rename the bat file and reload: magenta bat, one worker warning and continuing steps. Restore. Read worker logs through the Playwright companion because extension console cannot inspect workers.
+7. Temporarily relocate identical font bytes and edit font.hud: hud still works. Then reference an absent .ttf and an HTML .ttf: default font, one clear warning each, continuing steps. Restore all files.
+8. Add a temporary catalog ID, run pnpm check (fails generated IDs), assets:sync, check (now fails only in `assets-catalog.test.ts`, naming the new ID), reload and pan to the new magenta ID. Restore catalog and generated IDs.
+9. Export the GIF, screenshots, snapshot JSON and companion worker/network logs to verification/issue-<N>/, close only the created tab, then cleanup.
 
 ### Playwright
 
-Save the following complete spec to `verification/issue-3/journeys/gallery.spec.ts`. Run it against a launched/Doctored client using the commands in verify-game. It creates dedicated browser contexts, uses real keyboard input, collects evidence and restores temporary disk edits.
+Save the following two complete specs to `verification/issue-<N>/journeys/gallery.spec.ts` (#3: loading, panning, replacement, fallbacks, catalog drift) and `verification/issue-<N>/journeys/gallery-pack.spec.ts` (#5: no placeholders, magenta budget, both Lottie effects, the speed preview, the ghoul swap). Run it against a launched/Doctored client using the commands in verify-game. It creates dedicated browser contexts, uses real keyboard input, collects evidence and restores temporary disk edits.
 
 ```ts
 import { test, expect } from '@playwright/test';
@@ -130,22 +133,16 @@ test('gallery: loading progress, all IDs, panning, animation and no repeat fetch
   context.on('request', (r) => requests.push(r.url()));
   try {
     await page.goto('/?gallery');
-    await expect(page.locator('#loading')).toContainText(/Loading \d\/5/);
+    await expect(page.locator('#loading')).toContainText(/Loading \d+\/82/);
     await ev.shot('loading');
     release();
     const ready = await assetsReady(page);
     ev.json('ready', ready);
     await expect(page.locator('#loading')).toHaveCount(0);
-    expect(selected(ready)).toMatchObject({ loaded: 5, total: 5, font: 'hud' });
-    expect(selected(ready).placeholders).toHaveLength(77);
+    expect(selected(ready)).toMatchObject({ loaded: 82, total: 82, font: 'hud' });
+    expect(selected(ready).placeholders).toEqual([]);
     expect(gallery(ready).ids).toHaveLength(81);
     expect(gallery(ready).ids).not.toContain('font.hud');
-    const seeds = ['ui.placeholder', 'enemy.bat', 'fx.levelUp', 'ui.favicon'];
-    expect(selected(ready).placeholders).toEqual(
-      gallery(ready)
-        .ids.filter((id) => !seeds.includes(id))
-        .sort(),
-    );
     await ev.shot('top');
     const requestCount = requests.length;
     let previous = ready;
@@ -313,9 +310,12 @@ test('gallery: catalog drift fails checks and synchronized new ID appears', asyn
     expect(failed.status).not.toBe(0);
     expect(failed.output).toContain('generated IDs');
     expect(command(['assets:sync']).status).toBe(0);
-    const passed = command(['check']);
-    ev.json('synced-check', passed);
-    expect(passed.status).toBe(0);
+    // #5: a synced `needed` ID without art still fails the check, naming the ID; the generated IDs now match.
+    const synced = command(['check']);
+    ev.json('synced-check', synced);
+    expect(synced.status).not.toBe(0);
+    expect(synced.output).toContain('ui.verificationSample');
+    expect(synced.output).not.toMatch(/FAIL.*generated IDs/);
     await openGame(page, '/?gallery');
     const s = await assetsReady(page);
     expect(gallery(s).ids).toContain('ui.verificationSample');
@@ -331,6 +331,227 @@ test('gallery: catalog drift fails checks and synchronized new ID appears', asyn
 });
 ```
 
+`gallery-pack.spec.ts` (#5):
+
+```ts
+import { test, expect, type Page } from '@playwright/test';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { ASSET_IDS, ASSET_SIZES } from '../../../packages/shared/src/generated/asset-ids';
+import {
+  openGame,
+  waitForSnapshot,
+  snapshot,
+  holdKeys,
+  startEvidence,
+  pageErrors,
+} from '../../../e2e/helpers';
+
+const root = resolve(import.meta.dirname, '../../..');
+const ghoulPath = resolve(root, 'assets/enemies/ghoul.svg');
+const ghoulBytes = readFileSync(ghoulPath);
+type Snap = Awaited<ReturnType<typeof snapshot>>;
+const assetsOf = (s: Snap) =>
+  s.assets as { ready: boolean; loaded: number; total: number; placeholders: string[] };
+const galleryOf = (s: Snap) => s.gallery as { panY: number; height: number; lottieFrame: number };
+const assetsReady = (page: Page) =>
+  waitForSnapshot(
+    page,
+    (s) => (s.assets as { ready?: boolean } | undefined)?.ready === true,
+    30000,
+  );
+
+// The gallery's layout (packages/client/src/worker/debug/gallery.ts), to clip one asset's cell from a screenshot.
+const GROUPS = [
+  'player',
+  'portrait',
+  'enemy',
+  'boss',
+  'weapon',
+  'icon',
+  'gem',
+  'pickup',
+  'stage',
+  'fx',
+  'ui',
+];
+function cells(): Map<string, { x: number; y: number; w: number; h: number }> {
+  const map = new Map<string, { x: number; y: number; w: number; h: number }>();
+  const ids = ASSET_IDS.filter((id) => !id.startsWith('font.'));
+  let y = 32;
+  for (const group of GROUPS) {
+    const groupIds = ids.filter((id) => id.split('.')[0] === group);
+    if (!groupIds.length) continue;
+    y += 40;
+    for (let start = 0; start < groupIds.length; start += 5) {
+      const row = groupIds.slice(start, start + 5);
+      const height =
+        Math.max(...row.map((id) => (ASSET_SIZES[id] as readonly number[])[1] ?? 0)) + 66;
+      row.forEach((id, column) => map.set(id, { x: 24 + column * 244, y, w: 244, h: height - 24 }));
+      y += height;
+    }
+    y += 28;
+  }
+  return map;
+}
+const layout = cells();
+async function clipOf(page: Page, id: string, panY: number) {
+  const box = await page.locator('#app canvas').boundingBox();
+  if (!box) throw new Error('no canvas');
+  const s = box.width / 1280;
+  const cell = layout.get(id);
+  if (!cell) throw new Error(`no cell for ${id}`);
+  return {
+    x: box.x + cell.x * s,
+    y: box.y + (cell.y - panY) * s,
+    width: cell.w * s,
+    height: cell.h * s,
+  };
+}
+async function panTo(page: Page, target: number): Promise<Snap> {
+  let s = await snapshot(page);
+  while (galleryOf(s).panY < target && galleryOf(s).panY < galleryOf(s).height - 720) {
+    await holdKeys(page, ['ArrowDown'], 120);
+    s = await snapshot(page);
+  }
+  return s;
+}
+/** Pixels that are the placeholder magenta (#ff00ff), counted in the page from a PNG screenshot. */
+async function magenta(page: Page, png: Buffer): Promise<number> {
+  return page.evaluate(async (b64) => {
+    const img = new Image();
+    img.src = 'data:image/png;base64,' + b64;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return -1;
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, img.width, img.height).data;
+    let n = 0;
+    for (let i = 0; i < data.length; i += 4)
+      if ((data[i] ?? 0) > 230 && (data[i + 1] ?? 255) < 40 && (data[i + 2] ?? 0) > 230) n++;
+    return n;
+  }, png.toString('base64'));
+}
+
+test.describe.configure({ mode: 'serial' });
+
+test('pack: every catalog ID has art, no stray magenta, both Lottie effects animate', async ({
+  page,
+}) => {
+  test.setTimeout(120000);
+  const ev = startEvidence(page, 'gallery-pack');
+  try {
+    await page.goto('/?gallery');
+    const ready = await assetsReady(page);
+    ev.json('ready', ready);
+    expect(assetsOf(ready)).toMatchObject({ loaded: 82, total: 82, placeholders: [] });
+    const box = await page.locator('#app canvas').boundingBox();
+    const scale = (box?.width ?? 1280) / 1280;
+    // Only ui.placeholder (the 64×64 magenta reference) may contain magenta.
+    const budget = 64 * 64 * scale * scale;
+    const counts: Record<string, number> = {};
+    let s = ready;
+    for (let i = 0; ; i++) {
+      const png = await page.screenshot();
+      writeFileSync(
+        `${ev.dir}/pan-${String(i).padStart(2, '0')}-y${String(Math.round(galleryOf(s).panY))}.png`,
+        png,
+      );
+      counts[`pan-${String(i)}`] = await magenta(page, png);
+      if (galleryOf(s).panY >= galleryOf(s).height - 720 - 1) break;
+      await holdKeys(page, ['ArrowDown'], 1200);
+      s = await snapshot(page);
+    }
+    ev.json('magenta-pixels-per-screen', { counts, budget });
+    for (const n of Object.values(counts)) expect(n).toBeLessThanOrEqual(budget);
+    // Lottie: fx.levelUp and fx.chestOpen, two clips 0.3 s apart.
+    await page.goto('/?gallery');
+    await assetsReady(page);
+    const fxTop = layout.get('fx.chestOpen')?.y ?? 0;
+    const at = await panTo(page, fxTop - 200);
+    const panY = galleryOf(at).panY;
+    const frames: Record<string, [string, string]> = {};
+    for (const id of ['fx.levelUp', 'fx.chestOpen']) {
+      const clip = await clipOf(page, id, panY);
+      const a = await page.screenshot({ clip, path: `${ev.dir}/lottie-${id}-a.png` });
+      await page.waitForTimeout(300);
+      const b = await page.screenshot({ clip, path: `${ev.dir}/lottie-${id}-b.png` });
+      frames[id] = [a.toString('base64').slice(-32), b.toString('base64').slice(-32)];
+      expect(Buffer.compare(a, b), `${id} frames 0.3 s apart differ`).not.toBe(0);
+    }
+    ev.json('lottie', { panY, frames, snapshot: await snapshot(page) });
+    await ev.shot('fx-row');
+    expect(pageErrors(ev)).toEqual([]);
+    expect(ev.workerLog.filter((l) => l.includes('[assets]'))).toEqual([]);
+  } finally {
+    ev.flush();
+  }
+});
+
+test('pack: V opens the speed preview over tiled ground and toggles back', async ({ page }) => {
+  const ev = startEvidence(page, 'gallery-preview');
+  try {
+    await openGame(page, '/?gallery');
+    await assetsReady(page);
+    expect((await snapshot(page)).galleryPreview).toBe(false);
+    await page.keyboard.press('KeyV');
+    const on = await waitForSnapshot(page, (s) => s.galleryPreview === true, 3000);
+    await ev.shot('preview-open');
+    await page.waitForTimeout(500);
+    await ev.shot('preview-500ms-later');
+    ev.json('preview-on', on);
+    expect(ev.workerLog.filter((l) => l.includes('[debug] gallery preview shown'))).toHaveLength(1);
+    await page.keyboard.press('KeyV');
+    await waitForSnapshot(page, (s) => s.galleryPreview === false, 3000);
+    await ev.shot('preview-closed');
+    expect(pageErrors(ev)).toEqual([]);
+  } finally {
+    ev.flush();
+  }
+});
+
+test('pack: replacing ghoul.svg with another 36×40 SVG changes only the ghoul', async ({
+  page,
+}) => {
+  const ev = startEvidence(page, 'gallery-ghoul-swap');
+  const clips = async () => {
+    const out: Record<string, Buffer> = {};
+    for (const id of ['enemy.bat', 'enemy.ghoul', 'enemy.skeleton', 'enemy.brute'])
+      out[id] = await page.screenshot({ clip: await clipOf(page, id, 0) });
+    return out;
+  };
+  try {
+    await openGame(page, '/?gallery');
+    await assetsReady(page);
+    const before = await clips();
+    await ev.shot('before-swap');
+    const swapped =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="40" viewBox="0 0 36 40"><path fill="#ff8a3d" d="M18 0 36 40H0z"/></svg>';
+    writeFileSync(ghoulPath, swapped);
+    await expect
+      .poll(async () => (await page.request.get('/enemies/ghoul.svg')).text())
+      .toBe(swapped);
+    await openGame(page, '/?gallery');
+    const s = await assetsReady(page);
+    expect(assetsOf(s).placeholders).toEqual([]);
+    const after = await clips();
+    await ev.shot('after-swap');
+    const changed = Object.keys(before).filter(
+      (id) => Buffer.compare(before[id]!, after[id]!) !== 0,
+    );
+    ev.json('swap', { changed, snapshot: s });
+    expect(changed).toEqual(['enemy.ghoul']);
+    expect(pageErrors(ev)).toEqual([]);
+  } finally {
+    writeFileSync(ghoulPath, ghoulBytes);
+    ev.flush();
+  }
+});
+```
+
 ## Gotchas
 
 - 2026-11-08 (#3): gallery is dev/e2e only; fonts are intentionally not drawable. Baseline counts change when later art issues add entries; derive expected placeholder lists from IDs and seeded art.
@@ -339,3 +560,6 @@ test('gallery: catalog drift fails checks and synchronized new ID appears', asyn
 - 2026-11-08 (#3): catalog mutation runs pnpm check twice and needs exclusive file/port access; its timeout is 120 seconds. File restoration always runs. Lottie JSON is parsed per independent animation instance; the no-Picture.load cloning invariant applies to static formats.
 
 - 2026-11-08 (#3): Vite discovers newly created public files asynchronously; the fixture journeys wait for matching HTTP bytes before reloading, without restarting the server.
+- 2026-11-08 (#5): ground tiles placed edge to edge show hairline seams at fractional view scales (anti-aliased edges let the backdrop through), even though the art is seamless. The preview overlaps tiles by 1 unit (scale 129/128); #7 must do the same.
+- 2026-11-08 (#5): the magenta check counts pure `#ff00ff` pixels per screenshot and allows the `ui.placeholder` reference (64×64 at the view scale); it decodes the PNG on a throwaway page canvas, never the game canvas.
+- 2026-11-08 (#5): sixty instant extension presses pan only about 8 units; drive the full pan, the Lottie clips and the ghoul swap with the Playwright `gallery-pack` spec, and the speed preview (a single `v`) with either driver.

@@ -20,7 +20,7 @@ For a new contributor in a fresh clone. Nothing here depends on a particular mac
 
 A browser game in the style of Vampire Survivors, for single player and 2-player online versus play, rendered with ThorVG's `@thorvg/webcanvas`. Requirements are in `REQUIREMENTS.md`, written in Korean; ADRs cite its items by number. Every architectural choice is an ADR in `docs/adr/`. Read `docs/adr/README.md` first.
 
-Current state: the toolchain exists (pnpm workspace with `@vs/client`, `@vs/server` and `@vs/shared`, lint, format, tests, the pre-commit hook and CI's `pnpm check`), and the client boots: the main thread transfers the canvas to the game worker, which runs ThorVG (`gl`) and the fixed-step loop on a test scene (#2). The server speaks the full room protocol (#18), with no client UI for it yet. The manifest asset library, cached masters, loading progress and development gallery are available (#3). No gameplay yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
+Current state: the toolchain exists (pnpm workspace with `@vs/client`, `@vs/server` and `@vs/shared`, lint, format, tests, the pre-commit hook and CI's `pnpm check`), and the client boots: the main thread transfers the canvas to the game worker, which runs ThorVG (`gl`) and the fixed-step loop on a test scene (#2). The server speaks the full room protocol (#18), with no client UI for it yet. The manifest asset library, cached masters, loading progress and development gallery are available (#3), and every catalog ID has rough original starter art (#5). No gameplay yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
 
 ## Workflow (mandatory)
 
@@ -111,6 +111,7 @@ pnpm typecheck
 pnpm assets:sync                            # regenerate shared asset IDs/sizes from assets/CATALOG.md
 pnpm test                                   # all packages (Vitest)
 pnpm --filter shared test -- src/content    # one package, one path
+pnpm --filter shared test -- src/assets-catalog   # catalog == manifest, naming, mass budget, inert assets
 pnpm --filter client exec vitest run -t "spawns enemies"   # single test by name
 pnpm --filter client exec vitest run src/worker/loop.test.ts   # one client test file
 pnpm build                                  # also runs scripts/verify/check-prod-bundle.mjs (no dev-only code in dist)
@@ -188,9 +189,9 @@ Read the ADR for the full reasoning.
 - **Content (ADR 0008):** characters, weapons, passives, evolutions, enemies, waves and pickups are data in `shared/src/content/`. Systems interpret the data; each weapon's behaviour is chosen by its `pattern` field. The scope is fixed in ADR 0008: 8 weapons with evolutions, 8 passives, 3 characters, 1 stage, and no gold, unlocks, relics, shops or arcanas.
 - **Assets (ADR 0007):**
   - Code refers to logical IDs such as `enemy.bat`, resolved through `assets/manifest.json`. Never use file paths. `pnpm assets:sync` generates `ASSET_IDS` and `ASSET_SIZES` in `shared/src/generated/asset-ids.ts` from the catalog; fonts have null sizes. Manifest validation accepts drawable SVG/Lottie/PNG/WebP plus non-drawable TTF entries.
-  - `worker/assets/library.ts` `AssetLibrary` fetches drawable files once, caches static masters and duplicates instances; Lottie instances load cached JSON and own independent playback. `render/transform.ts` applies anchor/rotation/scale/flip in one reused matrix. Missing drawable art is magenta. The seeded manifest has three new art samples, the existing favicon and `font.hud`.
+  - `worker/assets/library.ts` `AssetLibrary` fetches drawable files once, caches static masters and duplicates instances; Lottie instances load cached JSON and own independent playback. `render/transform.ts` applies anchor/rotation/scale/flip in one reused matrix. Missing drawable art is magenta. The manifest maps every catalog ID (#5 starter pack, `font.hud`, favicon); `assets/README.md` holds the style guide, palette and file naming rule, and `shared/src/assets-catalog.test.ts` enforces catalog/manifest equality, naming, sizes, the mass budget and inert SVG/Lottie.
   - Boot fetches/validates the manifest once, initializes ThorVG and the HUD font, reports `loadProgress`, builds the scene/debug hooks and starts the loop, then posts `assetsReady` and `ready`. Main shows `Loading n/total` until completion. The font validates TrueType framing, including HTML-with-200 failures, and falls back with one warning.
-  - Dev/e2e `/?gallery` labels every drawable catalog ID, skips fonts, shows anchor crosses and pans with arrow keys. Snapshot fields `assets` (`ready`, `loaded`, `total`, `placeholders`, `font`) and `gallery` (`ids`, `panX`, `panY`, `width`, `height`, `lottieFrame`) are read-only and stripped from production.
+  - Dev/e2e `/?gallery` labels every drawable catalog ID, skips fonts, shows anchor crosses and pans with arrow keys. Snapshot fields `assets` (`ready`, `loaded`, `total`, `placeholders`, `font`) and `gallery` (`ids`, `panX`, `panY`, `width`, `height`, `lottieFrame`) are read-only and stripped from production. In dev builds `V` toggles the speed preview (#5): tiled `stage.ground` plus 30 drifting instances of every mass ID, created once; snapshot field `galleryPreview` (boolean).
   - Vector first. Entities shown in large numbers have at most 4 paths, no strokes and no gradients, within the entity caps in the ADR.
   - Missing assets render as a magenta placeholder.
   - Only original or licensed art; nothing copied from the original game.
