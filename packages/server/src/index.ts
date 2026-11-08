@@ -48,6 +48,7 @@ export function startServer(config: ServerConfig): Promise<RunningServer> {
   const registry = new RoomRegistry({
     now,
     timers: realTimers,
+    matchTimeLimitMs: config.matchTimeLimitS * 1000,
     send: (playerId, message) => {
       players.get(playerId)?.send(message);
     },
@@ -195,7 +196,14 @@ if (!process.env.VITEST) {
         port: running.port,
         origins: config.allowedOrigins.join(','),
         trustProxy: config.trustProxy ? 1 : 0,
+        matchTimeLimitS: config.matchTimeLimitS,
       });
+      if (config.matchTimeLimitOverrideIgnored) {
+        log('warn', 'override_ignored', {
+          name: 'MATCH_TIME_LIMIT_S_OVERRIDE',
+          reason: 'NODE_ENV',
+        });
+      }
       handleShutdown(running);
     },
     (err: unknown) => {
