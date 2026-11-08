@@ -13,6 +13,15 @@ engineStrict: true
 # that approved it, e.g. an urgent security fix. Remove the entry once the version is older than 7 days.
 minimumReleaseAgeExclude: []
 
+# Security overrides. Every entry needs a comment with the advisory link, the reason and the approving issue.
+# Remove an entry once every dependent's own range already resolves to a patched version.
+overrides:
+  # GHSA-g3hv-75wg-m249 (moderate, dev-only): minimatch >=7.0.0 <11.0.1 can be made to use excessive CPU and memory
+  # by a crafted glob. ESLint 10.14.0, @eslint/config-array 0.23.5 and @typescript-eslint/typescript-estree 8.72.1
+  # (all latest) still ask for ^10, and no 10.x release is patched. 11.0.3 is the newest patched release older than
+  # minimumReleaseAge; ESLint only calls `new Minimatch(...).match()` and `minimatch()`, which 11 keeps (#67).
+  'minimatch@<11.0.1': 11.0.3
+
 # Dependency lifecycle scripts (preinstall/install/postinstall) are a common supply-chain attack vector.
 # pnpm 11 fails `pnpm install` when a dependency wants to run a script that is not listed here.
 # Every entry needs a reason; prefer `false` when the package works without its script.

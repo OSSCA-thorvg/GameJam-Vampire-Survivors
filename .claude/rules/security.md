@@ -16,6 +16,7 @@ A high-severity finding blocks the merge.
 - Every new dependency is justified in the PR body: why it is needed, age, weekly downloads, maintainers and dependency count. Prefer no new dependency. The client's runtime dependencies stay limited to `@thorvg/webcanvas`.
 - Commit `pnpm-lock.yaml`. Never hand-edit it, and never use `--no-frozen-lockfile` in CI.
 - `pnpm audit --audit-level=high` must pass, or the advisory is accepted in an issue with a reason.
+- When an advisory's patched version is outside the dependents' ranges, force it with `overrides:` in `pnpm-workspace.yaml` (pnpm 11 ignores `pnpm.overrides` in `package.json`), scoped to the vulnerable range (`'pkg@<patched': <version>`) and commented with the advisory link, the reason and the issue. The forced version must still be at least 7 days old. Remove the entry once the dependents' own ranges resolve to a patched version.
 
 ## CI
 
