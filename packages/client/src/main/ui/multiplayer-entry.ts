@@ -8,8 +8,11 @@ import {
 import { h, isTextField, menuKeys, type Screen } from './dom';
 import './multiplayer.css';
 
-/** The connection as the screens show it: `failed` covers a closed socket and a refused handshake. */
-export type Connection = 'connecting' | 'open' | 'failed';
+/**
+ * The connection as the screens show it: `failed` covers a closed socket and a refused handshake; `unconfigured` is a
+ * production build without `VITE_SERVER_URL` (ADR 0017), which never opens a socket.
+ */
+export type Connection = 'connecting' | 'open' | 'failed' | 'unconfigured';
 
 /** The latest server `error`; `seq` grows with every error, so the same code twice shows twice. */
 export interface ServerError {
@@ -61,6 +64,7 @@ const CONNECTION_TEXT: Record<Connection, string> = {
   connecting: 'Connecting to the game server…',
   open: '',
   failed: 'Cannot reach the game server',
+  unconfigured: 'Multiplayer is not available: no game server is configured for this site',
 };
 
 function field(id: string, label: string, input: HTMLInputElement, error: HTMLElement) {

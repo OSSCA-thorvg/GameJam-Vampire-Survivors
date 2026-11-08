@@ -101,6 +101,17 @@ describe('multiplayer entry screen', () => {
     expect(t.props.onRetry).toHaveBeenCalledOnce();
   });
 
+  it('an unconfigured server disables Create and Join and offers no Retry', () => {
+    const t = setup({ connection: 'unconfigured' });
+    t.type(t.nickname, 'Alice');
+    expect(t.button('Create room').disabled).toBe(true);
+    expect(t.button('Join room').disabled).toBe(true);
+    expect(t.button('Retry').hidden).toBe(true);
+    expect(t.root.querySelector('.status')?.textContent).toBe(
+      'Multiplayer is not available: no game server is configured for this site',
+    );
+  });
+
   it('creates with the normalized nickname, once, and Enter in the field creates', () => {
     const t = setup();
     t.type(t.nickname, '  Alice  ');

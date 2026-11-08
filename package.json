@@ -12,6 +12,7 @@
     "prepare": "simple-git-hooks",
     "dev": "pnpm --filter client dev",
     "build": "pnpm -r build",
+    "build:pages": "pnpm --filter client build:pages",
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:changed": "vitest run --changed origin/main",

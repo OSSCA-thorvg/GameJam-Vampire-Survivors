@@ -376,3 +376,4 @@ test('lobby 6: single player never opens a WebSocket', async ({ browser }, testI
 - Journey 5 stops the server with `pnpm server:down`; never run it against a server another person or agent started. The reconnect backoff (1 + 2 + 4 s plus the attempts) takes 7–10 s before the entry screen returns (2026-11-08, #19).
 - The Claude in Chrome driver cannot type a zero-width character, so the invalid-nickname check there uses spaces; the Playwright journey also types `a​b` (2026-11-08, #19).
 - After the countdown the room is `playing` until the match ends (#20, `versus-match.md`); create a new room for the next lobby journey (2026-11-08, #19; 2026-11-09, #20).
+- Dev and e2e builds fall back to `ws://localhost:8787/ws`. A production build without `VITE_SERVER_URL` shows "Multiplayer is not available: no game server is configured for this site" on the entry instead of connecting (`deployed-site.md`) (2026-11-09, #23).

@@ -1,0 +1,135 @@
+name: Deploy
+
+# ADR 0017: every push to main publishes the client to GitHub Pages and the server's runtime image to GHCR. The owner
+# pulls and runs the image on their own host (deploy/server/README.md); nothing here reaches that host.
+# These jobs never run on pull requests, so they are not required checks of the main ruleset (ADR 0015), whose
+# contexts come from ci.yml only (scripts/github/check-ruleset.mjs).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Deploys never overlap and a running deploy is never cancelled halfway.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/ossca-thorvg/gamejam-vampire-survivors-server
+
+jobs:
+  # The same gate as CI's `pnpm check` job (ADR 0002, ADR 0011), on the commit being deployed.
+  check:
+    name: deploy check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1 (pnpm version from packageManager)
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Audit dependencies (ADR 0011)
+        run: pnpm audit --audit-level=high
+      - name: format:check, lint, typecheck, test, build
+        run: pnpm check
+
+  deploy-client:
+    name: deploy client
+    needs: check
+    runs-on: ubuntu-latest
+    # pages: write and id-token: write are what actions/deploy-pages needs to publish (OIDC); nothing else is granted.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1 (pnpm version from packageManager)
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      # VITE_SERVER_URL is a repository variable (not a secret: it ships in the bundle). Unset, the site is single
+      # player only and the multiplayer entry says no server is configured; set, it must be wss:// or the build fails.
+      - name: Build for GitHub Pages
+        env:
+          VITE_SERVER_URL: ${{ vars.VITE_SERVER_URL }}
+        run: pnpm build:pages
+      - name: The build carries the CSP meta tag under the Pages base
+        run: |
+          html=packages/client/dist/index.html
+          grep -q '<meta http-equiv="Content-Security-Policy"' "$html" || { echo "::error::no CSP meta tag in $html"; exit 1; }
+          grep -q 'src="/GameJam-Vampire-Survivors/assets/' "$html" || { echo "::error::$html is not built for the Pages base"; exit 1; }
+          test -s packages/client/dist/thorvg/thorvg.wasm && test -s packages/client/dist/manifest.json
+          sed -n 's/.*content="\([^"]*\)".*/\1/p' "$html" | head -1 | sed "s/&#39;/'/g" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: packages/client/dist
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  publish-server-image:
+    name: publish server image
+    needs: check
+    runs-on: ubuntu-latest
+    # packages: write lets the job's own GITHUB_TOKEN push to this repository's GHCR package; no other secret is used.
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The Dockerfile pins the base by digest (ADR 0011); the build uses the runner's Docker, no third-party actions.
+      - name: Build the runtime image
+        env:
+          SHA: ${{ github.sha }}
+          SOURCE: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          docker build --target runtime --build-arg NODE_VERSION="$(cat .nvmrc)" \
+            --label org.opencontainers.image.source="$SOURCE" \
+            --label org.opencontainers.image.revision="$SHA" \
+            -t "$IMAGE:sha-$SHA" -t "$IMAGE:main" -f packages/server/Dockerfile .
+      - name: The image answers /healthz as node with the .nvmrc Node major
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          docker run -d --name vs-server-deploy -p 8787:8787 -e ALLOWED_ORIGINS=https://ossca-thorvg.github.io "$IMAGE:sha-$SHA"
+          for _ in $(seq 20); do curl -fsS localhost:8787/healthz && echo && break; sleep 1; done
+          curl -fsS localhost:8787/healthz > /dev/null || { echo "::error::/healthz did not answer"; docker logs vs-server-deploy; exit 1; }
+          user=$(docker exec vs-server-deploy id -un)
+          [ "$user" = node ] || { echo "::error::container runs as '$user', expected node"; exit 1; }
+          major=$(docker exec vs-server-deploy node -p 'process.versions.node.split(".")[0]')
+          [ "$major" = "$(cut -d. -f1 .nvmrc)" ] || { echo "::error::image Node $major does not match .nvmrc"; exit 1; }
+          docker rm -f vs-server-deploy
+      # The token goes to docker on stdin, never on the command line or in the log.
+      - name: Push to GHCR
+        env:
+          SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ github.token }}
+        run: |
+          printf '%s' "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          docker push "$IMAGE:sha-$SHA"
+          docker push "$IMAGE:main"
+          digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE:sha-$SHA")
+          docker logout ghcr.io
+          { echo "Published \`$IMAGE:sha-$SHA\` and \`:main\`"; echo; echo "\`$digest\`"; } >> "$GITHUB_STEP_SUMMARY"
