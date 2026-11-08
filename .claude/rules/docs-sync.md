@@ -2,6 +2,8 @@
 
 Documentation is updated in the **same PR** as the change that makes it stale. A PR that leaves any of these out of date is not ready to merge. The `issue-finish` skill checks this before opening the PR, and CI checks that `CLAUDE.md` mentions every rule and skill.
 
+Also update [`AGENTS.md`](../../AGENTS.md) whenever its structure, commands, stage routes, or Codex equivalents change. Keep it as a concise entry point into the shared rules and skills; it does not replace their procedures.
+
 | When this changes                                                                                           | Update                                                                                                                              |
 | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | A script in `package.json`, a tool, or how to run, test or build something                                  | `CLAUDE.md` § Commands, with the exact commands, including how to run a single test                                                 |

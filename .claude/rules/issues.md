@@ -44,7 +44,7 @@ The PR lists what was created or commented on under `## Follow-ups`, as plain `#
 
 ## Readiness standard
 
-Every contributor develops with Claude Code, with their own GitHub account, possibly without the `dw` plugin, and in a fresh session with no memory of this project's history. An issue is `status:ready` only when a fresh Claude Code session in a fresh clone, given `/issue-start #N`, can finish it to an auto-merged PR without asking a single question. `issue-create` runs this checklist before creating an issue; an item that cannot be met makes the issue `status:blocked`, with a comment naming the item.
+Contributors use Claude Code or Codex with their own GitHub account, possibly without the `dw` plugin, in a fresh session with no memory of this project's history. An issue is `status:ready` only when a fresh session in a fresh clone, following `issue-start` (Codex uses the adapters in [AGENTS.md](../../AGENTS.md)), can finish it to an auto-merged PR without asking a single question. `issue-create` runs this checklist before creating an issue; an item that cannot be met makes the issue `status:blocked`, with a comment naming the item.
 
 1. **ADR constraints are restated inline.** For every ADR cited, the 1–3 constraints that matter for this issue are restated in the issue with the ADR link, and so are the user decisions that bind it (time limit, win rules, evolution gate, and so on).
 2. **A "Before you start" section** comes right after Goal and lists:

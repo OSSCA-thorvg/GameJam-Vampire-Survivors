@@ -36,7 +36,8 @@ The pre-commit hook runs Prettier and ESLint on staged files; never bypass it wi
 
 ## Where to look
 
-- [`CLAUDE.md`](CLAUDE.md): how to start contributing (Getting started), the workflow, the rules and the skills. Every contributor develops with Claude Code.
+- [`AGENTS.md`](AGENTS.md): the Codex contributor guide, stage checks, and equivalents for Claude Code tools.
+- [`CLAUDE.md`](CLAUDE.md): how to start contributing (Getting started), the shared workflow, rules, and skills for Claude Code and Codex.
 - [`docs/roadmap.md`](docs/roadmap.md): the phases and the issues in dependency order.
 - [`docs/adr/`](docs/adr/README.md): the architecture decisions every change follows.
 - [`REQUIREMENTS.md`](REQUIREMENTS.md): the requirements, in Korean.

@@ -1,6 +1,6 @@
 ---
 name: security-check
-description: Security pass for a branch before its PR — vet new dependencies against the supply-chain policy, run pnpm audit, scan the diff for dangerous DOM/eval/secret patterns, check server and CI hardening, then run /security-review. Use before opening any PR that touches dependencies, the lockfile, pnpm-workspace.yaml, packages/server, the protocol, Docker files, CI workflows, or DOM rendering of user data ("security check", "보안 점검").
+description: Security pass for a branch before its PR — vet dependencies, run pnpm audit, scan dangerous patterns, check server and CI hardening, then run the security review for the current runtime. Use before opening any PR that touches dependencies, the lockfile, pnpm-workspace.yaml, packages/server, the protocol, Docker files, CI workflows, or DOM rendering of user data ("security check", "보안 점검").
 ---
 
 # security-check
@@ -75,7 +75,9 @@ Prefer running it in a subagent briefed with the branch name, the issue and this
    - no `pull_request_target` runs on untrusted code;
    - the Dockerfile runtime stage runs as `node`, holds production dependencies only, and contains no `COPY .env` or `ARG`/`ENV` holding a secret.
 8. **CSP.** If the client starts talking to a new origin, or loads a new kind of resource, the CSP in ADR 0011 and the deployed header or meta tag must be updated in the same PR.
-9. Run Claude Code's built-in `/security-review` on the branch and merge its findings with the steps above.
+9. Run the additional review for the current agent runtime and merge its findings with the steps above:
+   - **Claude Code:** run the built-in `/security-review` on the branch.
+   - **Codex:** follow [AGENTS.md's Codex equivalents](../../../AGENTS.md#codex-equivalents). Use the available `interrogate` skill with an explicit security scope covering ADR 0011 and `.claude/rules/security.md`. If the skill or its review tooling is unavailable, perform an independent checklist review and report the unavailable tools and checks actually run. Keep findings from steps 1–8 even if the additional review cannot reproduce them. The high-severity hold below still applies.
 10. Report a table of severity (high / medium / low), location, finding and fix. Post it as a PR comment with `--body-file` when the PR exists. Never merge by hand; instead:
     - If the PR is not open yet, do not open it while any **high** finding is open.
     - If the PR is open and any **high** finding is open, hold it at once: `gh issue edit <PR> -R OSSCA-thorvg/GameJam-Vampire-Survivors --add-label status:blocked`. The workflow never merges a PR with that label.
