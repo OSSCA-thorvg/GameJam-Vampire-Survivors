@@ -1,12 +1,13 @@
-// Main-thread entry (ADR 0004): checks browser support, transfers the canvas to the game worker, and forwards input,
-// resize and visibility. It owns the DOM; after `transferControlToOffscreen()` it never touches the canvas again.
+// Main-thread entry (ADR 0004): checks browser support, transfers the canvas to the game worker, forwards input,
+// resize and visibility, and starts the screens (`app.ts`, #9) once the worker is ready. It owns the DOM; after `transferControlToOffscreen()` it never touches the canvas again.
 import './style.css';
 import type { GameWorkerToMain, MainToWorker, WorkerToMain } from '../protocol/worker-messages';
 import { assertNever } from '../protocol/assert-never';
+import { createApp, type App } from './app';
 import { installDebugTools, recordStats, registerDebugKey } from './debug';
 import { createInput } from './input';
 import { checkSupport } from './support';
-import { installTestBridge, type MainTestBridge } from './test-bridge';
+import { installTestBridge, registerMainSnapshotField, type MainTestBridge } from './test-bridge';
 import { computeViewport, type Viewport } from './viewport';
 
 /** Resize events are debounced by this long before the worker is told. */
@@ -64,6 +65,21 @@ async function boot(): Promise<void> {
     worker.postMessage(message, transfer);
   };
 
+  /** The screens (#9), started on the title once the worker is ready; none in the `?gallery` and `?stress` scenes. */
+  let app: App | null = null;
+  /** Set inside the dev/e2e/perf guard below, so production bundles do not name the debug scenes. */
+  let debugScene = false;
+  const startApp = (): void => {
+    if (app || debugScene) return;
+    const screens = document.createElement('div');
+    screens.id = 'screens';
+    appRoot().append(screens);
+    const started = createApp(screens, post);
+    app = started;
+    if (import.meta.env.DEV || import.meta.env.MODE === 'e2e')
+      registerMainSnapshotField('state', () => started.state.name);
+  };
+
   let testBridge: MainTestBridge | null = null;
   if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') testBridge = installTestBridge(post);
 
@@ -80,6 +96,7 @@ async function boot(): Promise<void> {
       case 'ready':
         if (import.meta.env.DEV) console.warn('[vs] worker ready, renderer:', message.renderer);
         if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') testBridge?.onReady();
+        startApp();
         break;
       case 'loadProgress':
         loading.textContent = `Loading ${String(message.loaded)}/${String(message.total)}`;
@@ -94,6 +111,9 @@ async function boot(): Promise<void> {
         break;
       case 'stats':
         if (import.meta.env.DEV) recordStats(message);
+        break;
+      case 'gameOver':
+        app?.dispatch({ type: 'gameOver', stats: message.stats });
         break;
       default:
         assertNever(message);
@@ -112,6 +132,7 @@ async function boot(): Promise<void> {
       stress:
         import.meta.env.DEV || import.meta.env.MODE === 'perf' ? (query.get('stress') ?? '') : '',
     };
+    debugScene = debug.gallery || debug.stress !== '';
   }
   const offscreen = canvas.transferControlToOffscreen();
   post(

@@ -8,6 +8,16 @@ export type BackgroundPolicy = 'pause' | 'simulate';
 /** -1, 0 or 1 on one axis. */
 export type Axis = -1 | 0 | 1;
 
+/** One run's results (#9): sent with `gameOver` and shown on the results screen. */
+export interface RunStats {
+  /** Simulated seconds survived. */
+  timeSec: number;
+  /** 0 until weapons kill (#10). */
+  kills: number;
+  /** 1 until XP and level-up (#11). */
+  level: number;
+}
+
 export type MainToWorker =
   | {
       type: 'init';
@@ -24,6 +34,10 @@ export type MainToWorker =
   | { type: 'resume' }
   | { type: 'visibility'; hidden: boolean }
   | { type: 'setBackgroundPolicy'; policy: BackgroundPolicy }
+  /** #9: clears the previous run and starts a fresh one (unpaused). The worker starts no run on boot. */
+  | { type: 'startRun'; seed: number; characterId: string }
+  /** #9: clears the run and draws an empty frame (back to the title). */
+  | { type: 'endRun' }
   | { type: 'debug'; command: DebugCommand }
   | TestSnapshotRequest;
 
@@ -33,6 +47,8 @@ export type WorkerToMain =
   | { type: 'assetsReady'; placeholders: string[] }
   | { type: 'fatal'; message: string }
   | { type: 'stats'; fps: number; stepsPerSecond: number }
+  /** #9: the player's HP reached 0; the run has stopped. Sent once per run. */
+  | { type: 'gameOver'; stats: RunStats }
   | TestSnapshotReply;
 
 /**
@@ -89,6 +105,6 @@ export type GameSnapshot = WorkerSnapshot & {
   ready: boolean;
   /** Git revision the client was served from (`__VS_BUILD_REV__`). */
   buildRev: string;
-  /** `'booting'` until `ready`, then `'running'`; #9 replaces it with the screen name. */
+  /** `'booting'` until `ready`; then the screen from `main/app.ts` (#9): `'title'`, `'playing'` or `'results'`. */
   state: string;
 };

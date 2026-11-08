@@ -109,6 +109,58 @@ test('hidden tab: native visibility pauses or simulates without rendering, then 
   }
 });
 
+test('hidden tab: a single-player run pauses while hidden and shows the pause overlay on return', async ({
+  page,
+  context,
+  baseURL,
+}, testInfo) => {
+  const ev = startEvidence(page, 'hidden-tab-run-pause');
+  noteEvidence(testInfo, ev);
+  let visibility;
+  try {
+    expect((await openGame(page, baseURL)).renderer).toBe('gl');
+    await waitForSnapshot(page, (s) => s.state === 'title', 5_000);
+    await page.keyboard.press('Enter');
+    await waitForSnapshot(page, (s) => s.state === 'playing' && s.timeS >= 1, 10_000);
+    await ev.shot('playing');
+    visibility = await hidePage(page);
+    ev.json('ownership', visibility.ownership);
+    const before = await sample(page);
+    await page.waitForTimeout(3_000);
+    const after = await sample(page);
+    expect(before.document).toBe('hidden');
+    expect(after.document).toBe('hidden');
+    expect(after.snapshot.timeS).toBe(before.snapshot.timeS);
+    expect(after.snapshot.steps).toBe(before.snapshot.steps);
+    expect(after.snapshot.paused).toBe(true);
+    await visibility.show();
+    const dialog = page.getByRole('dialog', { name: 'Paused' });
+    await expect(dialog).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Resume' })).toBeFocused();
+    await ev.shot('overlay-on-return');
+    // The overlay holds the run paused after the tab is visible again.
+    await page.waitForTimeout(1_000);
+    const held = await sample(page);
+    expect(held.document).toBe('visible');
+    expect(held.snapshot.state).toBe('playing');
+    expect(held.snapshot.timeS).toBe(before.snapshot.timeS);
+    await page.keyboard.press('Enter');
+    await expect(dialog).toHaveCount(0);
+    const resumed = await waitForSnapshot(page, (s) => s.timeS > before.snapshot.timeS, 3_000);
+    ev.json('snapshots', { before, after, held, resumed });
+    expect(resumed.timeS - before.snapshot.timeS).toBeLessThan(0.5);
+    await ev.shot('resumed');
+    expect(pageErrors(ev)).toEqual([]);
+  } finally {
+    try {
+      await visibility?.dispose();
+      if (!page.isClosed()) await expect.poll(() => context.pages().length).toBe(1);
+    } finally {
+      ev.flush();
+    }
+  }
+});
+
 test('hidden tab: owned target is disposed after an intentional journey failure', async ({
   page,
   context,

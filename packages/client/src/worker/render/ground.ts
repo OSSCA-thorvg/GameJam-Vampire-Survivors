@@ -19,6 +19,10 @@ const OVERLAP_SCALE = (GROUND_TILE + 1) / GROUND_TILE;
 export interface Ground {
   /** Moves the fixed tile grid under the view centred on `(cameraX, cameraY)`; writes transforms only on change. */
   sync(cameraX: number, cameraY: number): void;
+  /** Hides every tile (`releaseAll`), for the screens between runs (#9). */
+  release(): void;
+  /** Shows the grid again from the pool's existing tiles (releasing first), creating none; the next `sync` places every tile. */
+  acquire(): void;
   readonly pool: PaintPool;
 }
 
@@ -34,11 +38,21 @@ export function createGround(
   const count = GROUND_COLS * GROUND_ROWS;
   const pool = new PaintPool(library, 'stage.ground', layer, count);
   const handles = new Int32Array(count);
-  for (let i = 0; i < count; i++) handles[i] = pool.acquire();
   let lastX0 = Number.NaN;
   let lastY0 = Number.NaN;
+  const acquire = (): void => {
+    pool.releaseAll();
+    for (let i = 0; i < count; i++) handles[i] = pool.acquire();
+    lastX0 = Number.NaN;
+    lastY0 = Number.NaN;
+  };
+  acquire();
   return {
     pool,
+    release() {
+      pool.releaseAll();
+    },
+    acquire,
     sync(cameraX, cameraY) {
       const x0 = Math.floor((cameraX - VIEW_WIDTH / 2) / GROUND_TILE) * GROUND_TILE;
       const y0 = Math.floor((cameraY - VIEW_HEIGHT / 2) / GROUND_TILE) * GROUND_TILE;

@@ -128,7 +128,7 @@ Used by the level-up choice, the character select screen and the HUD inventory. 
 |---|---|---|---|---|---|
 | `ui.placeholder` | 64×64 | svg | Magenta "missing asset" reference | F3 | placeholder |
 | `ui.xpBar` | 400×12 | svg | XP bar frame along the top | C6 | placeholder |
-| `ui.hpBar` | 40×6 | svg | HP bar under the player | C4 | placeholder |
+| `ui.hpBar` | 40×6 | svg | HP bar frame and empty track under the player; the red fill is a ThorVG Shape scaled by HP (#9) | C4 | placeholder |
 | `ui.skull` | 16×16 | svg | Kill counter icon | C4 | placeholder |
 
 ## Fonts drawn by ThorVG — `assets/fonts/`

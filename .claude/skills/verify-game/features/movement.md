@@ -8,20 +8,20 @@ The player walks in eight directions at one constant speed from the arrow keys o
 - **Diagonals:** holding two keys (`ArrowRight` + `ArrowDown`, `w` + `a`, `s` + `d`) for 1 s moves 140 ± 10 units of distance, with equal `|dx|` and `|dy|` (diagonal equals straight, not 198).
 - **Facing:** `player.facingX` is `-1` after a left input and `1` after a right input; it keeps its value when the input becomes vertical or stops. The `player.warden` sprite is mirrored when facing left (its darker shield side swaps from right to left on screen).
 - **Stop:** releasing every key stops the player at once: `player` is unchanged over the next 500 ms while `steps` keep rising.
-- **Tab switch stops movement:** holding a key and switching to another tab and back leaves the player stopped (#2's input clearing on blur and hide); the `'pause'` policy steps nothing while hidden.
+- **Tab switch stops movement:** holding a key and switching to another tab and back leaves the player stopped (#2's input clearing on blur and hide); the `'pause'` policy steps nothing while hidden, and the run comes back under the pause overlay (#9): after "Resume" the player stays where it was while `steps` rise.
 - **Camera and ground:** the sprite stays at the centre of the view (feet at 640, 360 logical) wherever the player is, including negative coordinates; the `stage.ground` tiles cover the whole view with no seam (no full row or column darker than the ground) and no gap at the view edges, also at fractional view scales (tile edges between device pixels).
-- Snapshot fields: `player` (`{ x, y, facingX }`, `worker/game/snapshot.ts`; #9 and #11 add fields) and `timeS` (the run's simulated seconds, `world.time`), both registered in `worker/index.ts`. The base `steps` keeps counting steps since boot.
+- Snapshot fields: `player` (`{ x, y, facingX, hp, maxHp, invulnerable }`, `worker/game/snapshot.ts`, `null` outside a run; #11 adds fields) and `timeS` (the run's simulated seconds, `world.time`), both registered in `worker/index.ts`. The base `steps` keeps counting steps since boot.
 
 ## How to get to it (user POV)
 
-Open the game URL: the run starts by itself after loading (#9 replaces the auto-start with the title screen), with the player at `(0, 0)` facing right. Hold arrow keys or WASD. No server and no debug key are needed. `?gallery` and `?stress` do not create the run.
+Open the game URL and press Enter on the title screen's "Start" (#9): the run starts with the player at `(0, 0)` facing right. Hold arrow keys or WASD. No server and no debug key are needed. `?gallery` and `?stress` show no title screen and create no run. Enemies hurt the player from about 5 s on and a player standing still dies in 15–30 s (`player-health.md`), so keep journeys short or keep moving.
 
 ## Driving it
 
 ### Claude in Chrome
 
 1. `tabs_context_mcp` `{ createIfEmpty: true }`, use the group's new empty tab (or `tabs_create_mcp`); `gif_creator` `start_recording`.
-2. `navigate` to `http://localhost:5180/`; `javascript_tool` `JSON.stringify(await window.__vsTest.waitFor((s) => s.ready, 30000))` → `player: { x: 0, y: 0, facingX: 1 }`, no `testScene`; `computer` `screenshot`.
+2. `navigate` to `http://localhost:5180/`; `javascript_tool` `await window.__vsTest.waitFor((s) => s.state === 'title', 30000)`; `computer` `key` `Enter` (Start, #9); `javascript_tool` `JSON.stringify(await window.__vsTest.waitFor((s) => s.state === 'playing', 5000))` → `player: { x: 0, y: 0, facingX: 1, hp: 100, maxHp: 100, invulnerable: false }`, no `testScene`; `computer` `screenshot`.
 3. `computer` `key` `ArrowLeft` with `repeat: 30`, `screenshot`, then read the snapshot → `player.x` below 0, `facingX: -1`, the sprite mirrored and still at the centre.
 4. `computer` `key` `ArrowUp` with `repeat: 30` → `facingX` still `-1`, `player.y` below 0; read the snapshot twice 500 ms apart → `player` unchanged, `steps` higher; `screenshot` and zoom on tile corners near the view edges.
 5. `gif_creator` `stop_recording` and `export` `{ download: true, filename: "issue-<N>-movement.gif" }`; `tabs_close_mcp` on the tab.
@@ -38,10 +38,10 @@ import { expect, test, type Page } from '@playwright/test';
 import {
   holdKeys,
   noteEvidence,
-  openGame,
   pageErrors,
   snapshot,
   startEvidence,
+  startRun,
   type GameSnapshot,
 } from '../../../e2e/helpers';
 
@@ -123,7 +123,7 @@ test('movement: 8 directions at one speed, facing, stop, camera and ground', asy
   const ev = startEvidence(page, 'movement');
   noteEvidence(testInfo, ev);
   try {
-    const ready = await openGame(page);
+    const ready = await startRun(page);
     expect(ready.renderer).toBe('gl');
     expect(player(ready)).toMatchObject({ facingX: 1 });
     expect(ready.testScene).toBeUndefined();
@@ -176,10 +176,14 @@ test('movement: 8 directions at one speed, facing, stop, camera and ground', asy
     ev.json('04-facing-stop', { holding, released, still });
     expect(player(holding).facingX).toBe(-1);
     expect(player(released).facingX).toBe(-1);
-    expect(player(still)).toEqual(player(released));
+    // Position and facing only: contact damage (#9) may change hp meanwhile.
+    const pose = ({ x, y, facingX }: PlayerSnap) => ({ x, y, facingX });
+    expect(pose(player(still))).toEqual(pose(player(released)));
     expect(still.steps).toBeGreaterThan(released.steps + 20);
 
-    // 5. ArrowLeft + ArrowUp for 30 s into negative coordinates, a screenshot every 5 s.
+    // 5. ArrowLeft + ArrowUp for 30 s into negative coordinates, a screenshot every 5 s. A fresh run (#9): the
+    // first one has taken contact damage by now and could die on the way.
+    await startRun(page);
     const trail: PlayerSnap[] = [];
     await page.keyboard.down('ArrowLeft');
     await page.keyboard.down('ArrowUp');
@@ -211,7 +215,7 @@ test.describe('at a fractional view scale', () => {
     const ev = startEvidence(page, 'movement-fractional-scale');
     noteEvidence(testInfo, ev);
     try {
-      await openGame(page);
+      await startRun(page);
       await page.keyboard.down('ArrowLeft');
       await page.keyboard.down('ArrowUp');
       for (let i = 1; i <= 4; i++) {
@@ -239,10 +243,10 @@ import { expect } from '@playwright/test';
 import { test } from '../../../../e2e/helpers/native-test';
 import {
   noteEvidence,
-  openGame,
   pageErrors,
   snapshot,
   startEvidence,
+  startRun,
 } from '../../../../e2e/helpers';
 import { hidePage } from '../../../../e2e/helpers/hide-page';
 
@@ -254,9 +258,14 @@ test('movement: switching tabs while holding a key stops the player', async ({
   noteEvidence(testInfo, ev);
   let visibility;
   try {
-    await openGame(page, baseURL);
+    await startRun(page, baseURL);
     visibility = await hidePage(page); // creates the owned blank tab and starts hidden
     await visibility.show();
+    // Hiding the tab paused the run (#9): resume from the overlay first.
+    const paused = page.getByRole('dialog', { name: 'Paused' });
+    await paused.waitFor();
+    await page.keyboard.press('Enter');
+    await paused.waitFor({ state: 'detached' });
     await page.keyboard.down('ArrowRight');
     await page.waitForTimeout(500);
     const moving = await snapshot(page);
@@ -264,6 +273,9 @@ test('movement: switching tabs while holding a key stops the player', async ({
     await visibility.hide();
     await page.waitForTimeout(1000);
     await visibility.show();
+    await paused.waitFor();
+    await page.keyboard.press('Enter');
+    await paused.waitFor({ state: 'detached' });
     const back = await snapshot(page);
     await page.waitForTimeout(1000);
     const later = await snapshot(page);
@@ -284,6 +296,8 @@ test('movement: switching tabs while holding a key stops the player', async ({
 
 ## Gotchas
 
+- The 30 s diagonal run (step 5) runs into relocated enemies ahead: one #9 run ended it at 15 HP of 100. It starts a fresh run for that reason, but a death on the way remains possible until the invulnerability precondition exists (`KeyI`, #17); if it dies (the trail stops short, `state: 'results'`), rerun once and report it, never shorten the run (2026-11-08, #9).
+- Since #9 the run starts from the title screen and the player takes contact damage: `startRun` (`e2e/helpers.ts`) presses Enter on "Start"; a long journey that stands still dies and ends on the results screen. Hiding the tab mid-run brings the pause overlay back (2026-11-08, #9).
 - Each extension `key` press is an instant down and up, so the extension cannot prove distances per second; use the Playwright holds (2026-11-08, #7).
 - `holdKeys` timing jitters by tens of milliseconds, and the release reaches the worker a step or two later: one hold measured 142.3 units for a nominal 1 s. The journey allows 140 ± 10; one run of five failed once in #7 (its evidence was overwritten before it was read), so rerun once before treating a single miss as a regression (2026-11-08, #7).
 - Seams only show at view scales where a tile edge falls between device pixels: at 1280 × 720 or 1000 × 563 the tiles land on whole pixels and edge-to-edge tiles look seamless. The fractional journey uses 1005 × 565 (100.5 device pixels per tile); with the 1-unit overlap removed it finds seam rows and columns in every screenshot, with it none (2026-11-08, #7).

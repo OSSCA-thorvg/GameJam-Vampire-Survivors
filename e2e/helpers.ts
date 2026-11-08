@@ -129,3 +129,14 @@ export async function openGame(page: Page, path = '/'): Promise<GameSnapshot> {
   await page.goto(path);
   return waitForSnapshot(page, (s) => s.ready, 30_000);
 }
+
+/**
+ * Loads the game, waits for the title screen and presses Enter on "Start" (#9): resolves with the first `playing`
+ * snapshot. Real keyboard input; the run has a fresh random seed.
+ */
+export async function startRun(page: Page, path = '/'): Promise<GameSnapshot> {
+  await openGame(page, path);
+  await waitForSnapshot(page, (s) => s.state === 'title', 5_000);
+  await page.keyboard.press('Enter');
+  return waitForSnapshot(page, (s) => s.state === 'playing', 5_000);
+}

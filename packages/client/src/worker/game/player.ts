@@ -1,4 +1,4 @@
-import { BASE_MOVE_SPEED } from '@vs/shared';
+import { BASE_MAX_HP, BASE_MOVE_SPEED } from '@vs/shared';
 import type { Axis } from '../../protocol/worker-messages';
 
 export interface PlayerState {
@@ -15,9 +15,16 @@ export interface PlayerState {
   lastDirY: number;
   /** World units per second. */
   moveSpeed: number;
+  /** Current and maximum HP (#9); both start at `BASE_MAX_HP`. */
+  hp: number;
+  maxHp: number;
+  /** Seconds of invulnerability left after a hit; 0 when the player can be hit. */
+  invulnTime: number;
+  /** Flat damage reduction per hit; 0 until #12's passive sets it. */
+  armor: number;
 }
 
-/** A player at the origin facing right, moving at `BASE_MOVE_SPEED` (#14 scales it per character). */
+/** A player at the origin facing right with full HP, moving at `BASE_MOVE_SPEED` (#14 scales it per character). */
 export function createPlayer(): PlayerState {
   return {
     x: 0,
@@ -28,6 +35,10 @@ export function createPlayer(): PlayerState {
     lastDirX: 1,
     lastDirY: 0,
     moveSpeed: BASE_MOVE_SPEED,
+    hp: BASE_MAX_HP,
+    maxHp: BASE_MAX_HP,
+    invulnTime: 0,
+    armor: 0,
   };
 }
 
