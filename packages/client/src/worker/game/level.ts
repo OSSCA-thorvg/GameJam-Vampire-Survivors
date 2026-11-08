@@ -2,6 +2,8 @@ import { xpToNext } from '@vs/shared';
 import type { LevelUpOption, WorkerToMain } from '../../protocol/worker-messages';
 import { spawnFx } from './fx';
 import { buildLevelUpOptions } from './levelup-options';
+import { addPassive, levelUpPassive } from './passives';
+import { recomputeStats } from './stats';
 import { addWeapon, levelUpWeapon } from './weapons/owned';
 import type { World } from './world';
 
@@ -30,7 +32,7 @@ export function xpForNextLevel(world: Pick<World, 'player'>): number {
   return Math.max(0, xpToNext(world.player.level) - world.player.xp);
 }
 
-/** Applies one option: adds or upgrades its weapon, or heals, capped at `maxHp`. */
+/** Applies one option: adds or upgrades its weapon or passive (then recomputes the stats, #12), or heals, capped at `maxHp`. */
 export function applyLevelUpOption(world: World, option: LevelUpOption): void {
   switch (option.kind) {
     case 'newWeapon':
@@ -38,6 +40,14 @@ export function applyLevelUpOption(world: World, option: LevelUpOption): void {
       break;
     case 'upgradeWeapon':
       levelUpWeapon(world, option.weaponId);
+      break;
+    case 'newPassive':
+      addPassive(world, option.passiveId);
+      recomputeStats(world);
+      break;
+    case 'upgradePassive':
+      levelUpPassive(world, option.passiveId);
+      recomputeStats(world);
       break;
     case 'heal':
       world.player.hp = Math.min(world.player.maxHp, world.player.hp + option.amount);

@@ -44,10 +44,10 @@ it('keeps chasing the player once flying, even when the player walks out of the 
   expect(w.player.xp).toBe(1);
 });
 
-it('scales the range by magnetMul and collected XP by growthMul (#12 sets them)', () => {
+it('scales the range by stats.magnet and collected XP by stats.growth (#12)', () => {
   const w = world();
-  w.player.magnetMul = 2;
-  w.player.growthMul = 1.5;
+  w.player.stats.magnet = 2;
+  w.player.stats.growth = 1.5;
   dropGem(w, 100, 0, 2);
   for (let i = 0; i < 120 && w.gems.count > 0; i++) gemSystem(w, 1 / 60);
   expect(w.player.xp).toBe(3);

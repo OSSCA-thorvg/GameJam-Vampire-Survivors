@@ -25,8 +25,10 @@ const DIGITS: Readonly<Record<string, number>> = {
 function tagText(option: LevelUpOption): string {
   switch (option.kind) {
     case 'newWeapon':
+    case 'newPassive':
       return 'NEW';
     case 'upgradeWeapon':
+    case 'upgradePassive':
       return `Lv ${String(option.toLevel - 1)} → ${String(option.toLevel)}`;
     case 'heal':
       return `+${String(option.amount)} HP`;
@@ -80,7 +82,7 @@ function card(
 
 /**
  * The level-up choice (#11, ADR 0009): a dialog titled "Level n" with one card per option. Up/Down or W/S move the
- * focus (the first card is focused), Enter chooses the focused card, and 1–3 choose directly. Escape does nothing:
+ * focus (the first card is focused), Enter chooses the focused card, and 1–4 choose directly (a 4th card comes with luck, #12). Escape does nothing:
  * a choice is required. Every text comes from content data and is set with `textContent` (ADR 0011).
  */
 export function mount(root: HTMLElement, props: LevelUpProps): Screen<LevelUpProps> {

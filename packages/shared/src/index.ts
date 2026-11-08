@@ -41,3 +41,17 @@ export { validateLottie, MAX_LOTTIE_IMAGES, MAX_LOTTIE_DECODED_BYTES } from './l
 export type { LottieImage, ValidatedLottie } from './lottie.js';
 export { WEAPONS, WEAPON_LIST } from './content/weapons.js';
 export type { WeaponDef, WeaponId, WeaponLevel, WeaponPattern } from './content/weapons.js';
+export {
+  BASE_STATS,
+  STAT_IDS,
+  MIN_COOLDOWN_SEC,
+  effDamage,
+  effArea,
+  effCooldown,
+  effAmount,
+  effSpeed,
+  effDuration,
+} from './content/stats.js';
+export type { StatId, StatBlock, StatModifier } from './content/stats.js';
+export { PASSIVES } from './content/passives.js';
+export type { PassiveDef, PassiveId } from './content/passives.js';

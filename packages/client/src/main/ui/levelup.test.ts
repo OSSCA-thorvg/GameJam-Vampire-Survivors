@@ -118,3 +118,40 @@ it('chooses on click, and unmount removes the dialog and every listener', () => 
   key('Enter');
   expect(onChoose).not.toHaveBeenCalled();
 });
+
+it('shows passive cards like weapon cards (#12): NEW or Lv x → y, the icon and the description, and 4 chooses a 4th card', () => {
+  const passives: LevelUpOption[] = [
+    ...OPTIONS.slice(0, 2),
+    {
+      kind: 'newPassive',
+      passiveId: 'spinach',
+      name: 'Spinach',
+      description: 'Damage up by 10%.',
+      iconId: 'icon.passive.spinach',
+    },
+    {
+      kind: 'upgradePassive',
+      passiveId: 'clover',
+      name: 'Clover',
+      toLevel: 3,
+      description: 'Luck up by 10%.',
+      iconId: 'icon.passive.clover',
+    },
+  ];
+  const { cards, onChoose } = setup(passives);
+  expect(cards.map((c) => c.getAttribute('data-kind'))).toEqual([
+    'newWeapon',
+    'upgradeWeapon',
+    'newPassive',
+    'upgradePassive',
+  ]);
+  expect(cards.slice(2).map((c) => c.querySelector('.card-tag')?.textContent)).toEqual([
+    'NEW',
+    'Lv 2 → 3',
+  ]);
+  expect(cards[2]?.querySelector('.card-name')?.textContent).toBe('Spinach');
+  expect(cards[3]?.querySelector('.card-desc')?.textContent).toBe('Luck up by 10%.');
+  expect(cards[2]?.querySelector('.icon.missing')).not.toBeNull();
+  key('Digit4');
+  expect(onChoose).toHaveBeenCalledWith(3);
+});

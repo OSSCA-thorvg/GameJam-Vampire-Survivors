@@ -126,15 +126,15 @@ export function gemDropSystem(world: World): void {
 const nearby = new Int32Array(GEM_STORE_CAPACITY);
 
 /**
- * The magnet and collection (#11), after `gemDropSystem`: gems within `BASE_PICKUP_RANGE * magnetMul` start flying
+ * The magnet and collection (#11), after `gemDropSystem`: gems within `BASE_PICKUP_RANGE * stats.magnet` start flying
  * at `GEM_FLY_START_SPEED` and accelerate by `GEM_FLY_ACCEL` toward the player's current position; one that reaches
- * `GEM_COLLECT_RADIUS` adds `value * growthMul` to `player.xp` and is removed. Idle gems never despawn.
+ * `GEM_COLLECT_RADIUS` adds `value * stats.growth` to `player.xp` and is removed. Idle gems never despawn.
  */
 export function gemSystem(world: GemState & { player: PlayerState }, dt: number): void {
   const { gems, gemGrid, gemBinding, player } = world;
   const { x, y, vx, vy, value, state } = gems.cols;
   gemGrid.rebuild(x, y, gems.count);
-  const found = gemGrid.query(player.x, player.y, BASE_PICKUP_RANGE * player.magnetMul, nearby);
+  const found = gemGrid.query(player.x, player.y, BASE_PICKUP_RANGE * player.stats.magnet, nearby);
   for (let n = 0; n < found; n++) {
     const g = nearby[n] ?? 0;
     if (state[g] !== GEM_IDLE) continue;
@@ -159,7 +159,7 @@ export function gemSystem(world: GemState & { player: PlayerState }, dt: number)
       y[i] = (y[i] ?? 0) + (vy[i] ?? 0) * dt;
       continue;
     }
-    player.xp += (value[i] ?? 0) * player.growthMul;
+    player.xp += (value[i] ?? 0) * player.stats.growth;
     if (gems.uid[i] === world.mergeGemUid) world.mergeGemUid = NO_GEM;
     gemBinding?.unbind(i);
     gems.remove(i);

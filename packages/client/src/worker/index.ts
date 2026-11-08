@@ -27,9 +27,12 @@ import { createLevelUpFlow, xpForNextLevel } from './game/level';
 import {
   readEnemyPositions,
   readGemPositions,
+  readPassives,
   readPlayerSnapshot,
   readWeapons,
 } from './game/snapshot';
+import { grantNextPassive } from './game/passives';
+import { recomputeStats } from './game/stats';
 import { grantNextWeapon } from './game/weapons/owned';
 import { buildGallery, type Gallery } from './debug/gallery';
 import { noteFrame, registerSnapshotField, takeSnapshot } from './test-bridge';
@@ -210,6 +213,11 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         registerSnapshotField('kills', () => runs.world?.stats.kills ?? 0);
         registerSnapshotField('projectiles', () => runs.world?.projectiles.count ?? 0);
         registerSnapshotField('weapons', () => (runs.world ? readWeapons(runs.world) : []));
+        registerSnapshotField('passives', () => (runs.world ? readPassives(runs.world) : []));
+        registerSnapshotField('stats', () => (runs.world ? { ...runs.world.player.stats } : null));
+        registerSnapshotField('damageDealt', () =>
+          runs.world ? { ...runs.world.damageDealt } : { hits: 0, total: 0 },
+        );
         registerSnapshotField('gems', () => runs.world?.gems.count ?? 0);
         registerSnapshotField('gemPositions', () =>
           runs.world ? readGemPositions(runs.world) : [],
@@ -220,6 +228,13 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         registerDebugHandler('grantWeapon', () => {
           const granted = runs.world ? grantNextWeapon(runs.world) : null;
           console.warn(`[debug] grantWeapon: ${granted ?? 'nothing to grant'}`);
+        });
+      if (import.meta.env.DEV)
+        registerDebugHandler('grantPassive', () => {
+          const world = runs.world;
+          const granted = world ? grantNextPassive(world) : null;
+          if (world && granted) recomputeStats(world);
+          console.warn(`[debug] grantPassive: ${granted ?? 'nothing to grant'}`);
         });
       if (import.meta.env.DEV)
         registerDebugHandler('levelUp', () => {

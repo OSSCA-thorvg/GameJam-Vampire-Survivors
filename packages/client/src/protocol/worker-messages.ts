@@ -1,7 +1,7 @@
 // The only message contract between the main thread and the game worker (ADR 0004). Types only: compiled by both
 // tsconfig.main.json and tsconfig.worker.json. Later issues extend these unions; every `switch` on `type` or `kind`
 // is exhaustive and ends in `assertNever` (./assert-never.ts).
-import type { AssetId, WeaponId } from '@vs/shared';
+import type { AssetId, PassiveId, WeaponId } from '@vs/shared';
 
 /** Hidden-tab behaviour: `'pause'` for single player, `'simulate'` for versus play (ADRs 0004, 0005). */
 export type BackgroundPolicy = 'pause' | 'simulate';
@@ -19,12 +19,27 @@ export interface RunStats {
   level: number;
 }
 
-/** One card of the level-up choice (#11). Text and icon come from content data only. #12 adds passives. */
+/** One card of the level-up choice (#11; passives #12). Text and icon come from content data only. */
 export type LevelUpOption =
   | { kind: 'newWeapon'; weaponId: WeaponId; name: string; description: string; iconId: AssetId }
   | {
       kind: 'upgradeWeapon';
       weaponId: WeaponId;
+      name: string;
+      toLevel: number;
+      description: string;
+      iconId: AssetId;
+    }
+  | {
+      kind: 'newPassive';
+      passiveId: PassiveId;
+      name: string;
+      description: string;
+      iconId: AssetId;
+    }
+  | {
+      kind: 'upgradePassive';
+      passiveId: PassiveId;
       name: string;
       toLevel: number;
       description: string;
@@ -102,7 +117,9 @@ export type DebugCommand =
   /** #10: adds the first weapon of `WEAPON_LIST` the player does not own, at level 1 (`KeyG`). */
   | { kind: 'grantWeapon' }
   /** #11: grants exactly the XP missing for the next level (`KeyL`). */
-  | { kind: 'levelUp' };
+  | { kind: 'levelUp' }
+  /** #12: adds the first passive of `PASSIVES` not owned or, with 6 owned, levels the first below max (`KeyP`). */
+  | { kind: 'grantPassive' };
 
 /**
  * Read-only worker state for verification (`window.__vsTest`, dev and e2e builds only). One flat object: fields

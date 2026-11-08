@@ -2,7 +2,8 @@ import { xpToNext } from '@vs/shared';
 import { expect, it, vi } from 'vitest';
 import type { WorkerToMain } from '../../protocol/worker-messages';
 import { FX_ASSETS } from './fx';
-import { createLevelUpFlow, levelSystem, xpForNextLevel } from './level';
+import { applyLevelUpOption, createLevelUpFlow, levelSystem, xpForNextLevel } from './level';
+import { grantNextPassive } from './passives';
 import { addWeapon } from './weapons/owned';
 import { createWorld } from './world';
 
@@ -43,8 +44,9 @@ it('turns 100 XP at level 1 into several queued level-ups, presented one after a
   expect(flow.open).toBe(false);
   expect(resume).toHaveBeenCalledTimes(1);
   expect(posted).toHaveLength(4);
-  // Each choice was applied: four options taken from two weapons (new, then upgrades).
-  expect(world.weapons.reduce((sum, w) => sum + w.level, 0)).toBe(4);
+  // Each choice was applied: four options taken from the weapons and passives (new, then upgrades; #12).
+  const levels = [...world.weapons, ...world.passives].reduce((sum, item) => sum + item.level, 0);
+  expect(levels).toBe(4);
 });
 
 it('freezes the world while a level-up is pending, and steps again after the choice with no time jump', () => {
@@ -84,12 +86,40 @@ it('heals by LEVELUP_HEAL, capped at maxHp, when the heal is the only option', (
   addWeapon(world, 'whip');
   addWeapon(world, 'magicWand');
   for (const w of world.weapons) w.level = w.def.maxLevel;
+  // Six passives at their max level (#12): nothing is left to offer.
+  while (grantNextPassive(world));
   world.pendingLevelUps = 1;
   world.player.hp = 90;
   flow.afterStep(world);
   expect(posted[0]?.options.map((o) => o.kind)).toEqual(['heal']);
   flow.choose(world, 0);
   expect(world.player.hp).toBe(world.player.maxHp);
+});
+
+it('applies passive options and recomputes the stats (#12)', () => {
+  const { world } = setup();
+  world.player.hp = 50;
+  applyLevelUpOption(world, {
+    kind: 'newPassive',
+    passiveId: 'hollowHeart',
+    name: 'Hollow Heart',
+    description: '',
+    iconId: 'icon.passive.hollowHeart',
+  });
+  expect(world.passives.map((p) => [p.def.id, p.level])).toEqual([['hollowHeart', 1]]);
+  expect(world.player.maxHp).toBe(120);
+  expect(world.player.hp).toBe(70);
+  applyLevelUpOption(world, {
+    kind: 'upgradePassive',
+    passiveId: 'hollowHeart',
+    name: 'Hollow Heart',
+    toLevel: 2,
+    description: '',
+    iconId: 'icon.passive.hollowHeart',
+  });
+  expect(world.passives[0]?.level).toBe(2);
+  expect(world.player.stats.maxHp).toBe(140);
+  expect(world.player.hp).toBe(90);
 });
 
 it('grants exactly the XP missing for the next level (the L debug key)', () => {

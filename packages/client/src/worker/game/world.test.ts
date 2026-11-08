@@ -10,11 +10,12 @@ import { readEnemyPositions, readPlayerSnapshot } from './snapshot';
 import { enemyMovementSystem } from './systems/enemy-movement';
 import { contactDamageSystem } from './systems/contact-damage';
 import { enemyRelocateSystem } from './systems/enemy-relocate';
+import { recoverySystem } from './systems/recovery';
 import { spawnerSystem } from './systems/spawner';
 import { weaponSystem } from './weapons/system';
 import { createWorld, inputSystem, SYSTEMS } from './world';
 
-it('runs input, movement, camera, the spawner, enemy movement, relocation, contact damage, the combat systems, then gems and levels', () => {
+it('runs input, movement, camera, the spawner, enemy movement, relocation, contact damage, recovery, the combat systems, then gems and levels', () => {
   expect(SYSTEMS).toEqual([
     inputSystem,
     playerMovementSystem,
@@ -23,6 +24,7 @@ it('runs input, movement, camera, the spawner, enemy movement, relocation, conta
     enemyMovementSystem,
     enemyRelocateSystem,
     contactDamageSystem,
+    recoverySystem,
     weaponSystem,
     projectileSystem,
     fxSystem,

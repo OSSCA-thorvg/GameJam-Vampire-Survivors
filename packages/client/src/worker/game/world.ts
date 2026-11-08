@@ -9,10 +9,13 @@ import { createFxState, fxSystem, type FxState } from './fx';
 import { createGemState, gemDropSystem, gemSystem, type GemState } from './gems';
 import { levelSystem } from './level';
 import { createPlayer, playerMovementSystem, type PlayerState } from './player';
+import { type PassivesState } from './passives';
 import { createProjectileState, projectileSystem, type ProjectileState } from './projectiles';
+import { recomputeStats } from './stats';
 import { contactDamageSystem } from './systems/contact-damage';
 import { enemyMovementSystem } from './systems/enemy-movement';
 import { enemyRelocateSystem } from './systems/enemy-relocate';
+import { recoverySystem } from './systems/recovery';
 import { spawnerSystem } from './systems/spawner';
 import { createWeaponContext, type WeaponContext } from './weapons/context';
 import { addWeapon, type WeaponsState } from './weapons/owned';
@@ -34,7 +37,8 @@ export interface WorldOptions {
 }
 
 /** All state for one run. Later issues add their state here. */
-export interface World extends EnemyState, ProjectileState, FxState, WeaponsState, GemState {
+export interface World
+  extends EnemyState, ProjectileState, FxState, WeaponsState, PassivesState, GemState {
   readonly seed: number;
   readonly characterId: string;
   /** Simulated seconds. */
@@ -72,6 +76,11 @@ export interface World extends EnemyState, ProjectileState, FxState, WeaponsStat
    * (`createLevelUpFlow`), and only the local world pauses (ADR 0004).
    */
   pendingLevelUps: number;
+  /**
+   * Weapon hits on live enemies and the damage they dealt since the run started (#12), bumped only by `damageEnemy`.
+   * Read by the `damageDealt` snapshot field, so a journey can measure the damage per hit; nothing in the game reads it.
+   */
+  readonly damageDealt: { hits: number; total: number };
   /** Shown on the results screen. `kills` rises from #10, `level` from #11; `timeSec` mirrors `time`. */
   readonly stats: RunStats;
   /**
@@ -101,6 +110,7 @@ export const SYSTEMS: readonly System[] = [
   enemyMovementSystem,
   enemyRelocateSystem,
   contactDamageSystem,
+  recoverySystem,
   weaponSystem,
   projectileSystem,
   fxSystem,
@@ -136,6 +146,7 @@ export function createWorld({
     ...createFxState(fxPools),
     ...createGemState(gemPools),
     weapons: [],
+    passives: [],
     weaponRng: rng.fork('weapons'),
     get weaponContext() {
       return weaponContext;
@@ -149,6 +160,7 @@ export function createWorld({
     pendingLevelUps: 0,
     events: createEventQueue(),
     state: 'running',
+    damageDealt: { hits: 0, total: 0 },
     stats: { timeSec: 0, kills: 0, level: 1 },
     step(dt) {
       if (dead() || world.pendingLevelUps > 0) return;
@@ -165,6 +177,7 @@ export function createWorld({
   const weaponContext = createWeaponContext(world);
   // The default character's starting weapon; #14 makes it per character.
   addWeapon(world, 'whip');
+  recomputeStats(world);
   return world;
 }
 
