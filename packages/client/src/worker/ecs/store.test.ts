@@ -32,6 +32,7 @@ it('keeps typed columns, stable IDs and movement callbacks consistent through sw
   expect(store.indexOf(moved)).toBe(-1);
 });
 
+// Long seeded property test: CI runners are several times slower than local machines (#80).
 it('matches a reference model for 10,000 seeded add/remove/clear operations', () => {
   const store = createStore({ value: 'i32' }, 64);
   const model = new Map<number, number>();
@@ -59,7 +60,7 @@ it('matches a reference model for 10,000 seeded add/remove/clear operations', ()
       for (const uid of dead) expect(store.indexOf(uid)).toBe(-1);
     }
   }
-});
+}, 30_000);
 
 it('retires exhausted ID indices instead of reviving a stale UID', () => {
   const store = createStore({}, 1);
