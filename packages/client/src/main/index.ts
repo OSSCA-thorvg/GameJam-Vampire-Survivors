@@ -1,11 +1,12 @@
 // Main-thread entry (ADR 0004): checks browser support, transfers the canvas to the game worker, and forwards input,
 // resize and visibility. It owns the DOM; after `transferControlToOffscreen()` it never touches the canvas again.
 import './style.css';
-import type { MainToWorker, WorkerToMain } from '../protocol/worker-messages';
+import type { GameWorkerToMain, MainToWorker, WorkerToMain } from '../protocol/worker-messages';
 import { assertNever } from '../protocol/assert-never';
 import { installDebugTools, recordStats } from './debug';
 import { createInput } from './input';
 import { checkSupport } from './support';
+import { installTestBridge, type MainTestBridge } from './test-bridge';
 import { computeViewport, type Viewport } from './viewport';
 
 /** Resize events are debounced by this long before the worker is told. */
@@ -60,11 +61,22 @@ async function boot(): Promise<void> {
     worker.postMessage(message, transfer);
   };
 
+  let testBridge: MainTestBridge | null = null;
+  if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') testBridge = installTestBridge(post);
+
   worker.addEventListener('message', (event: MessageEvent<WorkerToMain>) => {
-    const message = event.data;
+    if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
+      if (event.data.type === 'testSnapshot') {
+        testBridge?.onSnapshot(event.data);
+        return;
+      }
+    }
+    // Only dev and e2e workers send test bridge replies, and they were handled above.
+    const message = event.data as GameWorkerToMain;
     switch (message.type) {
       case 'ready':
         if (import.meta.env.DEV) console.warn('[vs] worker ready, renderer:', message.renderer);
+        if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') testBridge?.onReady();
         break;
       case 'fatal':
         console.error('[vs] game worker failed:', message.message);

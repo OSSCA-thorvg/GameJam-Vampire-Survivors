@@ -64,6 +64,8 @@ export interface WorkerDebugHooks {
   onRender(): void;
   /** Call when the tab's visibility changes; logs the steps and renders that happened while hidden. */
   onVisibility(hidden: boolean): void;
+  /** Whether the perf overlay is shown (read by the test bridge's `perfOverlay`). */
+  perfOverlayVisible(): boolean;
 }
 
 /** Installs the built-in handlers, the perf overlay and the `stats` counter. Call once after ThorVG is ready. */
@@ -149,6 +151,9 @@ export function installWorkerDebugTools(opts: WorkerDebugOptions): WorkerDebugHo
           `renders while hidden ${String(totalRenders - hiddenAt.renders)}; ${describe()}`,
       );
       hiddenAt = null;
+    },
+    perfOverlayVisible() {
+      return overlay.visible();
     },
   };
 }

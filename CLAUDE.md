@@ -34,7 +34,7 @@ Current state: the toolchain exists (pnpm workspace with `@vs/client`, `@vs/serv
   - Only trivial lookups and single-file edits stay in the main session.
 
 - **Never write code without an issue.** Run the `issue-start` skill before implementing. It moves the issue to `status:in-progress`, creates the branch, and makes you read the cited ADRs.
-- **Check the scope first, and run what you write (`.claude/rules/verification.md`).** `issue-start` runs `impact-check` in scope mode: what changes, who consumes it, and the one fact the change is safe because of. Every code change is then run in the real app (the browser for the client, the Docker container for the server), not just read or unit-tested. `issue-finish` runs `impact-check` in proof mode (safety fact proven by running code, level 4) and drives user-visible criteria in the running game (level 5) with `verify-game`, created by its own issue after #2; until then, run the app manually with the same evidence standard. Evidence stays in the git-ignored `verification/` folder and is summarized in the PR's **Impact** and **Verification** sections.
+- **Check the scope first, and run what you write (`.claude/rules/verification.md`).** `issue-start` runs `impact-check` in scope mode: what changes, who consumes it, and the one fact the change is safe because of. Every code change is then run in the real app (the browser for the client, the Docker container for the server), not just read or unit-tested. `issue-finish` runs `impact-check` in proof mode (safety fact proven by running code, level 4) and drives user-visible criteria in the running game (level 5) with `verify-game` (Claude in Chrome when the extension is connected, Playwright otherwise; CI's `verify` job runs the Playwright smoke journey). Evidence stays in the git-ignored `verification/` folder and is summarized in the PR's **Impact** and **Verification** sections.
 - **Resolve conflicts by rebasing (`.claude/rules/conflicts.md`).** When `main` moved or a PR conflicts, run `resolve-conflicts`: back up, rebase onto `origin/main`, keep both sides' intent, check functional compatibility, propagate `main`'s improvements, squash back to one commit and `git push --force-with-lease`. The PR body records it under **Conflicts**.
 - **Finish with `issue-finish`.** It verifies the acceptance criteria, runs `pnpm check`, brings a stale branch up to date and opens the PR. The auto-merge workflow then squash-merges it as soon as CI passes and marks the issue `status:done`; `issue-finish` waits for the merge and verifies the result.
 - Rules live in `.claude/rules/`:
@@ -82,10 +82,11 @@ The project skills in `.claude/skills/`:
 | `label-sync`        | sync GitHub labels from `.github/labels.json`                                                                                                                                                                                        |
 | `dev-server`        | run, rebuild and troubleshoot the server in Docker                                                                                                                                                                                   |
 | `security-check`    | do the supply-chain and security pass before a PR                                                                                                                                                                                    |
+| `verify-game`       | launch the game on :5180, drive the feature map in `features/` with Claude in Chrome or Playwright, keep evidence in `verification/issue-<N>/`, clean up                                                                             |
 
 ## Commands
 
-Created by #1 (roadmap F1) and #4 (the server in Docker). Every command below is real. Later issues add `pnpm assets:sync` (#3) and `pnpm verify:*` (#31); do not use them before those merge, and do not invent others. `npm install` and `yarn` are rejected by the `preinstall` check, and Node or pnpm versions outside `engines` fail the install (`engineStrict` in `pnpm-workspace.yaml`).
+Created by #1 (roadmap F1), #4 (the server in Docker), #46, #47 and #31 (`verify:*`). Every command below is real. A later issue adds `pnpm assets:sync` (#3); do not use it before it merges, and do not invent others. `npm install` and `yarn` are rejected by the `preinstall` check, and Node or pnpm versions outside `engines` fail the install (`engineStrict` in `pnpm-workspace.yaml`).
 
 ```sh
 nvm use                 # Node version from .nvmrc (24)
@@ -108,7 +109,13 @@ pnpm test                                   # all packages (Vitest)
 pnpm --filter shared test -- src/content    # one package, one path
 pnpm --filter client exec vitest run -t "spawns enemies"   # single test by name
 pnpm --filter client exec vitest run src/worker/loop.test.ts   # one client test file
-pnpm build
+pnpm build                                  # also runs scripts/verify/check-prod-bundle.mjs (no dev-only code in dist)
+pnpm exec playwright install chromium       # once per clone: the browser for verify-game (never an install script)
+pnpm verify:launch      # client in --mode e2e on :5180, ready when __vsTest reports gl (--with-server adds Docker :8787)
+pnpm verify:doctor      # read-only checks of the launched run (pid, URL, __vsTest, buildRev == HEAD)
+pnpm verify:e2e         # launch, Playwright e2e/ (headless; VERIFY_HEADED=1 for the real GPU), cleanup, always
+pnpm verify:cleanup     # stop only what verify:launch recorded, keep verification/ evidence
+VERIFY_JOURNEYS=verification/issue-<N>/journeys pnpm exec playwright test -c e2e/playwright.config.ts   # feature-map journeys
 sh scripts/make-hud-font.sh   # rebuild assets/fonts/hud.ttf (ADR 0013); needs fonttools 4.68.0 (pipx install fonttools==4.68.0), not a project dependency
 pnpm test:build         # check the client dist after building: only the worker's canonical WASM ships
 pnpm --filter client test:build   # run only src/build.test.ts; requires a current client build
@@ -143,7 +150,7 @@ Read the ADR for the full reasoning.
   - All randomness comes from the seeded PRNG: `createRng(seed)` in `shared/src/random.ts` (mulberry32; `next`, `range`, `int`, `pick`), with `rng.fork(label)` giving each system its own stream. Never `Math.random()`.
   - `worker/loop.ts` `createLoop` implements the step, the hidden-tab policy (`setBackgroundPolicy('pause' | 'simulate')`, default `'pause'`) and `fastForward`; constants are in `worker/constants.ts`. It never runs more than `MAX_STEPS` per visible frame and never renders while hidden (`loop.test.ts`).
 - **Thread messages (ADR 0004):** `client/src/protocol/worker-messages.ts` holds `MainToWorker`, `WorkerToMain` and `DebugCommand`. Every `switch` on a message `type` or `kind` is exhaustive and ends in `assertNever` (`protocol/assert-never.ts`). Browsers missing `transferControlToOffscreen`, WebGL 2 on `OffscreenCanvas` or module workers get a DOM message instead of the game (`main/support.ts`; `?forceUnsupported=<name>` in dev).
-- **Dev-only debug tools:** `main/debug.ts` (`installDebugTools`, `registerDebugKey(code, command)`, `globalThis.__vsDebug.post(message)` and `__vsDebug.stats`) and `worker/debug.ts` (`registerDebugHandler(kind, fn)`, `dispatchDebug`, `registerPerfStat(label, read)`, the perf overlay). Every call into them is wrapped in `if (import.meta.env.DEV) { … }` and they have no top-level side effects, so production builds drop them (the bundle contains neither `togglePerfOverlay` nor `__vsDebug`). Add a debug command by adding its `DebugCommand` kind, calling `registerDebugKey` and `registerDebugHandler`, and adding a row here; never edit a switch. A new key must not reuse a code below or a gameplay key (arrows, `KeyW`/`KeyA`/`KeyS`/`KeyD`, `Enter`, `Escape`, `Tab`, `Digit1`–`Digit3`). Debug keys only reach preconditions in verification (`.claude/rules/verification.md`).
+- **Dev-only debug tools:** `main/debug.ts` (`installDebugTools`, `registerDebugKey(code, command)`, `globalThis.__vsDebug.post(message)` and `__vsDebug.stats`) and `worker/debug.ts` (`registerDebugHandler(kind, fn)`, `dispatchDebug`, `registerPerfStat(label, read)`, the perf overlay). Every call into them is wrapped in `if (import.meta.env.DEV) { … }` and they have no top-level side effects, so production builds drop them (`pnpm build` fails through `scripts/verify/check-prod-bundle.mjs` if `togglePerfOverlay` or `__vsDebug` reaches the bundle). Add a debug command by adding its `DebugCommand` kind, calling `registerDebugKey` and `registerDebugHandler`, and adding a row here; never edit a switch. A new key must not reuse a code below or a gameplay key (arrows, `KeyW`/`KeyA`/`KeyS`/`KeyD`, `Enter`, `Escape`, `Tab`, `Digit1`–`Digit3`). Debug keys only reach preconditions in verification (`.claude/rules/verification.md`).
 
   | Key (`code`)   | `DebugCommand` kind  | Owner                  | Purpose                                 |
   | -------------- | -------------------- | ---------------------- | --------------------------------------- |
@@ -159,6 +166,7 @@ Read the ADR for the full reasoning.
   | `KeyI`         | `toggleInvulnerable` | #17                    | toggle invulnerability                  |
   | `KeyJ`         | `spawnInterference`  | #21                    | next interference pickup (versus only)  |
 
+- **Test bridge (#31, dev and e2e builds):** `main/test-bridge.ts` exposes `window.__vsTest` (`snapshot()`, `waitFor(predicate, ms)`), which asks the worker over the `testSnapshot` messages (`TestSnapshotRequest`/`TestSnapshotReply`, filtered out before both exhaustive switches) and returns a flat `GameSnapshot` (`WorkerSnapshot` plus `ready`, `buildRev`, `state`). It only reads. Later issues add fields by name with `registerSnapshotField(name, read)` (`worker/test-bridge.ts`) or `registerMainSnapshotField` (main thread), never by editing the bridges. Calls are wrapped in `if (import.meta.env.DEV || import.meta.env.MODE === 'e2e')`; `verify:launch` serves `--mode e2e`. `__VS_BUILD_REV__` (`vite.config.ts`, `protocol/env.d.ts`) is the git revision at server start. Playwright lives in `e2e/` (root tsconfig reference, so `tsc -b` and ESLint cover it), the scripts in `scripts/verify/`.
 - **Multiplayer (ADRs 0005, 0006):**
   - Each player simulates their own world, and worlds are never synchronized.
   - The server handles rooms (6-character codes, nicknames), match start (seed), status relay (at most 4 Hz), interference routing and the result. WebSocket upgrades happen only on `/ws`.

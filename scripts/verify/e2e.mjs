@@ -1,0 +1,40 @@
+// verify:e2e (#31): launch, run the Playwright suite in e2e/ against it, and always clean up, even on failure.
+// Exits with Playwright's exit code. `VERIFY_HEADED=1` runs headed on the real GPU; `--issue <N>` picks the evidence
+// folder (default: from the branch name, else verification/adhoc/).
+import { spawnSync } from 'node:child_process';
+import { join } from 'node:path';
+import { CLIENT_JSON, ROOT, evidenceDir, readJson } from './lib.mjs';
+
+const script = (name) => join(ROOT, 'scripts/verify', name);
+const run = (cmd, args, env = process.env) =>
+  spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit', env, shell: process.platform === 'win32' })
+    .status ?? 1;
+const cleanup = () => run(process.execPath, [script('cleanup.mjs')]);
+
+for (const sig of ['SIGINT', 'SIGTERM']) {
+  process.on(sig, () => {
+    cleanup();
+    process.exit(130);
+  });
+}
+
+const launched = run(process.execPath, [
+  script('launch.mjs'),
+  ...process.argv.slice(2).filter((a) => a === '--with-server'),
+]);
+if (launched !== 0) {
+  cleanup();
+  process.exit(launched);
+}
+let code;
+try {
+  const client = readJson(CLIENT_JSON);
+  code = run('pnpm', ['exec', 'playwright', 'test', '-c', 'e2e/playwright.config.ts'], {
+    ...process.env,
+    VERIFY_URL: client.url,
+    VERIFY_EVIDENCE_DIR: evidenceDir(),
+  });
+} finally {
+  cleanup();
+}
+process.exit(code);

@@ -5,13 +5,16 @@ import { assertNever } from '../protocol/assert-never';
 import type {
   Axis,
   BackgroundPolicy,
+  GameMainToWorker,
   MainToWorker,
+  TestSnapshotRequest,
   WorkerToMain,
 } from '../protocol/worker-messages';
 import { VIEW_HEIGHT, VIEW_WIDTH } from './constants';
 import { installWorkerDebugTools, dispatchDebug, type WorkerDebugHooks } from './debug';
 import { createLoop, type Loop } from './loop';
 import { initThorVG, type ThorVGContext } from './render/thorvg';
+import { noteFrame, registerSnapshotField, takeSnapshot } from './test-bridge';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -37,6 +40,9 @@ let inputY: Axis = 0;
 /** Latest backing size and scale; a `resize` that arrives during boot is applied once ThorVG is ready. */
 let size = { width: 0, height: 0, scale: 1 };
 
+/** Simulation steps since boot, for the test bridge's `steps` and `timeS`. */
+let stepCount = 0;
+
 // Test-scene state, advanced only by `step`.
 let simTime = 0;
 let angle = 0;
@@ -49,6 +55,7 @@ const describeScene = (): string =>
   `simTime ${simTime.toFixed(2)} s, angle ${angle.toFixed(1)} deg, dot (${dotX.toFixed(0)}, ${dotY.toFixed(0)})`;
 
 function step(dtSec: number): void {
+  stepCount++;
   simTime += dtSec;
   angle = (angle + SPIN_DEG_PER_SEC * dtSec) % 360;
   if (inputX !== 0 || inputY !== 0) {
@@ -70,6 +77,7 @@ function render(): void {
   square.rotate(angle);
   dot.translate(dotX, dotY);
   if (import.meta.env.DEV) debugHooks?.onRender();
+  if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') noteFrame(performance.now());
   ctx.canvas.update();
   ctx.canvas.render();
 }
@@ -125,6 +133,10 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         describe: describeScene,
       });
     }
+    if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
+      // Removed with the test scene by #7.
+      registerSnapshotField('testScene', () => ({ angleDeg: angle, dotX, dotY }));
+    }
     gameLoop.setBackgroundPolicy(policy);
     if (paused) gameLoop.pause();
     gameLoop.setVisibility(hidden);
@@ -141,7 +153,24 @@ function applySize(): void {
   ctx.root.scale(size.scale);
 }
 
-function handle(message: MainToWorker): void {
+/** Answers the test bridge (dev and e2e builds only; every call is behind that guard). */
+function answerSnapshot(message: TestSnapshotRequest): void {
+  post({
+    type: 'testSnapshot',
+    requestId: message.requestId,
+    snapshot: takeSnapshot({
+      renderer: 'gl',
+      timeS: stepCount / 60,
+      steps: stepCount,
+      paused,
+      hidden,
+      backgroundPolicy: policy,
+      perfOverlay: import.meta.env.DEV ? (debugHooks?.perfOverlayVisible() ?? false) : false,
+    }),
+  });
+}
+
+function handle(message: GameMainToWorker): void {
   switch (message.type) {
     case 'init':
       void boot(message);
@@ -181,5 +210,12 @@ function handle(message: MainToWorker): void {
 }
 
 self.addEventListener('message', (event: MessageEvent<MainToWorker>) => {
-  handle(event.data);
+  if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
+    if (event.data.type === 'testSnapshot') {
+      answerSnapshot(event.data);
+      return;
+    }
+  }
+  // Only the dev and e2e test bridge sends `testSnapshot`, and it was answered above.
+  handle(event.data as GameMainToWorker);
 });

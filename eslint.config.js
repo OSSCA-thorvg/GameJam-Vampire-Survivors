@@ -12,7 +12,7 @@ const bannedHtmlSinks = ['innerHTML', 'outerHTML', 'insertAdjacentHTML'].map((pr
 
 export default defineConfig(
   {
-    ignores: ['**/dist', '**/coverage', '**/node_modules', 'assets/'],
+    ignores: ['**/dist', '**/coverage', '**/node_modules', 'assets/', 'verification/'],
   },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
@@ -56,6 +56,7 @@ export default defineConfig(
     files: [
       'packages/server/**',
       'scripts/**',
+      'e2e/**',
       'packages/shared/src/**/*.test.ts',
       '*.config.{js,ts}',
       'packages/*/*.config.{js,ts}',

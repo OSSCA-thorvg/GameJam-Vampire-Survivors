@@ -12,7 +12,8 @@ Rules: `.claude/rules/verification.md`. Listing callers is not the job; grep doe
 Check each of these that the change touches:
 
 - **Thread boundary (ADR 0004):** messages in `packages/client/src/protocol/worker-messages.ts`. Both the sender and the receiver must handle a changed shape, and nothing may cross the boundary per frame per entity.
-- **Dev debug tools (#2):** `DebugCommand` kinds and the reserved key codes in `CLAUDE.md`'s table; `registerDebugKey`, `registerDebugHandler` and `registerPerfStat` callers. A call outside `if (import.meta.env.DEV)` ships debug code to production: `grep -r __vsDebug packages/client/dist` must print nothing after `pnpm --filter client build`.
+- **Dev debug tools (#2):** `DebugCommand` kinds and the reserved key codes in `CLAUDE.md`'s table; `registerDebugKey`, `registerDebugHandler` and `registerPerfStat` callers. A call outside `if (import.meta.env.DEV)` ships debug code to production, and `pnpm build` then fails in `check-prod-bundle.mjs`.
+- **Test bridge (#31):** the `testSnapshot` messages in `worker-messages.ts` (`TestSnapshotRequest`, `TestSnapshotReply`, filtered out before both exhaustive switches inside the dev/e2e guard) and the `WorkerSnapshot` / `GameSnapshot` shape. Fields registered by name with `registerSnapshotField` (worker) and `registerMainSnapshotField` (main thread) are read by `e2e/` specs and the `verify-game` feature files as strings: renaming or reshaping one, or changing the worker state behind it, breaks those journeys without a type error. Every bridge call stays inside `if (import.meta.env.DEV || import.meta.env.MODE === 'e2e')`; `pnpm build` runs `scripts/verify/check-prod-bundle.mjs`, which fails on `__vsTest`, `__vsDebug`, `testSnapshot` or `togglePerfOverlay` in `packages/client/dist`.
 - **WASM, font and CSP delivery (#2, #46):** `/thorvg/thorvg.wasm` (the `copyThorvgWasm` plugin and `initThorVG`'s `locateFile`), `/fonts/hud.ttf` (fetched by `initThorVG`, which sets the live binding `HUD_FONT`; ADR 0013), and the preview CSP in `packages/client/vite.config.ts`, which mirrors ADR 0011 plus `worker-src blob:` for the support probe. Code that reads `HUD_FONT` before `initThorVG` resolves gets `'default'`.
 - **Network protocol (ADRs 0005, 0006):** `packages/shared/src/protocol.ts`, the server validators, rate limits and size limits, and the protocol version. An old client against a new server must fail cleanly.
 - **Content data (ADR 0008):** IDs referenced across characters, weapons, evolutions, passives, waves and pickups, plus the debug keys that grant them.
@@ -40,7 +41,7 @@ Check each of these that the change touches:
 1. Re-read the diff against the scope notes. Anything changed that was not in scope gets the same consumer analysis.
 2. Push the safety fact as far down the proof levels as it will cheaply go, and reach at least **level 4**: a Vitest test or a small script under `scripts/verify/` that calls the real code and fails loudly if the fact is wrong. Run it and keep its output in `verification/issue-<N>/`.
 3. Rate each remaining risk by likelihood and cost. Keep the confirmed ones, and list what you checked and cleared, citing a real `file:line`. A search that finds nothing is an answer. Never invent a caller.
-4. For user-visible effects, hand off to `verify-game` for level-5 proof (until it exists, run the app manually with the same evidence standard).
+4. For user-visible effects, hand off to `verify-game` for level-5 proof.
 5. For a large or cross-cutting change, run this mode in two independent subagents, give neither the other's conclusion, and merge their findings.
 
 ## Report (goes in the PR body under "Impact")
