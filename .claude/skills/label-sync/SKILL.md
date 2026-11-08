@@ -5,7 +5,7 @@ description: Create or update this repository's GitHub labels from .github/label
 
 # label-sync
 
-`.github/labels.json` is the single source of truth for labels. The `status:*`, `type:*` and `priority:*` sets match the dw plugin's `project-labels` standard, so if the dw plugin is installed its workflows also work here; nothing in this repository needs the plugin. `area:*` and `phase:*` are specific to this repository; their meanings are in `.claude/rules/labels.md`.
+`.github/labels.json` is the single source of truth for labels. The `status:*`, `type:*` and `priority:*` sets match the dw plugin's `project-labels` standard, but issue work still starts only with `issue-start` (its workflow skills are not used here); nothing in this repository needs the plugin. `area:*` and `phase:*` are specific to this repository; their meanings are in `.claude/rules/labels.md`.
 
 Never create a label ad hoc in an issue. Add it to the file first, then run this skill.
 

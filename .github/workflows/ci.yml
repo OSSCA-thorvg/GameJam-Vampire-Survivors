@@ -259,6 +259,29 @@ jobs:
             fi
           done
           exit $bad
+      - name: Linked issue was started with issue-start
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Issue work starts only with the issue-start skill, which assigns the issue and posts a start comment
+          # carrying the hidden marker below (CLAUDE.md, .claude/skills/issue-start).
+          issues=$(printf '%s\n' "$BODY" | tr -d '\r' | grep -oiE '^(close[sd]?|fix(e[sd])?|resolve[sd]?) #[0-9]+' | grep -oE '[0-9]+$' | sort -un || true)
+          [ -n "$issues" ] || { echo "No linked issue found (the 'Body closes an issue' step reports this)."; exit 0; }
+          bad=0
+          for issue in $issues; do
+            assignees=$(gh api "repos/$REPO/issues/$issue" --jq '.assignees | length')
+            marker=$(gh api --paginate "repos/$REPO/issues/$issue/comments" --jq '.[].body' | grep -cF '<!-- issue-start -->' || true)
+            if [ "$assignees" -eq 0 ]; then
+              echo "::error::Issue #$issue has no assignee. Start issues only with the issue-start skill."; bad=1
+            fi
+            if [ "$marker" -eq 0 ]; then
+              echo "::error::Issue #$issue has no issue-start comment (marker '<!-- issue-start -->'). Start issues only with the issue-start skill."; bad=1
+            fi
+            [ "$bad" -eq 0 ] && echo "Issue #$issue: started with issue-start (assignee and marker present)."
+          done
+          exit $bad
       - name: Body has Impact and Verification sections
         env:
           BODY: ${{ github.event.pull_request.body }}

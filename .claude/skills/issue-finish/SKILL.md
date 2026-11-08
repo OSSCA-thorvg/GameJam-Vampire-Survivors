@@ -59,8 +59,13 @@ Writing rules follow `.claude/rules/commits.md`: a `<prefix>: <imperative summar
 ```sh
 gh issue view <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors --json state,labels
 gh run list -R OSSCA-thorvg/GameJam-Vampire-Survivors --workflow ci.yml --branch main --limit 1
+# leave the issue's worktree, then remove it and its branch once its content is on main
+cd "$(git rev-parse --path-format=absolute --git-common-dir)/.."
 git switch main && git pull --ff-only origin main
+git diff --quiet <branch> main -- && git worktree remove .claude/worktrees/issue-<N> && git branch -D <branch>
 ```
+
+- Remove the worktree only when `git diff <branch> main` is empty: the squash merge carried everything. If it is not empty, stop and report what differs.
 
 - The issue must be closed and labelled `status:done`, without `status:review`. If the issue is still open, the closing link failed: close it with a comment naming the PR. If a label is wrong, the workflow's post-merge step failed: read its log and fix the labels by hand with `gh issue edit`. (If the dw plugin is installed, its `gh-issue-link` skill has a `verify-issue-closed-state.sh` script that checks the same three conditions; it is optional.)
 - A CI run on `main` (event `workflow_dispatch`) must have started after the merge.
