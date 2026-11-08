@@ -1,9 +1,12 @@
 import { createServer, type IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { PROTOCOL_VERSION } from '@vs/shared';
+import { MAX_MESSAGE_BYTES } from '@vs/shared';
 import { WebSocketServer } from 'ws';
 import { loadConfig, type ServerConfig } from './config.js';
+import { Connection, POLICY_VIOLATION, type ConnectionContext } from './connection.js';
+import { ConnectionCounter, JoinLockout, clientIp } from './limits.js';
 import { log, setLogLevel } from './log.js';
+import { RoomRegistry, type Timers } from './rooms.js';
 
 export type { ServerConfig } from './config.js';
 
@@ -13,19 +16,49 @@ export interface RunningServer {
   close(): Promise<void>;
 }
 
-/** Close code sent for any client message until the real protocol arrives with #18. */
-const NOT_IMPLEMENTED = 1003;
-/** Largest accepted message (ADR 0011); `ws` closes a larger one with 1009 before buffering or parsing it. */
-const MAX_PAYLOAD = 4096;
+/** Ping interval; a socket that misses two pongs in a row is terminated. */
+const HEARTBEAT_MS = 15_000;
+
+const realTimers: Timers = {
+  // A throwing room timer must not stop the process (and with it every other room).
+  set: (fn, ms) =>
+    setTimeout(() => {
+      try {
+        fn();
+      } catch (err) {
+        log('error', 'timer_failed', { error: err instanceof Error ? err.message : 'unknown' });
+      }
+    }, ms),
+  clear: (handle) => {
+    clearTimeout(handle as ReturnType<typeof setTimeout>);
+  },
+};
 
 /**
  * Starts the game server (ADR 0006): `GET /healthz` over HTTP and WebSocket upgrades on `/ws`, accepted only from
- * an `Origin` in `config.allowedOrigins` (ADR 0011). Rooms and the protocol arrive with #18; until then a client
- * receives `{ type: 'hello', protocol }` and any message it sends closes the socket with 1003.
+ * an `Origin` in `config.allowedOrigins` and while the client IP has fewer than 10 connections (ADR 0011). Each
+ * socket is handed to a `Connection`, which validates every message before it reaches the shared `RoomRegistry`.
  */
 export function startServer(config: ServerConfig): Promise<RunningServer> {
   setLogLevel(config.logLevel);
   const allowed = new Set(config.allowedOrigins);
+  const now = (): number => Date.now();
+  const counter = new ConnectionCounter();
+  const players = new Map<string, Connection>();
+  const registry = new RoomRegistry({
+    now,
+    timers: realTimers,
+    send: (playerId, message) => {
+      players.get(playerId)?.send(message);
+    },
+    onEvent: (event, fields) => {
+      log('info', event, fields);
+    },
+  });
+  const ctx: ConnectionContext = { registry, lockout: new JoinLockout(now), now, players };
+  const connections = new Set<Connection>();
+  const ipOf = (req: IncomingMessage): string =>
+    clientIp(req.socket.remoteAddress, req.headers['x-forwarded-for'], config.trustProxy);
 
   const server = createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/healthz') {
@@ -43,39 +76,60 @@ export function startServer(config: ServerConfig): Promise<RunningServer> {
   const wss = new WebSocketServer({
     server,
     path: '/ws',
-    maxPayload: MAX_PAYLOAD,
+    // ws refuses a larger frame with 1009 before buffering or parsing it (ADR 0011).
+    maxPayload: MAX_MESSAGE_BYTES,
     verifyClient: (
-      { origin }: { origin: string | undefined; req: IncomingMessage },
+      { origin, req }: { origin: string | undefined; req: IncomingMessage },
       done: (ok: boolean, code?: number, message?: string) => void,
     ) => {
-      if (origin !== undefined && allowed.has(origin)) {
-        done(true);
+      if (origin === undefined || !allowed.has(origin)) {
+        log('warn', 'upgrade_rejected', { reason: 'origin' });
+        done(false, 403, 'Forbidden');
         return;
       }
-      log('warn', 'upgrade_rejected', { reason: 'origin' });
-      done(false, 403, 'Forbidden');
+      if (!counter.canAccept(ipOf(req))) {
+        log('warn', 'upgrade_rejected', { reason: 'ip_limit' });
+        done(false, 429, 'Too Many Connections');
+        return;
+      }
+      done(true);
     },
   });
 
-  wss.on('connection', (socket) => {
+  wss.on('connection', (socket, req) => {
+    const ip = ipOf(req);
+    // Re-checked here: concurrent handshakes can all pass verifyClient before any of them is counted.
+    if (!counter.acquire(ip)) {
+      log('warn', 'upgrade_rejected', { reason: 'ip_limit' });
+      socket.close(POLICY_VIOLATION, 'too many connections');
+      return;
+    }
+    const connection = new Connection(socket, ip, ctx);
+    connections.add(connection);
     log('info', 'connect', { clients: wss.clients.size });
-    socket.send(JSON.stringify({ type: 'hello', protocol: PROTOCOL_VERSION }));
-    socket.on('message', (data: Buffer | ArrayBuffer | Buffer[]) => {
-      const size = Array.isArray(data)
-        ? data.reduce((sum, chunk) => sum + chunk.length, 0)
-        : data.byteLength;
-      log('debug', 'message', { size });
-      socket.close(NOT_IMPLEMENTED, 'not implemented yet');
-    });
-    // Protocol violations (oversized or malformed frames) surface here; ws then closes the socket (1009, 1002).
-    // Without a listener the error would be thrown and stop the process.
-    socket.on('error', (err: Error & { code?: string }) => {
-      log('warn', 'socket_error', { code: err.code ?? 'unknown' });
-    });
     socket.on('close', (code) => {
-      log('info', 'close', { code });
+      connections.delete(connection);
+      counter.release(ip);
+      try {
+        connection.closed();
+      } catch (err) {
+        log('error', 'close_failed', { error: err instanceof Error ? err.message : 'unknown' });
+      }
+      log('info', 'close', { code, rooms: registry.roomCount });
     });
   });
+
+  const heartbeat = setInterval(() => {
+    for (const connection of connections) {
+      try {
+        connection.heartbeat();
+      } catch {
+        // A socket that is still connecting or already gone; its close event cleans it up.
+      }
+    }
+    ctx.lockout.prune();
+  }, HEARTBEAT_MS);
+  heartbeat.unref();
 
   return new Promise((resolve, reject) => {
     server.once('error', reject);
@@ -86,6 +140,7 @@ export function startServer(config: ServerConfig): Promise<RunningServer> {
         port,
         close: () =>
           new Promise<void>((resolveClose, rejectClose) => {
+            clearInterval(heartbeat);
             for (const client of wss.clients) client.terminate();
             wss.close(() => {
               server.close((err) => {
@@ -136,7 +191,11 @@ if (!process.env.VITEST) {
   }
   startServer(config).then(
     (running) => {
-      log('info', 'listening', { port: running.port, origins: config.allowedOrigins.join(',') });
+      log('info', 'listening', {
+        port: running.port,
+        origins: config.allowedOrigins.join(','),
+        trustProxy: config.trustProxy ? 1 : 0,
+      });
       handleShutdown(running);
     },
     (err: unknown) => {

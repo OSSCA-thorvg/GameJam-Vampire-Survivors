@@ -7,6 +7,7 @@ describe('loadConfig', () => {
       port: 8787,
       logLevel: 'info',
       allowedOrigins: ['http://localhost:5173', 'http://localhost:5180'],
+      trustProxy: false,
     });
   });
 
@@ -27,5 +28,17 @@ describe('loadConfig', () => {
 
   it('throws on an invalid PORT', () => {
     expect(() => loadConfig({ PORT: 'eighty' })).toThrow(/PORT/);
+  });
+
+  it('reads TRUST_PROXY as 0 or 1, default 0', () => {
+    expect(loadConfig({ TRUST_PROXY: '1' }).trustProxy).toBe(true);
+    expect(loadConfig({ TRUST_PROXY: '0' }).trustProxy).toBe(false);
+    expect(loadConfig({ TRUST_PROXY: '' }).trustProxy).toBe(false);
+  });
+
+  it('throws on an invalid TRUST_PROXY', () => {
+    for (const value of ['true', 'yes', '2', 'on']) {
+      expect(() => loadConfig({ TRUST_PROXY: value })).toThrow(/TRUST_PROXY/);
+    }
   });
 });

@@ -20,7 +20,7 @@ For a new contributor in a fresh clone. Nothing here depends on a particular mac
 
 A browser game in the style of Vampire Survivors, for single player and 2-player online versus play, rendered with ThorVG's `@thorvg/webcanvas`. Requirements are in `REQUIREMENTS.md`, written in Korean; ADRs cite its items by number. Every architectural choice is an ADR in `docs/adr/`. Read `docs/adr/README.md` first.
 
-Current state: the toolchain exists (pnpm workspace with `@vs/client`, `@vs/server` and `@vs/shared`, lint, format, tests, the pre-commit hook and CI's `pnpm check`), and the client boots: the main thread transfers the canvas to the game worker, which runs ThorVG (`gl`) and the fixed-step loop on a test scene (#2). No gameplay yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
+Current state: the toolchain exists (pnpm workspace with `@vs/client`, `@vs/server` and `@vs/shared`, lint, format, tests, the pre-commit hook and CI's `pnpm check`), and the client boots: the main thread transfers the canvas to the game worker, which runs ThorVG (`gl`) and the fixed-step loop on a test scene (#2). The server speaks the full room protocol (#18), with no client UI for it yet. No gameplay yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
 
 ## Workflow (mandatory)
 
@@ -101,7 +101,8 @@ pnpm server:up          # dev server in Docker on :8787, hot-reloading src (ADR 
 pnpm server:logs / server:sh / server:down   # follow logs, shell inside the container, stop and remove it
 pnpm server:image       # build the runtime image vs-server:local (non-root, production dependencies only)
 pnpm --filter server test                   # server unit tests on the host (allowed by .claude/rules/docker.md)
-pnpm --filter server exec node scripts/ws-hello.mjs http://localhost:5173   # WebSocket check against :8787/ws
+pnpm --filter server exec node scripts/ws-hello.mjs http://localhost:5173   # sends hello to :8787/ws, prints welcome (or the HTTP status of a refused upgrade)
+pnpm --filter server exec vitest run src/rooms.test.ts   # one server test file (registry, win rule; src/index.test.ts runs real ws clients)
 pnpm --filter client build && pnpm --filter client exec vite preview   # production build on :4173 under the ADR 0011 CSP
 pnpm check              # format:check → lint → typecheck → test → build → test:build; must pass before merge
 pnpm lint / pnpm lint:fix
@@ -133,7 +134,7 @@ Read the ADR for the full reasoning.
 
 - **Monorepo (ADR 0002):**
   - `packages/client` (`@vs/client`) is the Vite app with no UI framework (ADR 0009); its only runtime dependency is `@thorvg/webcanvas` (ADR 0011). `src/main` and `src/worker` are type-checked against DOM and WebWorker libs by separate tsconfigs (`tsconfig.main.json`, `tsconfig.worker.json`);
-  - `packages/server` (`@vs/server`) is the Node + `ws` relay, run in Docker (ADR 0010: `packages/server/Dockerfile`, `compose.yaml`); `GET /healthz` answers `ok`, WebSocket upgrades on `/ws` are accepted only from `ALLOWED_ORIGINS`, and `src/config.ts` reads `PORT` (8787), `LOG_LEVEL` and `ALLOWED_ORIGINS` (`.env.example`); `src/log.ts` writes JSON lines, never message bodies;
+  - `packages/server` (`@vs/server`) is the Node + `ws` relay, run in Docker (ADR 0010: `packages/server/Dockerfile`, `compose.yaml`); `GET /healthz` answers `ok`, WebSocket upgrades on `/ws` are accepted only from `ALLOWED_ORIGINS`, and `src/config.ts` reads `PORT` (8787), `LOG_LEVEL`, `ALLOWED_ORIGINS` and `TRUST_PROXY` (`.env.example`); `src/log.ts` writes JSON lines, never message bodies, nicknames or IPs; the modules are listed under Multiplayer below;
   - `packages/shared` (`@vs/shared`) holds protocol types and content data, with no DOM, worker or Node APIs; TypeScript, Vitest, the server's dev container (`development` condition) and the client (a Vite alias) read `src/index.ts`, while the runtime image runs the compiled `dist` (`default` condition);
   - the root `tsconfig.json` references every package, so `tsc -b` checks them all; `eslint.config.js`, `.prettierrc.json` and `vitest.config.ts` (projects `packages/*`) live at the root;
   - `assets/` holds the art and `manifest.json`.
@@ -180,7 +181,8 @@ Read the ADR for the full reasoning.
     - when several players die within 100 ms (server time), it is a draw;
     - a tab hidden for 30 seconds forfeits;
     - at the time limit the match ends and kills decide it, with no Death.
-  - Protocol types live in `shared/src/protocol.ts`, and the server validates every message.
+  - Protocol types live in `shared/src/protocol.ts` (#18): the constants (`PROTOCOL_VERSION`, room-code alphabet, `STATUS_MIN_INTERVAL_MS`, `DISCONNECT_GRACE_MS`, `SIMULTANEOUS_DEATH_WINDOW_MS`, `AFK_FORFEIT_MS`, `MAX_MESSAGE_BYTES` and others), the `ClientMessage`/`ServerMessage` unions, the hand-written validators `parseClientMessage`/`parseServerMessage` (exact fields, no extras) and `normalizeNickname`. The client's first message is `hello { v }`; a wrong version or any other first message gets `versionMismatch` and a 1008 close. In-match messages that arrive late (after `finished`, or from an eliminated player) are dropped, never errors.
+  - Server modules (`packages/server/src/`): `index.ts` (`startServer(config)`: `/healthz`, the `/ws` upgrade with the Origin allow-list and the 10-per-IP cap, the 15 s heartbeat), `connection.ts` (per socket: token bucket, size check, `try` parse, validation and the hello gate before anything reaches the registry; one `error` per violation, the second closes with 1008), `rooms.ts` (`RoomRegistry`: lobby, countdown, playing, finished and back to lobby after 5 s; status throttling, interference routing, the win rule, AFK and disconnect timers; no I/O, injected clock, timers and RNG), `limits.ts` (`TokenBucket`, `ConnectionCounter`, `JoinLockout`, `clientIp` with `TRUST_PROXY`) and `code.ts` (room codes from `crypto.randomInt`).
 - **Content (ADR 0008):** characters, weapons, passives, evolutions, enemies, waves and pickups are data in `shared/src/content/`. Systems interpret the data; each weapon's behaviour is chosen by its `pattern` field. The scope is fixed in ADR 0008: 8 weapons with evolutions, 8 passives, 3 characters, 1 stage, and no gold, unlocks, relics, shops or arcanas.
 - **Assets (ADR 0007):**
   - Code refers to logical IDs such as `enemy.bat`, resolved through `assets/manifest.json`. Never use file paths.

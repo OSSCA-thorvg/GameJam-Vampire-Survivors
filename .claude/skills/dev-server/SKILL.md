@@ -16,17 +16,17 @@ test -f .env || cp .env.example .env         # local env, never committed
 
 ## Common tasks
 
-| Task                       | Command                                                                             |
-| -------------------------- | ----------------------------------------------------------------------------------- |
-| Start, building if needed  | `pnpm server:up`                                                                    |
-| Follow logs                | `pnpm server:logs`                                                                  |
-| Health check               | `curl -fsS http://localhost:8787/healthz`                                           |
-| Status and health          | `docker compose ps`                                                                 |
-| WebSocket check            | `pnpm --filter server exec node scripts/ws-hello.mjs http://localhost:5173`         |
-| Shell inside the container | `pnpm server:sh`                                                                    |
-| Stop                       | `pnpm server:down`                                                                  |
-| Build the deployable image | `pnpm server:image` (target `runtime`, tag `vs-server:local`)                       |
-| Run the client against it  | `nvm use && pnpm --filter client dev` with `VITE_SERVER_URL=ws://localhost:8787/ws` |
+| Task                       | Command                                                                                                       |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Start, building if needed  | `pnpm server:up`                                                                                              |
+| Follow logs                | `pnpm server:logs`                                                                                            |
+| Health check               | `curl -fsS http://localhost:8787/healthz`                                                                     |
+| Status and health          | `docker compose ps`                                                                                           |
+| WebSocket check            | `pnpm --filter server exec node scripts/ws-hello.mjs http://localhost:5173` (sends `hello`, prints `welcome`) |
+| Shell inside the container | `pnpm server:sh`                                                                                              |
+| Stop                       | `pnpm server:down`                                                                                            |
+| Build the deployable image | `pnpm server:image` (target `runtime`, tag `vs-server:local`)                                                 |
+| Run the client against it  | `nvm use && pnpm --filter client dev` with `VITE_SERVER_URL=ws://localhost:8787/ws`                           |
 
 Source edits in `packages/server/src` and `packages/shared/src` hot-reload inside the container (`tsx watch --conditions=development` on the bind-mounted source). After changing dependencies or the lockfile, run `pnpm server:up` again so the image and its dependency volume are rebuilt.
 
@@ -47,5 +47,7 @@ Source edits in `packages/server/src` and `packages/shared/src` hot-reload insid
 - **Dependency errors after a pull:** run `docker compose down -v server` to drop the dependency volume, then `pnpm server:up`.
 - **Unhealthy container:** run `docker compose ps` and `pnpm server:logs`. The health check calls `/healthz`.
 - **WebSocket upgrade rejected with 403:** the page's `Origin` is not in `ALLOWED_ORIGINS` in `.env`. Add it there (comma-separated) and run `pnpm server:up` again.
-- **The server exits with `config_invalid`:** `LOG_LEVEL` must be `info` or `debug`, and `PORT` an integer.
+- **The server exits with `config_invalid`:** `LOG_LEVEL` must be `info` or `debug`, `PORT` an integer, and `TRUST_PROXY` `0` or `1`.
+- **Upgrade refused with 429:** the client IP already has 10 connections (ADR 0011). Close stale sockets; behind a reverse proxy set `TRUST_PROXY=1` so the cap applies per client, not to the proxy.
+- **`curl` upgrade checks answer 400 `Missing or invalid Sec-WebSocket-Key`:** the key must be 16 bytes in base64, such as `dGhlIHNhbXBsZSBub25jZQ==`; a shorter one is refused before the Origin is checked.
 - **A different Node version is wanted:** change `.nvmrc` in a PR. The image follows it through `NODE_VERSION`.

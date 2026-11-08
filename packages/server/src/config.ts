@@ -4,6 +4,11 @@ export interface ServerConfig {
   logLevel: 'info' | 'debug';
   /** `Origin` values allowed to open a WebSocket on `/ws` (ADR 0011). */
   allowedOrigins: string[];
+  /**
+   * Trust the right-most `x-forwarded-for` entry as the client IP (`TRUST_PROXY=1`), for a deployment behind one
+   * reverse proxy. Off by default: the socket's remote address is used, so clients cannot spoof their IP.
+   */
+  trustProxy: boolean;
 }
 
 /** `pnpm dev` (5173) and `verify-game`'s fixed port (5180, #31). */
@@ -15,7 +20,7 @@ function valueOf(raw: string | undefined): string | undefined {
   return value === undefined || value === '' ? undefined : value;
 }
 
-/** Reads `PORT`, `LOG_LEVEL` and `ALLOWED_ORIGINS`. Throws on an invalid value, so a bad deployment fails at startup. */
+/** Reads `PORT`, `LOG_LEVEL`, `ALLOWED_ORIGINS` and `TRUST_PROXY`. Throws on an invalid value, so a bad deployment fails at startup. */
 export function loadConfig(env: NodeJS.ProcessEnv): ServerConfig {
   const rawPort = valueOf(env.PORT) ?? '8787';
   const port = Number(rawPort);
@@ -33,5 +38,11 @@ export function loadConfig(env: NodeJS.ProcessEnv): ServerConfig {
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
 
-  return { port, logLevel, allowedOrigins };
+  const rawTrustProxy = valueOf(env.TRUST_PROXY) ?? '0';
+  if (rawTrustProxy !== '0' && rawTrustProxy !== '1') {
+    throw new Error(`TRUST_PROXY must be "0" or "1", got "${rawTrustProxy}"`);
+  }
+  const trustProxy = rawTrustProxy === '1';
+
+  return { port, logLevel, allowedOrigins, trustProxy };
 }

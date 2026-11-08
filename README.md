@@ -4,7 +4,7 @@ A browser game in the style of Vampire Survivors, for single player and 2-player
 
 ## Current state
 
-The toolchain is in place: a pnpm workspace with the `@vs/client`, `@vs/server` and `@vs/shared` packages, ESLint, Prettier, Vitest, a pre-commit hook and CI. The client boots ThorVG (WebGL) in a game worker on an `OffscreenCanvas` and runs the fixed-step loop on a test scene; no gameplay exists yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
+The toolchain is in place: a pnpm workspace with the `@vs/client`, `@vs/server` and `@vs/shared` packages, ESLint, Prettier, Vitest, a pre-commit hook and CI. The client boots ThorVG (WebGL) in a game worker on an `OffscreenCanvas` and runs the fixed-step loop on a test scene; the server runs rooms, match start, status relay, interference routing and the match result over the protocol in `packages/shared/src/protocol.ts`, with no client UI for it yet. No gameplay exists yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
 
 ## Development
 
@@ -32,7 +32,7 @@ pnpm build
 pnpm test:build     # check client build artifacts; run pnpm build first
 ```
 
-The pre-commit hook runs Prettier and ESLint on staged files; never bypass it with `--no-verify`. The server always runs in Docker (ADR 0010); the `dev-server` skill in `.claude/skills/` covers rebuilding, the runtime image and troubleshooting. `.env.example` lists the environment variables (`VITE_SERVER_URL`, `PORT`, `LOG_LEVEL`, `ALLOWED_ORIGINS`) with their defaults.
+The pre-commit hook runs Prettier and ESLint on staged files; never bypass it with `--no-verify`. The server always runs in Docker (ADR 0010); the `dev-server` skill in `.claude/skills/` covers rebuilding, the runtime image and troubleshooting. `.env.example` lists the environment variables (`VITE_SERVER_URL`, `PORT`, `LOG_LEVEL`, `ALLOWED_ORIGINS`, `TRUST_PROXY`) with their defaults.
 
 ## Where to look
 
