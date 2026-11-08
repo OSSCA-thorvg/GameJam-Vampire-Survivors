@@ -13,6 +13,8 @@ export type { ServerConfig } from './config.js';
 export interface RunningServer {
   /** The port the server is bound to (useful when started on port 0). */
   port: number;
+  /** The address the server is bound to, as `server.address()` reports it (`::` or `0.0.0.0` for the wildcard bind). */
+  address: string;
   close(): Promise<void>;
 }
 
@@ -134,11 +136,12 @@ export function startServer(config: ServerConfig): Promise<RunningServer> {
 
   return new Promise((resolve, reject) => {
     server.once('error', reject);
-    server.listen(config.port, () => {
+    server.listen(config.port, config.host, () => {
       server.off('error', reject);
-      const { port } = server.address() as AddressInfo;
+      const { port, address } = server.address() as AddressInfo;
       resolve({
         port,
+        address,
         close: () =>
           new Promise<void>((resolveClose, rejectClose) => {
             clearInterval(heartbeat);

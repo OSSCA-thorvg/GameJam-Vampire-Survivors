@@ -141,7 +141,12 @@ async function healthy(): Promise<boolean> {
 }
 
 beforeAll(async () => {
-  server = await startServer({ ...loadConfig({}), port: 0, allowedOrigins: [ALLOWED] });
+  server = await startServer({
+    ...loadConfig({}),
+    port: 0,
+    host: '127.0.0.1',
+    allowedOrigins: [ALLOWED],
+  });
   base = `127.0.0.1:${String(server.port)}`;
 });
 
@@ -156,6 +161,21 @@ afterAll(async () => {
 });
 
 describe('HTTP and upgrades', () => {
+  it('binds the requested host, so test servers listen on 127.0.0.1 only', () => {
+    expect(server.address).toBe('127.0.0.1');
+  });
+
+  it('binds every interface when no host is given, as the container does', async () => {
+    const config = loadConfig({});
+    expect(config.host).toBeUndefined();
+    const wildcard = await startServer({ ...config, port: 0, allowedOrigins: [ALLOWED] });
+    try {
+      expect(['::', '0.0.0.0']).toContain(wildcard.address);
+    } finally {
+      await wildcard.close();
+    }
+  });
+
   it('answers GET /healthz with 200 ok and no caching', async () => {
     const res = await fetch(`http://${base}/healthz`);
     expect(res.status).toBe(200);
@@ -308,7 +328,12 @@ describe('limits', () => {
 
   it('10 wrong codes in 60 s lock the IP out of joining, on every connection', async () => {
     // A server of its own, so the 60 s lockout of 127.0.0.1 does not leak into other tests.
-    const own = await startServer({ ...loadConfig({}), port: 0, allowedOrigins: [ALLOWED] });
+    const own = await startServer({
+      ...loadConfig({}),
+      port: 0,
+      host: '127.0.0.1',
+      allowedOrigins: [ALLOWED],
+    });
     const shared = base;
     base = `127.0.0.1:${String(own.port)}`;
     try {
