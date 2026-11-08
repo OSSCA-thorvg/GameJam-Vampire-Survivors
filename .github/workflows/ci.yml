@@ -88,6 +88,61 @@ jobs:
           unpinned=$(grep -nE '^\s*-?\s*uses:' .github/workflows/*.yml | grep -vE '@[0-9a-f]{40}( |$)' || true)
           [ -z "$unpinned" ] || { echo "::error::Unpinned actions:"; echo "$unpinned"; exit 1; }
 
+  # The server's runtime image builds and answers /healthz as the non-root node user (ADR 0010, .claude/rules/docker.md).
+  # Uses the runner's Docker directly (BuildKit is the default builder), so no third-party actions are needed.
+  # Docker container names need at least two characters, so the container is vs-server-ci.
+  server-image:
+    name: server image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Detect server changes
+        id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then range="$BASE"; else range="HEAD~1"; fi
+          changed=$(git diff --name-only "$range" HEAD)
+          if printf '%s\n' "$changed" | grep -Eq '^(packages/server/|packages/shared/|compose\.yaml$|\.dockerignore$|pnpm-lock\.yaml$|\.nvmrc$)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "skipped: no server changes"
+          fi
+      - name: Build the runtime image
+        if: steps.changes.outputs.run == 'true'
+        run: docker build --target runtime --build-arg NODE_VERSION=$(cat .nvmrc) -t vs-server:ci -f packages/server/Dockerfile .
+      - name: /healthz answers inside the container
+        if: steps.changes.outputs.run == 'true'
+        run: |
+          docker run -d --name vs-server-ci -p 8787:8787 vs-server:ci
+          for i in $(seq 20); do curl -fsS localhost:8787/healthz && echo && exit 0; sleep 1; done
+          echo "::error::/healthz did not answer within 20 s"; exit 1
+      - name: The container becomes healthy
+        if: steps.changes.outputs.run == 'true'
+        run: |
+          for i in $(seq 30); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' vs-server-ci)
+            [ "$status" = healthy ] && { echo "healthy"; exit 0; }
+            sleep 1
+          done
+          echo "::error::container health is '$status' after 30 s"; exit 1
+      - name: The container runs as node
+        if: steps.changes.outputs.run == 'true'
+        run: |
+          user=$(docker exec vs-server-ci id -un)
+          [ "$user" = node ] || { echo "::error::container runs as '$user', expected node"; exit 1; }
+          echo "user: $user"
+      - name: Container logs
+        if: failure() && steps.changes.outputs.run == 'true'
+        run: docker logs vs-server-ci
+
   # PR conventions (.claude/rules/pull-requests.md, commits.md).
   pr-rules:
     name: PR rules

@@ -1,0 +1,16 @@
+# Build context for packages/server/Dockerfile (ADR 0010): only manifests, the lockfile and server/shared sources.
+node_modules
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+.git
+assets
+docs
+coverage
+verification
+.env
+**/.env
+**/.env.*
+.claude
+packages/client/*
+!packages/client/package.json

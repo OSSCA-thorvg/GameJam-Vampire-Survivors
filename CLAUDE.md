@@ -82,15 +82,20 @@ The project skills in `.claude/skills/`:
 
 ## Commands
 
-Created by #1 (roadmap F1). Every command below is real except `pnpm server:up` / `server:logs` / `server:down`, which arrive with #4. Later issues add `pnpm assets:sync` (#3) and `pnpm verify:*` (#31); do not use them before those merge, and do not invent others. `npm install` and `yarn` are rejected by the `preinstall` check, and Node or pnpm versions outside `engines` fail the install (`engineStrict` in `pnpm-workspace.yaml`).
+Created by #1 (roadmap F1) and #4 (the server in Docker). Every command below is real. Later issues add `pnpm assets:sync` (#3) and `pnpm verify:*` (#31); do not use them before those merge, and do not invent others. `npm install` and `yarn` are rejected by the `preinstall` check, and Node or pnpm versions outside `engines` fail the install (`engineStrict` in `pnpm-workspace.yaml`).
 
 ```sh
 nvm use                 # Node version from .nvmrc (24)
 corepack enable         # provides the pnpm version pinned in package.json
 pnpm install            # npm and yarn are blocked; use pnpm only
-pnpm dev                # every package's dev script: client (Vite) on :5173, server (tsx watch) on :8787; #4 narrows it to the client
+pnpm dev                # client only (Vite on :5173); the server runs in Docker
 pnpm --filter client dev
-pnpm server:up / server:logs / server:down   # server in Docker (ADR 0010, dev-server skill); arrives with #4
+cp .env.example .env    # once; compose.yaml reads .env (never committed)
+pnpm server:up          # dev server in Docker on :8787, hot-reloading src (ADR 0010, dev-server skill)
+pnpm server:logs / server:sh / server:down   # follow logs, shell inside the container, stop and remove it
+pnpm server:image       # build the runtime image vs-server:local (non-root, production dependencies only)
+pnpm --filter server test                   # server unit tests on the host (allowed by .claude/rules/docker.md)
+pnpm --filter server exec node scripts/ws-hello.mjs http://localhost:5173   # WebSocket check against :8787/ws
 pnpm check              # format:check → lint → typecheck → test → build; must pass before merge
 pnpm lint / pnpm lint:fix
 pnpm format / pnpm format:check
@@ -107,8 +112,8 @@ Read the ADR for the full reasoning.
 
 - **Monorepo (ADR 0002):**
   - `packages/client` (`@vs/client`) is the Vite app with no UI framework (ADR 0009); its only runtime dependency is `@thorvg/webcanvas` (ADR 0011). `src/main` and `src/worker` are type-checked against DOM and WebWorker libs by separate tsconfigs (`tsconfig.main.json`, `tsconfig.worker.json`);
-  - `packages/server` (`@vs/server`) is the Node + `ws` relay; `GET /healthz` answers `ok`, and `PORT` defaults to 8787 (`.env.example`);
-  - `packages/shared` (`@vs/shared`) holds protocol types and content data, with no DOM, worker or Node APIs; it is consumed as TypeScript source (`exports` points at `src/index.ts`);
+  - `packages/server` (`@vs/server`) is the Node + `ws` relay, run in Docker (ADR 0010: `packages/server/Dockerfile`, `compose.yaml`); `GET /healthz` answers `ok`, WebSocket upgrades on `/ws` are accepted only from `ALLOWED_ORIGINS`, and `src/config.ts` reads `PORT` (8787), `LOG_LEVEL` and `ALLOWED_ORIGINS` (`.env.example`); `src/log.ts` writes JSON lines, never message bodies;
+  - `packages/shared` (`@vs/shared`) holds protocol types and content data, with no DOM, worker or Node APIs; TypeScript, Vitest, the server's dev container (`development` condition) and the client (a Vite alias) read `src/index.ts`, while the runtime image runs the compiled `dist` (`default` condition);
   - the root `tsconfig.json` references every package, so `tsc -b` checks them all; `eslint.config.js`, `.prettierrc.json` and `vitest.config.ts` (projects `packages/*`) live at the root;
   - `assets/` holds the art and `manifest.json`.
 - **Threads (ADR 0004):** the main thread (`client/src/main/`) owns the DOM UI, keyboard capture and the WebSocket. A dedicated module worker (`client/src/worker/`) owns the simulation and all ThorVG rendering, including the HUD, on an `OffscreenCanvas` transferred at startup. The two talk only through the typed messages in `client/src/protocol/worker-messages.ts`. Nothing in the worker may touch the DOM; nothing on the main thread may touch the canvas.

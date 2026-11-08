@@ -8,18 +8,21 @@ The toolchain is in place: a pnpm workspace with the `@vs/client`, `@vs/server` 
 
 ## Development
 
-Prerequisites: Git, nvm (or fnm or volta) and Corepack, which ships with Node 24. Docker is needed from #4 on, for the server. Then, once per clone:
+Prerequisites: Git, nvm (or fnm or volta), Corepack, which ships with Node 24, and Docker (Docker Desktop, OrbStack or Colima, running) for the server. Then, once per clone:
 
 ```sh
 nvm use           # Node 24 from .nvmrc
 corepack enable   # the pnpm version pinned in package.json
 pnpm install      # npm and yarn are rejected; also installs the pre-commit hook
+cp .env.example .env
 ```
 
 Everyday commands (the full list, including single-test commands, is in [`CLAUDE.md`](CLAUDE.md) § Commands):
 
 ```sh
-pnpm dev            # client on http://localhost:5173, server on http://localhost:8787
+pnpm server:up      # server in Docker on http://localhost:8787 (ws://localhost:8787/ws), hot-reloading
+pnpm dev            # client only, on http://localhost:5173
+pnpm server:logs / server:down
 pnpm check          # format:check → lint → typecheck → test → build; CI runs the same
 pnpm lint / pnpm lint:fix
 pnpm format / pnpm format:check
@@ -28,7 +31,7 @@ pnpm test
 pnpm build
 ```
 
-The pre-commit hook runs Prettier and ESLint on staged files; never bypass it with `--no-verify`. `.env.example` lists the environment variables (`VITE_SERVER_URL`, `PORT`) with their defaults.
+The pre-commit hook runs Prettier and ESLint on staged files; never bypass it with `--no-verify`. The server always runs in Docker (ADR 0010); the `dev-server` skill in `.claude/skills/` covers rebuilding, the runtime image and troubleshooting. `.env.example` lists the environment variables (`VITE_SERVER_URL`, `PORT`, `LOG_LEVEL`, `ALLOWED_ORIGINS`) with their defaults.
 
 ## Where to look
 
