@@ -1,8 +1,18 @@
+/// <reference types="node" />
+import { readFileSync } from 'node:fs';
+import type { AssetManifest } from '@vs/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FALLBACK_FONT, HUD_FONT, HUD_FONT_NAME, loadHudFont } from './thorvg';
 
 const BASE = 'http://localhost:5173/';
 const FONT_URL = 'http://localhost:5173/fonts/hud.ttf';
+const manifest: AssetManifest = {
+  version: 1,
+  assets: { 'font.hud': { file: 'fonts/hud.ttf', format: 'ttf' } },
+};
+const font = new Uint8Array(
+  readFileSync(new URL('../../../../../assets/fonts/hud.ttf', import.meta.url)),
+);
 
 function fakeTVG(
   load: (name: string, data: Uint8Array, options?: { type?: string }) => void = () => undefined,
@@ -30,15 +40,15 @@ describe('loadHudFont', () => {
   it("fetches fonts/hud.ttf from the asset base, registers it as 'hud' and points HUD_FONT at it", async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { TVG, calls } = fakeTVG();
-    const fetchFn = okFetch(new Uint8Array([0, 1, 0, 0, 42]));
+    const fetchFn = okFetch(font);
 
-    await expect(loadHudFont(TVG, BASE, fetchFn)).resolves.toBe('hud');
+    await expect(loadHudFont(TVG, BASE, manifest, fetchFn)).resolves.toBe('hud');
 
     expect(fetchFn).toHaveBeenCalledExactlyOnceWith(FONT_URL);
     expect(calls).toHaveLength(1);
     expect(calls[0]?.name).toBe(HUD_FONT_NAME);
     expect(calls[0]?.type).toBe('ttf');
-    expect(Array.from(calls[0]?.data ?? [])).toEqual([0, 1, 0, 0, 42]);
+    expect(calls[0]?.data).toEqual(font);
     // Live binding: importers of HUD_FONT see the new value.
     expect(HUD_FONT).toBe('hud');
     expect(warn).not.toHaveBeenCalled();
@@ -46,12 +56,18 @@ describe('loadHudFont', () => {
 
   it('resolves the font path against a non-root base URL', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const fetchFn = okFetch(new Uint8Array([1]));
-    await loadHudFont(fakeTVG().TVG, 'https://example.test/game/', fetchFn);
+    const fetchFn = okFetch(font);
+    await loadHudFont(fakeTVG().TVG, 'https://example.test/game/', manifest, fetchFn);
     expect(fetchFn).toHaveBeenCalledExactlyOnceWith('https://example.test/game/fonts/hud.ttf');
   });
 
   const failures: [string, typeof fetch, (() => void) | undefined][] = [
+    [
+      'HTML with status 200',
+      okFetch(new TextEncoder().encode('<!doctype html><html>missing</html>')),
+      undefined,
+    ],
+    ['invalid font bytes', okFetch(new Uint8Array([1, 2, 3])), undefined],
     [
       'the file is missing (404)',
       vi.fn<typeof fetch>(() => Promise.resolve(new Response('', { status: 404 }))),
@@ -64,7 +80,7 @@ describe('loadHudFont', () => {
     ],
     [
       'ThorVG rejects the data',
-      okFetch(new Uint8Array([1, 2, 3])),
+      okFetch(font),
       () => {
         throw new Error('Font.load("hud"): InvalidArguments');
       },
@@ -76,15 +92,38 @@ describe('loadHudFont', () => {
     async (_label, fetchFn, load) => {
       // Start from a successful load so the test proves the fallback resets HUD_FONT.
       vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-      await loadHudFont(fakeTVG().TVG, BASE, okFetch(new Uint8Array([1])));
+      await loadHudFont(fakeTVG().TVG, BASE, manifest, okFetch(font));
       expect(HUD_FONT).toBe('hud');
       vi.restoreAllMocks();
 
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-      await expect(loadHudFont(fakeTVG(load).TVG, BASE, fetchFn)).resolves.toBe(FALLBACK_FONT);
+      await expect(loadHudFont(fakeTVG(load).TVG, BASE, manifest, fetchFn)).resolves.toBe(
+        FALLBACK_FONT,
+      );
       expect(HUD_FONT).toBe('default');
       expect(warn).toHaveBeenCalledOnce();
       expect(String(warn.mock.calls[0]?.[0])).toContain(FONT_URL);
     },
   );
+});
+
+it('resolves the font through a relocated manifest entry', async () => {
+  const fetchFn = okFetch(font);
+  await loadHudFont(
+    fakeTVG().TVG,
+    BASE,
+    { version: 1, assets: { 'font.hud': { file: 'relocated.ttf', format: 'ttf' } } },
+    fetchFn,
+  );
+  expect(fetchFn).toHaveBeenCalledExactlyOnceWith(BASE + 'relocated.ttf');
+});
+it('falls back without fetching when font.hud is absent', async () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  const fetchFn = okFetch(font);
+  expect(await loadHudFont(fakeTVG().TVG, BASE, { version: 1, assets: {} }, fetchFn)).toBe(
+    'default',
+  );
+  expect(fetchFn).not.toHaveBeenCalled();
+  expect(warn).toHaveBeenCalledOnce();
+  vi.restoreAllMocks();
 });

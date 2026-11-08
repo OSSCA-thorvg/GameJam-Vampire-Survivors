@@ -16,6 +16,7 @@ export type MainToWorker =
       height: number;
       scale: number;
       assetBaseUrl: string;
+      debug?: { gallery: boolean };
     }
   | { type: 'resize'; width: number; height: number; scale: number }
   | { type: 'input'; dx: Axis; dy: Axis }
@@ -28,6 +29,8 @@ export type MainToWorker =
 
 export type WorkerToMain =
   | { type: 'ready'; renderer: 'gl' }
+  | { type: 'loadProgress'; loaded: number; total: number }
+  | { type: 'assetsReady'; placeholders: string[] }
   | { type: 'fatal'; message: string }
   | { type: 'stats'; fps: number; stepsPerSecond: number }
   | TestSnapshotReply;

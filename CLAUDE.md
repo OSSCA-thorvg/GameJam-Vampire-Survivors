@@ -20,7 +20,7 @@ For a new contributor in a fresh clone. Nothing here depends on a particular mac
 
 A browser game in the style of Vampire Survivors, for single player and 2-player online versus play, rendered with ThorVG's `@thorvg/webcanvas`. Requirements are in `REQUIREMENTS.md`, written in Korean; ADRs cite its items by number. Every architectural choice is an ADR in `docs/adr/`. Read `docs/adr/README.md` first.
 
-Current state: the toolchain exists (pnpm workspace with `@vs/client`, `@vs/server` and `@vs/shared`, lint, format, tests, the pre-commit hook and CI's `pnpm check`), and the client boots: the main thread transfers the canvas to the game worker, which runs ThorVG (`gl`) and the fixed-step loop on a test scene (#2). The server speaks the full room protocol (#18), with no client UI for it yet. No gameplay yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
+Current state: the toolchain exists (pnpm workspace with `@vs/client`, `@vs/server` and `@vs/shared`, lint, format, tests, the pre-commit hook and CI's `pnpm check`), and the client boots: the main thread transfers the canvas to the game worker, which runs ThorVG (`gl`) and the fixed-step loop on a test scene (#2). The server speaks the full room protocol (#18), with no client UI for it yet. The manifest asset library, cached masters, loading progress and development gallery are available (#3). No gameplay yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
 
 ## Workflow (mandatory)
 
@@ -88,7 +88,7 @@ The project skills in `.claude/skills/`:
 
 ## Commands
 
-Created by #1 (roadmap F1), #4 (the server in Docker), #46, #47 and #31 (`verify:*`). Every command below is real. A later issue adds `pnpm assets:sync` (#3); do not use it before it merges, and do not invent others. `npm install` and `yarn` are rejected by the `preinstall` check, and Node or pnpm versions outside `engines` fail the install (`engineStrict` in `pnpm-workspace.yaml`).
+Created by #1 (roadmap F1), #4 (the server in Docker), #46, #47 and #31 (`verify:*`). Every command below is real. `pnpm assets:sync` (#3) regenerates the catalog ID contract; do not invent other commands. `npm install` and `yarn` are rejected by the `preinstall` check, and Node or pnpm versions outside `engines` fail the install (`engineStrict` in `pnpm-workspace.yaml`).
 
 ```sh
 nvm use                 # Node version from .nvmrc (24)
@@ -104,10 +104,11 @@ pnpm --filter server test                   # server unit tests on the host (all
 pnpm --filter server exec node scripts/ws-hello.mjs http://localhost:5173   # sends hello to :8787/ws, prints welcome (or the HTTP status of a refused upgrade)
 pnpm --filter server exec vitest run src/rooms.test.ts   # one server test file (registry, win rule; src/index.test.ts runs real ws clients)
 pnpm --filter client build && pnpm --filter client exec vite preview   # production build on :4173 under the ADR 0011 CSP
-pnpm check              # format:check → lint → typecheck → test → build → test:build; must pass before merge
+pnpm check              # format:check → lint → typecheck → test → verify CLI tests → build → test:build; must pass before merge
 pnpm lint / pnpm lint:fix
 pnpm format / pnpm format:check
 pnpm typecheck
+pnpm assets:sync                            # regenerate shared asset IDs/sizes from assets/CATALOG.md
 pnpm test                                   # all packages (Vitest)
 pnpm --filter shared test -- src/content    # one package, one path
 pnpm --filter client exec vitest run -t "spawns enemies"   # single test by name
@@ -146,7 +147,7 @@ Read the ADR for the full reasoning.
   - Never create or dispose Paints per frame.
   - Do not use the `/thread` build.
   - `worker/render/thorvg.ts` `initThorVG` returns `{ TVG, canvas, root }`; later layers go under the scaled `root` scene. `thorvg.wasm` is served from `/thorvg/thorvg.wasm` by the `copyThorvgWasm` plugin in `vite.config.ts`.
-  - Every ThorVG `Text` uses `text.font(HUD_FONT)`, read after `initThorVG` resolves (ADR 0013). `initThorVG` fetches `fonts/hud.ttf` (`assets/fonts/hud.ttf`, asset ID `font.hud`: Noto Sans Mono Regular subset to printable ASCII `U+0020`–`U+007E`, OFL, under 15 KB) and registers it as `'hud'`; if that fails it logs one warning and `HUD_FONT` stays `'default'`, the built-in font, which lacks `:`, `/`, `%` and most punctuation. ThorVG text stays printable ASCII (numbers, English labels); Korean text and every nickname are DOM text set with `textContent` (ADR 0009). Rebuild the subset only with `scripts/make-hud-font.sh`.
+  - Every ThorVG `Text` uses `text.font(HUD_FONT)`, read after `initThorVG` resolves (ADR 0013). `initThorVG` resolves `font.hud` through the already validated asset manifest and fetches its `fonts/hud.ttf` file (`assets/fonts/hud.ttf`, asset ID `font.hud`: Noto Sans Mono Regular subset to printable ASCII `U+0020`–`U+007E`, OFL, under 15 KB) and registers it as `'hud'`; if that fails it logs one warning and `HUD_FONT` stays `'default'`, the built-in font, which lacks `:`, `/`, `%` and most punctuation. ThorVG text stays printable ASCII (numbers, English labels); Korean text and every nickname are DOM text set with `textContent` (ADR 0009). Rebuild the subset only with `scripts/make-hud-font.sh`.
   - Production builds remove only the unused `assets/thorvg-*.wasm` copy through `removeDuplicateThorvgWasm`. `src/build.test.ts` checks the real output with `vitest.build.config.ts` after `pnpm build`; ordinary unit tests exclude it through `vitest.config.ts`.
 - **Simulation (ADR 0004):**
   - Fixed 60 Hz step with an accumulator, at most 5 steps per frame.
@@ -185,7 +186,10 @@ Read the ADR for the full reasoning.
   - Server modules (`packages/server/src/`): `index.ts` (`startServer(config)`: `/healthz`, the `/ws` upgrade with the Origin allow-list and the 10-per-IP cap, the 15 s heartbeat), `connection.ts` (per socket: token bucket, size check, `try` parse, validation and the hello gate before anything reaches the registry; one `error` per violation, the second closes with 1008), `rooms.ts` (`RoomRegistry`: lobby, countdown, playing, finished and back to lobby after 5 s; status throttling, interference routing, the win rule, AFK and disconnect timers; no I/O, injected clock, timers and RNG), `limits.ts` (`TokenBucket`, `ConnectionCounter`, `JoinLockout`, `clientIp` with `TRUST_PROXY`) and `code.ts` (room codes from `crypto.randomInt`).
 - **Content (ADR 0008):** characters, weapons, passives, evolutions, enemies, waves and pickups are data in `shared/src/content/`. Systems interpret the data; each weapon's behaviour is chosen by its `pattern` field. The scope is fixed in ADR 0008: 8 weapons with evolutions, 8 passives, 3 characters, 1 stage, and no gold, unlocks, relics, shops or arcanas.
 - **Assets (ADR 0007):**
-  - Code refers to logical IDs such as `enemy.bat`, resolved through `assets/manifest.json`. Never use file paths.
+  - Code refers to logical IDs such as `enemy.bat`, resolved through `assets/manifest.json`. Never use file paths. `pnpm assets:sync` generates `ASSET_IDS` and `ASSET_SIZES` in `shared/src/generated/asset-ids.ts` from the catalog; fonts have null sizes. Manifest validation accepts drawable SVG/Lottie/PNG/WebP plus non-drawable TTF entries.
+  - `worker/assets/library.ts` `AssetLibrary` fetches drawable files once, caches static masters and duplicates instances; Lottie instances load cached JSON and own independent playback. `render/transform.ts` applies anchor/rotation/scale/flip in one reused matrix. Missing drawable art is magenta. The seeded manifest has three new art samples, the existing favicon and `font.hud`.
+  - Boot fetches/validates the manifest once, initializes ThorVG and the HUD font, reports `loadProgress`, builds the scene/debug hooks and starts the loop, then posts `assetsReady` and `ready`. Main shows `Loading n/total` until completion. The font validates TrueType framing, including HTML-with-200 failures, and falls back with one warning.
+  - Dev/e2e `/?gallery` labels every drawable catalog ID, skips fonts, shows anchor crosses and pans with arrow keys. Snapshot fields `assets` (`ready`, `loaded`, `total`, `placeholders`, `font`) and `gallery` (`ids`, `panX`, `panY`, `width`, `height`, `lottieFrame`) are read-only and stripped from production.
   - Vector first. Entities shown in large numbers have at most 4 paths, no strokes and no gradients, within the entity caps in the ADR.
   - Missing assets render as a magenta placeholder.
   - Only original or licensed art; nothing copied from the original game.

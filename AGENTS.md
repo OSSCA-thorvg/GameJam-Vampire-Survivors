@@ -2,14 +2,17 @@
 
 ## Project structure and commands
 
-`packages/client/src/main/` owns DOM UI; `packages/client/src/worker/` owns simulation and ThorVG rendering. `packages/shared/src/` holds portable types and data; `packages/server/src/` runs in Docker. Art lives in `assets/` with `CATALOG.md`; architecture and scope live in `docs/adr/`, `docs/roadmap.md`, and `REQUIREMENTS.md`.
+`packages/client/src/main/` owns DOM UI; `packages/client/src/worker/` owns simulation and ThorVG rendering. `packages/shared/src/` holds portable types and data; `packages/server/src/` runs in Docker. Art lives in `assets/` with `CATALOG.md` and `manifest.json`; architecture and scope live in `docs/adr/`, `docs/roadmap.md`, and `REQUIREMENTS.md`.
 
 Use Node 24: `nvm use`, `corepack enable`, `pnpm install`.
 
+- `pnpm assets:sync`: regenerate shared asset IDs/sizes after catalog edits.
 - `pnpm dev`: client on :5173. `pnpm server:up`: Docker server on :8787.
-- `pnpm check`: format, lint, typecheck, Vitest, build, then `test:build`.
+- `pnpm check`: format, lint, typecheck, Vitest, verify-CLI argument tests, build, then `test:build`.
 - `pnpm format`, `pnpm lint:fix`: fixes. `pnpm test`: unit suites. `pnpm test:build`: requires built artifacts.
 - `pnpm verify:e2e --issue <N>`: browser smoke/native hidden-tab tests and cleanup (`--project chromium` selects headless smoke).
+
+Add asset IDs to `assets/CATALOG.md`, run `pnpm assets:sync`, then add the file and manifest entry; `/?gallery` in development previews drawable IDs and anchors. Fonts remain non-drawable manifest entries with their source/license records.
 
 Use two spaces, single quotes, semicolons, strict TypeScript, ESLint, and Prettier. Name colocated Vitest tests `*.test.ts`.
 
