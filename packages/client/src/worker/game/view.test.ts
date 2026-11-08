@@ -42,6 +42,9 @@ it('creates every paint once: ground, garlic, gem, chest, elite marker, enemy, p
   // #15: the bosses, the chests and the evolved art.
   expect(byId('boss.reaper5')).toHaveLength(2);
   expect(byId('boss.reaper10')).toHaveLength(2);
+  for (const id of ['skeleton', 'wisp', 'brute', 'wraith'])
+    expect(byId(`enemy.${id}`), id).toHaveLength(200);
+  expect(byId('boss.death')).toHaveLength(2);
   expect(byId('pickup.chest')).toHaveLength(16);
   expect(byId('weapon.holyWand')).toHaveLength(100);
   for (const id of ['weapon.thousandEdge', 'weapon.deathSpiral'])
@@ -68,8 +71,8 @@ it('creates every paint once: ground, garlic, gem, chest, elite marker, enemy, p
   // The 16 elite markers (#15), the HP fill and the XP fill; the level, the timer and the kill counter.
   expect(byId('Shape')).toHaveLength(18);
   expect(byId('Text')).toHaveLength(3);
-  expect(view.countPaints()).toBe(1934);
-  expect(paints).toHaveLength(1955);
+  expect(view.countPaints()).toBe(2736);
+  expect(paints).toHaveLength(2757);
 });
 
 it('follows the camera, snapped to device pixels', () => {
@@ -191,9 +194,10 @@ it('dims a hit enemy to 140 while it flashes, writing opacity only on change, an
   const base = sprite.opacityWrites;
   view.render(world);
   record();
-  damageEnemy(world, bat, 1, 1, 0, 0);
+  damageEnemy(world, bat, 1, 1, 0, 0, 0);
   world.weaponContext.spawnProjectile('weapon.magicWand', 10, 20, 0, 300, {
     damage: 1,
+    weaponSlot: 0,
     knockback: 0,
     radius: 6,
     pierce: 1,

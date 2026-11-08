@@ -8,7 +8,7 @@ Experience gems (#11, ADRs 0007, 0008): every killed enemy drops a gem worth its
 - **Lying still:** a gem more than 60 units (`BASE_PICKUP_RANGE`) from the player keeps its position (`gemPositions` x, y unchanged) for as long as the run lasts; gems never despawn.
 - **Magnet and collection:** within 60 units a gem starts flying toward the player (150 units/s, +600 units/s²) and follows him even when he walks away; within 14 units it disappears and `player.xp` rises by its value.
 - **XP bar:** the `ui.xpBar` frame spans the top edge of the view with a blue fill at `xp / xpToNext(level)` of its width, and `Lv n` at its right end; the `mm:ss` timer sits just below it. When `xp` reaches the requirement the level-up dialog opens (`level-up.md`).
-- **Cap and merge gem:** at most `GEM_CAP` 400 normal gems plus one red merge gem live (`gems` at most 401); drops beyond the cap add their value to the merge gem, created at the first overflowing drop's position; collecting it can give several levels at once. Unit-tested only (`gems.test.ts`), see Gotchas.
+- **Cap and merge gem:** at most `GEM_CAP` 400 normal gems plus one red merge gem live (`gems` at most 401); drops beyond the cap add their value to the merge gem, created at the first overflowing drop's position; collecting it can give several levels at once. Journey 5 (#17) reaches the cap live: with `I` on and `]` (via `forwardTo`), `gems` reaches 401 by about 4:00 of a standing run and the red row in `gemPositions` worth more than 10 XP is the merge gem; its value keeps growing while `gems` stays at 401 (573 → 1410 XP from 4:00 to 5:00 in #17's run). Value conservation is level 4 (`gems.test.ts`).
 - Snapshot fields: `gems` (live gem count), `gemPositions`, `player.xp`, `player.level`, registered in `worker/index.ts` (`worker/game/snapshot.ts`).
 
 ## How to get to it (user POV)
@@ -22,17 +22,19 @@ Open the game URL and press Enter on "Start". Standing still, the Whip kills bat
 1. `tabs_context_mcp` `{ createIfEmpty: true }`, use the group's new empty tab; `navigate` to `http://localhost:5180/`; `javascript_tool` `await window.__vsTest.waitFor((s) => s.state === 'title', 30000)`; `computer` `key` `Enter`.
 2. `javascript_tool` `JSON.stringify((await window.__vsTest.waitFor((s) => s.gems > 0, 30000)).gemPositions)` → rows with tier 0 and value 1; wait 0.4 s and `screenshot`, `zoom` around the player → small blue gems lying right of the player. If `state` is `'levelUp'`, `computer` `key` `1` first.
 3. Pick a `gemPositions` row more than 80 units from `player`; `computer` `key` `ArrowRight` (or `ArrowLeft`) with `repeat` until the player is within 60 units of it (the extension's presses are short taps, so it takes several); `javascript_tool` the snapshot again → that uid is gone and `player.xp` (or `player.level`) rose.
-4. `zoom` the top edge → the blue fill of the XP bar and `Lv n` at the right; `tabs_close_mcp` on the tab.
+4. `zoom` the top edge → the blue fill of the XP bar and `Lv n` at the right.
+5. Merge gem (#17): reload and start, `computer` `key` `i`, then `]` repeatedly (pressing `1` on level-ups and Enter on chests) until `gems` is 401; `javascript_tool` the snapshot → one `gemPositions` row with tier 2 and a value above 10; `screenshot`; one more `]` → `gems` still 401 and that row's value higher. `tabs_close_mcp` on the tab.
 
 ### Playwright
 
-Save the spec as `verification/issue-<N>/journeys/xp-gems.spec.ts`. After `pnpm verify:launch` and `pnpm verify:doctor`, run `VERIFY_JOURNEYS=verification/issue-<N>/journeys VERIFY_EVIDENCE_DIR=$PWD/verification/issue-<N> pnpm exec playwright test -c e2e/playwright.config.ts --project chromium -g xp-gems`. Evidence: `xp-gems-1-collect/` (`collect.json` with the target gem before and after, the walk and the XP gained; `zoom-gem-on-ground.png`, `zoom-xp-bar.png` and full screenshots).
+Save the spec as `verification/issue-<N>/journeys/xp-gems.spec.ts`. After `pnpm verify:launch` and `pnpm verify:doctor`, run `VERIFY_JOURNEYS=verification/issue-<N>/journeys VERIFY_EVIDENCE_DIR=$PWD/verification/issue-<N> pnpm exec playwright test -c e2e/playwright.config.ts --project chromium -g xp-gems`. Journey 5 needs the `I` and `]` debug keys as preconditions. Evidence: `xp-gems-5-merge/` (`merge.json` with `gems`, the merge gem row and `kills` per press; screenshots at the cap and a minute later), `xp-gems-1-collect/` (`collect.json` with the target gem before and after, the walk and the XP gained; `zoom-gem-on-ground.png`, `zoom-xp-bar.png` and full screenshots).
 
 ```ts
-// Feature-map journeys for .claude/skills/verify-game/features/xp-gems.md (#11).
+// Feature-map journeys for .claude/skills/verify-game/features/xp-gems.md (#11; journey 5 since #17).
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import {
+  forwardTo,
   holdKeys,
   noteEvidence,
   pageErrors,
@@ -153,11 +155,54 @@ test('xp-gems 1: kills drop gems where they die, walking near one pulls it in, X
     ev.flush();
   }
 });
+
+test('xp-gems 5: past 400 gems on the ground, further drops go into one red merge gem (I and ] as preconditions)', async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(300_000);
+  const ev = startEvidence(page, 'xp-gems-5-merge');
+  noteEvidence(testInfo, ev);
+  try {
+    await startRun(page);
+    await page.keyboard.press('i'); // precondition only: invulnerability (#17)
+    await waitForSnapshot(page, (s) => s.debugInvulnerable === true, 2_000);
+    const samples: { timeS: number; gems: number; merge: GemRow | null; kills: number }[] = [];
+    // The merge gem is the only red gem worth more than any enemy drops (wraith, 10 XP).
+    const merge = (s: GameSnapshot) =>
+      gemRows(s).find(([, tier, , , v]) => tier === 2 && v > 10) ?? null;
+    const record = (s: GameSnapshot) => {
+      samples.push({ timeS: s.timeS, gems: gems(s), merge: merge(s), kills: s.kills as number });
+    };
+    // Standing still, gems of kills beyond the magnet pile up; `]` until the cap is reached and a merge gem exists.
+    for (let minute = 1; minute <= 14; minute++) {
+      const s = await forwardTo(page, minute * 60, record);
+      record(s);
+      if (gems(s) >= 400 && merge(s)) break;
+    }
+    const capped = samples.find((x) => x.gems >= 400 && x.merge);
+    if (!capped) throw new Error('the gem cap was not reached by minute 14');
+    await ev.shot('cap-and-merge-gem');
+    // More drops: the count stays at the cap and the merge gem's value grows.
+    const later = await forwardTo(page, capped.timeS + 60, record);
+    record(later);
+    await ev.shot('merge-gem-later');
+    ev.json('merge', { samples, capped, later: samples.at(-1) });
+    expect(Math.max(...samples.map((x) => x.gems))).toBeLessThanOrEqual(401);
+    expect(samples.filter((x) => x.merge).length).toBeGreaterThan(0);
+    const last = samples.at(-1);
+    expect(last?.gems).toBeLessThanOrEqual(401);
+    if (last?.merge && last.kills > capped.kills && last.merge[0] === capped.merge?.[0])
+      expect(last.merge[4]).toBeGreaterThan(capped.merge[4]);
+    expect(pageErrors(ev)).toEqual([]);
+  } finally {
+    ev.flush();
+  }
+});
 ```
 
 ## Gotchas
 
 - A fresh gem lies under the grey death puff for 0.3 s; the journey waits 0.35 s before its screenshot (2026-11-08, #11).
 - Standing still, bats killed within 60 units are collected at once and the first level-up comes after 7–8 s; the journey answers dialogs with `1` while it looks for a gem outside the magnet range (2026-11-08, #11).
-- The cap and merge gem (more than 400 gems on the ground) are not reachable in a live run yet: a standing player dies within about 20 s with about 40 kills, and `]` stops at the first level-up and ends in death. Until #17's invulnerability (`KeyI`) exists, the cap is proven at level 4 only (`packages/client/src/worker/game/gems.test.ts`: value conservation past the cap, over a whole simulated run, and a new merge gem after the first is collected). With `KeyI`: press it, then `]` several times answering level-ups, and read `gems` (at most 401) and the red row in `gemPositions` (2026-11-08, #11).
+- The cap and merge gem were not reachable in a live run before #17: a standing player died within about 20 s, and `]` stops at the first level-up. Journey 5 now drives it with `I` and `forwardTo`; that XP is not lost past the cap stays level 4 (`gems.test.ts`), since the snapshot cannot sum XP across level-ups (2026-11-08, #11; journey 5 added 2026-11-08, #17).
 - Magnet radius, fly speed and the cap are initial values, untuned against footage (`docs/reference/gameplay.md` § Experience gems) (2026-11-08, #11).

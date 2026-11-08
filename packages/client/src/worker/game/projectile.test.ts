@@ -7,6 +7,7 @@ import type { World } from './world';
 const DT = 1 / 60;
 const bolt = (overrides: Partial<ProjectileOptions> = {}): ProjectileOptions => ({
   damage: 10,
+  weaponSlot: 0,
   knockback: 0,
   radius: 6,
   pierce: 1,

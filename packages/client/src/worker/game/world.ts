@@ -1,5 +1,5 @@
 import { createRng, type CharacterId, type ChestReward, type Rng } from '@vs/shared';
-import type { Axis, RunStats } from '../../protocol/worker-messages';
+import type { Axis, Finale, RunStats, RunSummary } from '../../protocol/worker-messages';
 import type { PaintPool } from '../render/pool';
 import { cameraSystem, createCamera, type Camera } from './camera';
 import { chestDropSystem, createChestState, type ChestState } from './chests';
@@ -14,17 +14,20 @@ import { createPickupState, type PickupState } from './pickups';
 import { createPlayer, playerMovementSystem, type PlayerState } from './player';
 import { type PassivesState } from './passives';
 import { createProjectileState, projectileSystem, type ProjectileState } from './projectiles';
+import { buildRunSummary, createRunStatsState, type RunStatsState } from './run-stats';
 import { applyCharacter, resolveCharacter } from './start-run';
 import { bossTetherSystem } from './systems/bosses';
 import { chestOpenSystem } from './systems/chest-open';
 import { contactDamageSystem } from './systems/contact-damage';
 import { enemyMovementSystem } from './systems/enemy-movement';
 import { enemyRelocateSystem } from './systems/enemy-relocate';
+import { finaleSystem } from './systems/finale';
 import type { FreezeState } from './systems/freeze';
 import { lightSourceSystem } from './systems/light-sources';
 import { pickupSystem } from './systems/pickups';
 import { recoverySystem } from './systems/recovery';
 import { spawnerSystem } from './systems/spawner';
+import { stageEventSystem } from './systems/stage-events';
 import { createWeaponContext, type WeaponContext } from './weapons/context';
 import { type WeaponsState } from './weapons/owned';
 import { createWeaponVisuals, type WeaponVisuals } from './weapons/visuals';
@@ -46,8 +49,13 @@ export interface WorldOptions {
   pickupPools?: readonly PaintPool[];
   /** The view's chest pool (`GameView.chestPool`, #15); omitted like `enemyPools`. */
   chestPool?: PaintPool;
-  /** Called once, with the final stats, in the step where HP reaches 0. */
-  onGameOver?: (stats: RunStats) => void;
+  /** What the time limit does (#17); `'death'` when omitted. */
+  finale?: Finale;
+  /**
+   * Called once, with the run's summary, in the step where HP reaches 0 or a `finale: 'end'` run reaches the time
+   * limit.
+   */
+  onGameOver?: (summary: RunSummary) => void;
 }
 
 /** All state for one run. Later issues add their state here. */
@@ -62,7 +70,8 @@ export interface World
     LightState,
     PickupState,
     FreezeState,
-    ChestState {
+    ChestState,
+    RunStatsState {
   readonly seed: number;
   /** The character played (#14), always a known id: `startRun`'s id, or `CHARACTERS[0]` when that was unknown. */
   readonly characterId: CharacterId;
@@ -105,8 +114,17 @@ export interface World
   readonly weaponVisuals: WeaponVisuals;
   /** This step's events (#9): cleared before the first system, so each event lives for exactly one step. */
   readonly events: EventQueue;
-  /** Set to `'dead'` by the contact damage system when HP reaches 0; that step ends early and a dead world no longer steps. */
-  state: 'running' | 'dead';
+  /**
+   * Set to `'dead'` by the contact damage system when HP reaches 0, or to `'ended'` by the finale of a `finale: 'end'`
+   * run (#17); that step ends early and the world no longer steps.
+   */
+  state: 'running' | 'dead' | 'ended';
+  /** What the time limit does (#17). */
+  readonly finale: Finale;
+  /** The next entry of `STAGE.events` to fire (#17); also the number fired so far. */
+  nextEventIndex: number;
+  /** Set once `time` reaches `STAGE.durationSec` (#17): the spawner and the stage events stop. */
+  cleared: boolean;
   /** `rng.fork('levelup')`: the level-up options' only randomness (#11). */
   readonly levelUpRng: Rng;
   /**
@@ -122,8 +140,9 @@ export interface World
   /** Shown on the results screen. `kills` rises from #10, `level` from #11; `timeSec` mirrors `time`. */
   readonly stats: RunStats;
   /**
-   * Runs `SYSTEMS` in order, then advances `time`; calls `onGameOver` in the step that ends dead. Does nothing once
-   * dead, while a level-up choice is pending, or while a chest is open (#15).
+   * Runs `SYSTEMS` in order, then advances `time` (not in the step that ends the run at the time limit); calls
+   * `onGameOver` in the step that ends the run (dead or ended). Does nothing once the run is over, while a level-up
+   * choice is pending, or while a chest is open (#15).
    */
   step(dt: number): void;
 }
@@ -145,7 +164,9 @@ export const SYSTEMS: readonly System[] = [
   playerMovementSystem,
   cameraSystem,
   lightSourceSystem,
+  finaleSystem,
   spawnerSystem,
+  stageEventSystem,
   enemyMovementSystem,
   enemyRelocateSystem,
   bossTetherSystem,
@@ -173,12 +194,13 @@ export function createWorld({
   lightPools,
   pickupPools,
   chestPool,
+  finale = 'death',
   onGameOver,
 }: WorldOptions): World {
   const rng = createRng(seed);
   const character = resolveCharacter(characterId);
   // A function, so TypeScript does not narrow `state` across the systems that may change it.
-  const dead = (): boolean => world.state === 'dead';
+  const over = (): boolean => world.state !== 'running';
   const world: World = {
     seed,
     characterId: character.id,
@@ -196,6 +218,7 @@ export function createWorld({
     ...createPickupState(rng, pickupPools),
     freezeUntil: 0,
     ...createChestState(chestPool),
+    ...createRunStatsState(),
     weapons: [],
     passives: [],
     weaponRng: rng.fork('weapons'),
@@ -216,18 +239,22 @@ export function createWorld({
     pendingLevelUps: 0,
     events: createEventQueue(),
     state: 'running',
+    finale,
+    nextEventIndex: 0,
+    cleared: false,
     damageDealt: { hits: 0, total: 0 },
     stats: { timeSec: 0, kills: 0, level: 1 },
     step(dt) {
-      if (dead() || world.pendingLevelUps > 0 || world.chestRewards) return;
+      if (over() || world.pendingLevelUps > 0 || world.chestRewards) return;
       world.events.clear();
       for (const system of SYSTEMS) {
         system(world, dt);
-        if (dead()) break;
+        if (over()) break;
       }
-      world.time += dt;
+      // An ended run stops at the time limit itself (#17).
+      if (world.state !== 'ended') world.time += dt;
       world.stats.timeSec = world.time;
-      if (dead()) onGameOver?.({ ...world.stats });
+      if (over()) onGameOver?.(buildRunSummary(world));
     },
   };
   const weaponContext = createWeaponContext(world);

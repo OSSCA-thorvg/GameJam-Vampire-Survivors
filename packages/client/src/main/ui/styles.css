@@ -98,6 +98,29 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The results screen (#17): weapons and passives side by side, so six of each fit a 720 px view. */
+.screen.results {
+  overflow-y: auto;
+}
+
+.screen.results .items {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: var(--gap) 3rem;
+}
+
+.screen.results h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+  opacity: 0.75;
+}
+
+.screen.results .items .stats {
+  font-size: 1rem;
+}
+
 /* The level-up choice (#11): one card per option, icon on the left. */
 .screen.levelup .cards {
   width: min(32rem, 92vw);

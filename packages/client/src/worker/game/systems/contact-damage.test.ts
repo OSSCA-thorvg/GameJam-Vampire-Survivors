@@ -1,4 +1,4 @@
-import { HIT_INVULN_SEC, PLAYER_RADIUS } from '@vs/shared';
+import { ENEMIES, HIT_INVULN_SEC, PLAYER_RADIUS } from '@vs/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { spawnEnemy } from '../enemies';
 import type { World } from '../world';
@@ -7,7 +7,7 @@ import { contactDamageSystem } from './contact-damage';
 
 const DT = 1 / 60;
 
-/** Ten enemies on the player: five bats (damage 5) and five ghouls (damage 10). */
+/** Ten enemies on the player: five bats (damage 5) and five ghouls (damage 8). */
 function crowded(onGameOver?: () => void): World {
   const world = createBaseWorld({ seed: 1, onGameOver });
   // Keep the spawner quiet so only the crowd below touches the player.
@@ -23,24 +23,24 @@ function contactStep(world: World): void {
 }
 
 describe('contact damage', () => {
-  it('lands one hit of the strongest touching enemy: 10 overlapping enemies of damage 5 and 10 deal exactly 10', () => {
+  it('lands one hit of the strongest touching enemy: 10 overlapping enemies of damage 5 and 8 deal exactly 8', () => {
     const world = crowded();
     contactStep(world);
-    expect(world.player.hp).toBe(90);
+    expect(world.player.hp).toBe(92);
     expect(world.player.invulnTime).toBe(HIT_INVULN_SEC);
     expect(world.events.count).toBe(1);
-    expect(world.events.items[0]).toMatchObject({ kind: 'playerHit', amount: 10 });
+    expect(world.events.items[0]).toMatchObject({ kind: 'playerHit', amount: 8 });
   });
 
   it('lands the next hit only after 0.5 s of invulnerability', () => {
     const world = crowded();
     contactStep(world);
     let steps = 0;
-    while (world.player.hp === 90 && steps < 120) {
+    while (world.player.hp === 92 && steps < 120) {
       contactStep(world);
       steps++;
     }
-    expect(world.player.hp).toBe(80);
+    expect(world.player.hp).toBe(84);
     expect(steps * DT).toBeCloseTo(HIT_INVULN_SEC, 6);
   });
 
@@ -56,16 +56,28 @@ describe('contact damage', () => {
     expect(world.player.hp).toBe(99);
   });
 
+  it('lets Death ignore armor: its full contact damage lands through any armor (#17)', () => {
+    const world = createBaseWorld({ seed: 1 });
+    world.player.armor = 1000;
+    world.player.hp = 1e6;
+    spawnEnemy(world, 'death', 0, 0);
+    contactStep(world);
+    expect(world.player.hp).toBe(1e6 - ENEMIES.death.contactDamage);
+  });
+
   it('reports the game over once when HP crosses zero, and the simulation stops', () => {
     const onGameOver = vi.fn();
     const world = crowded(onGameOver);
-    world.player.hp = 25;
+    world.player.hp = 16;
     for (let i = 0; i < 300; i++) world.step(DT);
     expect(world.state).toBe('dead');
     expect(world.player.hp).toBe(0);
     expect(onGameOver).toHaveBeenCalledTimes(1);
-    expect(onGameOver).toHaveBeenCalledWith({ timeSec: world.time, kills: 0, level: 1 });
-    // Three hits 0.5 s apart: dead in the step after 1 s, then frozen.
+    expect(onGameOver).toHaveBeenCalledWith(
+      expect.objectContaining({ timeSec: world.time, kills: 0, level: 1, cleared: false }),
+    );
+    // Three hits 0.5 s apart (the crowd shifts, so the strongest toucher varies), before the Whip's first strike at
+    // 1.35 s: dead in the step after 1 s, then frozen.
     expect(world.time).toBeCloseTo(1 + DT, 6);
     const frozen = { time: world.time, x: Array.from(world.enemies.cols.x) };
     world.step(DT);

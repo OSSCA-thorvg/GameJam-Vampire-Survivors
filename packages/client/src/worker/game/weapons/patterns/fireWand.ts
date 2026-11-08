@@ -6,7 +6,15 @@ import type { WeaponPatternModule } from './types';
 /** Fireball hit radius before `area`. */
 export const FIREBALL_RADIUS = 10;
 
-const opts: ProjectileOptions = { damage: 0, knockback: 0, radius: 0, pierce: 1, ttl: 0, scale: 1 };
+const opts: ProjectileOptions = {
+  damage: 0,
+  weaponSlot: 0,
+  knockback: 0,
+  radius: 0,
+  pierce: 1,
+  ttl: 0,
+  scale: 1,
+};
 
 /**
  * Fire Wand (#13): each shot flies at `speed` toward a random live enemy inside the view (one pass over the enemy
@@ -29,6 +37,7 @@ export const fireWand: WeaponPatternModule = {
     }
     const dir = aimAt(ctx, target);
     opts.damage = lv.damage;
+    opts.weaponSlot = w.slot;
     opts.knockback = lv.knockback;
     opts.radius = FIREBALL_RADIUS * lv.area;
     opts.scale = lv.area;

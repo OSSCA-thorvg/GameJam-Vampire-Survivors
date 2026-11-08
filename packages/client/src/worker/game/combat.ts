@@ -24,7 +24,8 @@ export function isDead(world: Pick<World, 'enemies'>, slot: number): boolean {
  * push along the unit direction (`dirX`, `dirY`) scaled by `1 - knockbackResist` for `KNOCKBACK_SEC`. At 0 HP it only
  * marks the enemy dead (flag bit 1); `cleanupSystem` removes it at the end of the step, so slots never shift while
  * systems iterate, and further hits on a dead enemy in the same step do nothing. Counts the hit in `world.damageDealt`
- * (#12).
+ * (#12). `source` is the weapon slot that dealt it, or -1 for other damage (Rosary, #16); a weapon's damage, up to the
+ * enemy's remaining HP, is added to `world.runStats.damageBySlot` (#17).
  */
 export function damageEnemy(
   world: World,
@@ -33,12 +34,18 @@ export function damageEnemy(
   dirX: number,
   dirY: number,
   knockback: number,
+  source: number,
 ): void {
   if (isDead(world, slot)) return;
   world.damageDealt.hits++;
   world.damageDealt.total += amount;
   const { cols } = world.enemies;
-  const hp = (cols.hp[slot] ?? 0) - amount;
+  const before = cols.hp[slot] ?? 0;
+  if (source >= 0) {
+    const { damageBySlot } = world.runStats;
+    damageBySlot[source] = (damageBySlot[source] ?? 0) + Math.max(0, Math.min(amount, before));
+  }
+  const hp = before - amount;
   cols.hp[slot] = hp;
   cols.flash[slot] = HIT_FLASH_SEC;
   if (knockback > 0) {

@@ -22,6 +22,7 @@ One file per user-facing feature. A PR that adds or changes user-facing behaviou
 | `bosses-and-elites.md`         | bosses (`B`), the boss tether, elites with their marker and chest                                     | #15   |
 | `light-sources-and-pickups.md` | braziers around the player, breaking them, the five pickups, `K`, level gates                         | #16   |
 | `lobby.md`                     | Multiplayer: nickname, create or join by code, errors, ready, host Start, countdown, connection loss  | #19   |
+| `stage-and-finale.md`          | the wave table, timed events, the 15:00 clear, Death, the results with weapon damage, `I`             | #17   |
 
 ## Baseline preconditions
 

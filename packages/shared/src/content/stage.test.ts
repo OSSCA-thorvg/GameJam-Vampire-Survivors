@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { ASSET_IDS } from '../assets.js';
 import { ENEMY_CAP } from './constants.js';
 import { ENEMIES, ENEMY_LIST, type EnemyId } from './enemies.js';
-import { STAGE, validateStage, type StageDef } from './stage.js';
+import { MATCH_TIME_LIMIT_S } from '../protocol.js';
+import { STAGE, validateStage, type StageDef, type StageEvent } from './stage.js';
 
 const withWave = (patch: Partial<StageDef['waves'][number]>): StageDef => ({
   ...STAGE,
@@ -37,6 +38,59 @@ describe('STAGE', () => {
   });
 });
 
+const withEvents = (events: StageEvent[]): StageDef => ({ ...STAGE, events });
+
+describe('STAGE events and finale (#17)', () => {
+  it('keeps the time limit equal to the protocol constant the server uses (#60)', () => {
+    expect(STAGE.durationSec).toBe(MATCH_TIME_LIMIT_S);
+  });
+
+  it('uses only known enemies, sorted events before the time limit and a boss as Death', () => {
+    for (const wave of STAGE.waves)
+      for (const { enemyId } of wave.enemies) {
+        expect(ENEMY_LIST, enemyId).toContain(enemyId);
+        expect(ENEMIES[enemyId].boss, enemyId).toBeUndefined();
+      }
+    const times = STAGE.events.map((event) => event.at);
+    expect(times).toEqual([...times].sort((a, b) => a - b));
+    expect(Math.max(...times)).toBeLessThan(STAGE.durationSec);
+    for (const event of STAGE.events) expect(ENEMY_LIST).toContain(event.enemyId);
+    expect(ENEMIES[STAGE.deathEnemyId].boss).toBeDefined();
+    for (const wave of STAGE.waves) expect(wave.minAlive).toBeLessThanOrEqual(ENEMY_CAP);
+  });
+
+  it('schedules the two bosses at 5:00 and 10:00, elites and swarms', () => {
+    expect(STAGE.events.filter((e) => e.kind === 'boss')).toEqual([
+      { at: 300, kind: 'boss', enemyId: 'reaper5' },
+      { at: 600, kind: 'boss', enemyId: 'reaper10' },
+    ]);
+    expect(STAGE.events.filter((e) => e.kind === 'elite').map((e) => e.at)).toEqual([
+      180, 480, 810,
+    ]);
+    expect(STAGE.events.filter((e) => e.kind === 'swarm').map((e) => e.at)).toEqual([390, 720]);
+  });
+
+  it('reports unsorted or late events, a non-boss boss event and a bad Death', () => {
+    const [first, second] = STAGE.events;
+    if (!first || !second) throw new Error('STAGE has fewer than two events');
+    expect(validateStage(withEvents([second, first]))).toEqual([
+      "event 1: events must be sorted by 'at'",
+    ]);
+    expect(validateStage(withEvents([{ ...first, at: STAGE.durationSec }]))).toEqual([
+      "event 0: 'at' must be from 0 to below durationSec",
+    ]);
+    expect(validateStage(withEvents([{ at: 1, kind: 'boss', enemyId: 'bat' }]))).toEqual([
+      "event 0: 'bat' is not a boss",
+    ]);
+    expect(
+      validateStage(withEvents([{ at: 1, kind: 'elite', enemyId: 'ghoul', count: 0 }])),
+    ).toEqual(['event 0: count must be a positive integer']);
+    expect(validateStage({ ...STAGE, deathEnemyId: 'bat' })).toEqual([
+      "deathEnemyId 'bat' must be a boss",
+    ]);
+  });
+});
+
 describe('ENEMIES', () => {
   it('lists every enemy once, keyed by its own id, with a catalog asset', () => {
     expect([...ENEMY_LIST].sort()).toEqual(Object.keys(ENEMIES).sort());
@@ -49,6 +103,19 @@ describe('ENEMIES', () => {
       'enemy.ghoul',
       'boss.reaper5',
       'boss.reaper10',
+      'enemy.skeleton',
+      'enemy.wisp',
+      'enemy.brute',
+      'enemy.wraith',
+      'boss.death',
     ]);
+  });
+
+  it('makes Death a boss that ignores armor and drops nothing (#17)', () => {
+    expect(ENEMIES.death.boss).toEqual({ tether: true, dropsChest: 'always' });
+    expect(ENEMIES.death.ignoresArmor).toBe(true);
+    expect(ENEMIES.death.xp).toBe(0);
+    for (const id of ENEMY_LIST)
+      if (id !== 'death') expect(ENEMIES[id].ignoresArmor, id).toBeUndefined();
   });
 });

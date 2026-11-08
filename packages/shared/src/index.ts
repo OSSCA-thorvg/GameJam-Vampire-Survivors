@@ -30,7 +30,7 @@ export type { GemTier } from './content/xp.js';
 export { ENEMIES, ENEMY_LIST } from './content/enemies.js';
 export type { EnemyDef, EnemyId } from './content/enemies.js';
 export { STAGE, validateStage } from './content/stage.js';
-export type { StageDef, WaveDef } from './content/stage.js';
+export type { StageDef, StageEvent, WaveDef } from './content/stage.js';
 export {
   inspectPng,
   MAX_IMAGE_AXIS,

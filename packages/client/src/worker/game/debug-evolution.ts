@@ -1,13 +1,14 @@
-import { EVOLUTIONS, EVOLUTION_MIN_TIME_S, type EvolutionDef } from '@vs/shared';
+import { EVOLUTIONS, EVOLUTION_MIN_TIME_S, type EnemyId, type EvolutionDef } from '@vs/shared';
 import { addPassive } from './passives';
 import { recomputeStats } from './stats';
 import { spawnElite } from './systems/elites';
-import { waveAt } from './systems/spawner';
 import { addWeapon } from './weapons/owned';
 import type { World } from './world';
 
 /** How far in front of the player the `E` key's elite appears, inside the reach of a maxed Whip (dev only). */
 export const FORCED_ELITE_OFFSET = 120;
+/** The forced elite's enemy: the weakest, so its chest comes quickly. */
+export const FORCED_ELITE_ENEMY: EnemyId = 'bat';
 
 /**
  * The `E` debug key (#15, dev builds only): reaches the preconditions of `evolution` in one press. It adds the base
@@ -37,7 +38,9 @@ export function forceEvolution(
     world.time = EVOLUTION_MIN_TIME_S;
     world.stats.timeSec = world.time;
   }
-  const enemyId = waveAt(world.time / 60).enemies[0]?.enemyId ?? 'bat';
+  // Always a bat (an elite has 50 HP), so any maxed weapon kills it within seconds: since #17 minute 5's first enemy is
+  // a skeleton, whose elite (300 HP) outlasted slow-targeting weapons.
+  const enemyId = FORCED_ELITE_ENEMY;
   const { x, y, facingX } = world.player;
   const slot = spawnElite(world, enemyId, { x: x + facingX * FORCED_ELITE_OFFSET, y });
   return {

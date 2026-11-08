@@ -27,9 +27,10 @@ describe('spawnerSystem', () => {
     const world = createWorld({ seed: 7 });
     for (let i = 0; i < 3600; i++) step(world);
     expect(world.enemies.count).toBeGreaterThanOrEqual(STAGE.waves[0]?.minAlive ?? Infinity);
-    // Only bats in minute 0.
+    // Only minute 0's mix: bats and ghouls.
+    const mix = STAGE.waves[0]?.enemies.map((e) => e.enemyId) ?? [];
     for (let i = 0; i < world.enemies.count; i++)
-      expect(ENEMY_LIST[world.enemies.cols.type[i] ?? -1]).toBe('bat');
+      expect(mix).toContain(ENEMY_LIST[world.enemies.cols.type[i] ?? -1]);
   });
 
   // Long seeded property test: CI runners are several times slower than local machines (#80).

@@ -148,6 +148,7 @@ describe('the safety fact: MAX_ENEMY_RADIUS covers the larger enemies of #15', (
       const reach = 6 + ENEMIES[id].radius - 0.5;
       spawnProjectile(world, 'weapon.magicWand', reach, 0, 0, 0, {
         damage: 10,
+        weaponSlot: 0,
         knockback: 0,
         radius: 6,
         pierce: 1,
@@ -164,6 +165,7 @@ describe('the safety fact: MAX_ENEMY_RADIUS covers the larger enemies of #15', (
     const slot = spawnElite(world, 'ghoul', { x: 0, y: 0 });
     spawnProjectile(world, 'weapon.magicWand', 6 + 24 - 0.5, 0, 0, 0, {
       damage: 10,
+      weaponSlot: 0,
       knockback: 0,
       radius: 6,
       pierce: 1,

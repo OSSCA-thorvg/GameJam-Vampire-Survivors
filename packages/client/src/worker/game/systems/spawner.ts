@@ -63,9 +63,11 @@ const point = { x: 0, y: 0 };
 
 /**
  * Spawns from the current wave (#8): a batch every `spawnIntervalSec`, plus a top-up to `minAlive`, at most
- * `MAX_SPAWNS_PER_STEP` per step and never past `ENEMY_CAP`. Draws only from `world.spawnRng`.
+ * `MAX_SPAWNS_PER_STEP` per step and never past `ENEMY_CAP`. Draws only from `world.spawnRng`. Stops once the stage
+ * is cleared (#17).
  */
 export function spawnerSystem(world: World, dt: number): void {
+  if (world.cleared) return;
   const wave = waveAt(world.time / 60);
   world.spawnTimer -= dt;
   if (world.spawnTimer <= 0) {

@@ -123,6 +123,7 @@ describe('weapon hit sites', () => {
     const bat = target(world, 'bat', 80, 0);
     world.weaponContext.spawnProjectile('weapon.magicWand', 0, 0, 600, 0, {
       damage: 10,
+      weaponSlot: 0,
       knockback: 0,
       radius: 6,
       pierce: 1,

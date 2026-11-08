@@ -4,6 +4,7 @@ import { assertNever } from '../protocol/assert-never';
 import type {
   Axis,
   BackgroundPolicy,
+  Finale,
   GameMainToWorker,
   MainToWorker,
   TestSnapshotRequest,
@@ -254,6 +255,9 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         registerSnapshotField('lights', () => (runs.world ? readLights(runs.world) : []));
         registerSnapshotField('pickups', () => (runs.world ? readPickups(runs.world) : []));
         registerSnapshotField('frozen', () => (runs.world ? isFrozen(runs.world) : false));
+        registerSnapshotField('cleared', () => runs.world?.cleared ?? false);
+        registerSnapshotField('eventsFired', () => runs.world?.nextEventIndex ?? 0);
+        registerSnapshotField('debugInvulnerable', () => runs.world?.debugInvulnerable ?? false);
         // An unsupported `?stress` value falls back to this view, but it is still a stress boot: no `debug` field (#92).
         if (!message.debug?.stress)
           registerSnapshotField('debug', () => ({ paintsCreated: gameView.countPaints() }));
@@ -288,6 +292,12 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
           const world = runs.world;
           const slot = world ? spawnBoss(world, 'reaper5') : -1;
           console.warn(`[debug] spawnBoss: ${slot < 0 ? 'not spawned' : 'reaper5'}`);
+        });
+      if (import.meta.env.DEV)
+        registerDebugHandler('toggleInvulnerable', () => {
+          const world = runs.world;
+          if (world) world.debugInvulnerable = !world.debugInvulnerable;
+          console.warn(`[debug] invulnerable: ${world?.debugInvulnerable ? 'on' : 'off'}`);
         });
       if (import.meta.env.DEV)
         registerDebugHandler('levelUp', () => {
@@ -332,14 +342,14 @@ function applySize(): void {
  * Replaces the current run with a fresh world (#9). The view's pools are released and reused, so no Paint is created
  * or disposed; the world's typed-array stores are new. Unpauses the loop.
  */
-function startRun(seed: number, characterId: string): void {
+function startRun(seed: number, characterId: string, finale: Finale): void {
   if (!session || !loop) {
     console.warn('[worker] startRun before the game view is ready; ignored');
     return;
   }
   levelUps.reset();
   chests.reset();
-  const run = session.start(seed, characterId);
+  const run = session.start(seed, characterId, finale);
   run.input.dx = inputX;
   run.input.dy = inputY;
   paused = false;
@@ -410,7 +420,7 @@ function handle(message: GameMainToWorker): void {
       if (import.meta.env.DEV) console.warn(`[worker] background policy: ${message.policy}`);
       break;
     case 'startRun':
-      startRun(message.seed, message.characterId);
+      startRun(message.seed, message.characterId, message.finale ?? 'death');
       break;
     case 'endRun':
       endRun();

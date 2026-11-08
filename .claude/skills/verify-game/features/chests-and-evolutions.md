@@ -13,7 +13,7 @@ Treasure chests and weapon evolutions (#15, ADRs 0004, 0008, 0009): bosses and e
 - **Evolution gate:** the weapon at level 8, its passive owned at any level, run time ≥ 5:00 (`EVOLUTION_MIN_TIME_S`, ADR 0008). Before 5:00 the same inventory gets a level or a heal (level 4, unit test; the `E` key always jumps to 5:00).
 - **Evolved weapon:** it replaces the base weapon in the same slot at level 1 (`snapshot().weapons[slot].id` is the evolved ID), the passive stays in `passives`, and no level-up card offers the base weapon or any evolved weapon again.
 - **The 8 evolutions** (pattern of the base, own art): Bloody Tear (Whip; double damage, heals 1 HP per 10 hits, `weapon.bloodyTear` arc), Holy Wand (Magic Wand; 0.1 s cooldown), Thousand Edge (Knife; a stream every 0.1 s), Death Spiral (Axe; 9 scythes straight out all around, infinite pierce), Heaven Sword (Cross; double damage, 20% crits ×2), Unholy Vespers (King Bible; books never leave), Hellfire (Fire Wand; double area, infinite pierce), Soul Eater (Garlic; 1.5× aura, heals 1 HP per 10 hits).
-- **Debug key `E` (dev builds):** walks `EVOLUTIONS` in order, one pair per press, across runs of the same page: adds the base weapon if missing and sets it to level 8, adds the passive, jumps the run clock to 5:00 if earlier, and spawns an elite of the current wave's first enemy 120 units in front of the player (worker log `[debug] forceEvolution: …`). Does nothing with no free slot. Only for preconditions; the elite is killed by the weapons.
+- **Debug key `E` (dev builds):** walks `EVOLUTIONS` in order, one pair per press, across runs of the same page: adds the base weapon if missing and sets it to level 8, adds the passive, jumps the run clock to 5:00 if earlier, and spawns an elite bat (50 HP; before #17 the current wave's first enemy, a bat at 5:00 then) 120 units in front of the player (worker log `[debug] forceEvolution: …`). Does nothing with no free slot. Only for preconditions; the elite is killed by the weapons.
 - Snapshot fields: `state` (`'chest'`), `paused`, `timeS`, `chests`, `chestPositions`, `weapons`, `passives`, `player` (`hp`).
 
 ## How to get to it (user POV)
@@ -113,6 +113,12 @@ async function rows(page: Page) {
 async function evolveOnce(page: Page, ev: Evidence, i: number) {
   const [base, passive, into] = PAIRS[i] ?? PAIRS[0];
   const tag = `${String(i + 1)}-${into}`;
+  // Precondition only (#17): `E` jumps to 5:00, whose waves and events kill a fresh player before the elite's chest,
+  // so `I` (invulnerability, reset by every new run) comes first.
+  if (!(await snapshot(page)).debugInvulnerable) {
+    await page.keyboard.press('i');
+    await waitForSnapshot(page, (s) => s.debugInvulnerable === true, 2_000);
+  }
   await page.keyboard.press('e'); // precondition only: the `E` debug key
   const ready = await waitForSnapshot(
     page,
@@ -185,6 +191,14 @@ async function evolveOnce(page: Page, ev: Evidence, i: number) {
 
 /** Escape and "Quit to title" (or "Title" after a death), then Enter: a fresh run in the same page, so the `E` key moves to the next pair. */
 async function nextRun(page: Page): Promise<void> {
+  // Escape pauses only a playing run: with `I` on (#17) the run keeps levelling up and dropping chests, so first wait
+  // until it is playing (answerLevelUps answers level-ups; Enter closes a chest).
+  for (let k = 0; k < 50; k++) {
+    const state = (await snapshot(page)).state;
+    if (state === 'playing' || state === 'results') break;
+    if (state === 'chest') await page.keyboard.press('Enter');
+    await page.waitForTimeout(100);
+  }
   // The crowd at 5:00 may have killed the player meanwhile: then the results screen's "Title" button.
   if ((await snapshot(page)).state === 'results')
     await page.getByRole('button', { name: 'Title' }).click({ timeout: 5_000 });
@@ -255,6 +269,7 @@ test('chests 2: all 8 evolutions, one run each, each in its base weapon’s slot
 
 ## Gotchas
 
+- Since #17 `E`'s jump to 5:00 brings minute 5's denser mix and fires the 3:00 and 5:00 stage events (an elite ghoul, `reaper5`), and the player died before the elite's chest in 3 of 3 runs; each pair now presses `I` (invulnerability) first, and `nextRun` waits for a playing run before Escape, since the invulnerable run keeps opening level-ups and chests. With it HP stays full, so the Bloody Tear HP samples in `elite.json` no longer show the heal; the heal stays proven at level 4 (`weapons/evolved.test.ts`) (2026-11-08, #17).
 - The `E` key jumps the run clock to 5:00 instead of fast-forwarding to it, as the issue plan proposed: `fastForward` stops at the first level-up, and 5 minutes of steps would bury a standing player. The jump makes the spawner top up to the minute-5 wave at once, so a journey has about 5 s before the crowd arrives, and it spawns the elite 120 units in front of the player (not on the spawn ring) so the maxed weapon kills it within those seconds (2026-11-08, #15).
 - The elite usually dies next to the player, so its chest opens in the same step it drops and `chests` never shows 1; wait for `chests > 0 || state === 'chest'` (2026-11-08, #15).
 - The crowd at 5:00 often kills the player a few seconds after the overlay closes; the next pair then starts from the results screen's "Title" button instead of the pause menu. The `E` index lives in the worker, so a page reload restarts at Bloody Tear (2026-11-08, #15).

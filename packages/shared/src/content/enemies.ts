@@ -1,7 +1,8 @@
 import type { DrawableAssetId } from '../assets.js';
 
-/** The enemies of this phase and the two bosses (#15). #17 adds `skeleton`, `wisp`, `brute` and `wraith`. */
-export type EnemyId = 'bat' | 'ghoul' | 'reaper5' | 'reaper10';
+/** The six normal enemies (#8, #17), the two timed bosses (#15) and Death, the single-player finale (#17). */
+export type EnemyId =
+  'bat' | 'ghoul' | 'reaper5' | 'reaper10' | 'skeleton' | 'wisp' | 'brute' | 'wraith' | 'death';
 
 export interface EnemyDef {
   id: EnemyId;
@@ -29,7 +30,7 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
     id: 'bat',
     assetId: 'enemy.bat',
     maxHp: 5,
-    speed: 100,
+    speed: 140,
     contactDamage: 5,
     radius: 12,
     knockbackResist: 0,
@@ -39,11 +40,11 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
     id: 'ghoul',
     assetId: 'enemy.ghoul',
     maxHp: 15,
-    speed: 60,
-    contactDamage: 10,
+    speed: 70,
+    contactDamage: 8,
     radius: 16,
-    knockbackResist: 0.2,
-    xp: 2,
+    knockbackResist: 0.1,
+    xp: 1,
   },
   reaper5: {
     id: 'reaper5',
@@ -67,7 +68,70 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
     xp: 250,
     boss: { tether: true, dropsChest: 'always' },
   },
+  skeleton: {
+    id: 'skeleton',
+    assetId: 'enemy.skeleton',
+    maxHp: 30,
+    speed: 90,
+    contactDamage: 10,
+    radius: 16,
+    knockbackResist: 0.2,
+    xp: 2,
+  },
+  wisp: {
+    id: 'wisp',
+    assetId: 'enemy.wisp',
+    maxHp: 20,
+    speed: 160,
+    contactDamage: 8,
+    radius: 12,
+    knockbackResist: 0,
+    xp: 5,
+  },
+  brute: {
+    id: 'brute',
+    assetId: 'enemy.brute',
+    maxHp: 120,
+    speed: 55,
+    contactDamage: 15,
+    radius: 22,
+    knockbackResist: 0.5,
+    xp: 5,
+  },
+  wraith: {
+    id: 'wraith',
+    assetId: 'enemy.wraith',
+    maxHp: 300,
+    speed: 80,
+    contactDamage: 20,
+    radius: 24,
+    knockbackResist: 0.6,
+    xp: 10,
+  },
+  // Death (#17): appears at the time limit in single player and cannot realistically be killed.
+  death: {
+    id: 'death',
+    assetId: 'boss.death',
+    maxHp: 655350,
+    speed: 200,
+    contactDamage: 65535,
+    radius: 48,
+    knockbackResist: 1,
+    xp: 0,
+    boss: { tether: true, dropsChest: 'always' },
+    ignoresArmor: true,
+  },
 };
 
 /** Fixed order; the enemy store's `type` column indexes it. Append only, so stored indices keep their meaning. */
-export const ENEMY_LIST: readonly EnemyId[] = ['bat', 'ghoul', 'reaper5', 'reaper10'];
+export const ENEMY_LIST: readonly EnemyId[] = [
+  'bat',
+  'ghoul',
+  'reaper5',
+  'reaper10',
+  'skeleton',
+  'wisp',
+  'brute',
+  'wraith',
+  'death',
+];

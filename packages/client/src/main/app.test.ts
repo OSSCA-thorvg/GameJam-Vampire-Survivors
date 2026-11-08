@@ -1,11 +1,19 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
 import type { ChestReward } from '@vs/shared';
-import type { LevelUpOption, MainToWorker } from '../protocol/worker-messages';
+import type { LevelUpOption, MainToWorker, RunSummary } from '../protocol/worker-messages';
 import { CONNECTION_LOST, createApp, effects, reduce, type AppEvent, type AppState } from './app';
 import { NetClient, type OpenSocket, type SocketHandlers } from './net/client';
 
-const stats = { timeSec: 75.4, kills: 3, level: 1 };
+const stats: RunSummary = {
+  timeSec: 75.4,
+  kills: 3,
+  level: 1,
+  cleared: false,
+  characterId: 'warden',
+  weapons: [{ id: 'whip', level: 1, damage: 40 }],
+  passives: [],
+};
 const title: AppState = { name: 'title' };
 const playing: AppState = { name: 'playing', paused: false };
 const paused: AppState = { name: 'playing', paused: true };

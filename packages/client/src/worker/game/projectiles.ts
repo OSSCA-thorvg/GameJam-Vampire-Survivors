@@ -49,6 +49,8 @@ export const PROJECTILE_SCHEMA = {
   /** Chance per hit of a critical hit, and its damage multiplier (Heaven Sword, #15); rolled on `world.weaponRng`. */
   critChance: 'f32',
   critMultiplier: 'f32',
+  /** The weapon slot that fired it (#17), the `source` of its hits. */
+  weaponSlot: 'u8',
   ...RenderBinding.columns,
 } as const;
 
@@ -118,6 +120,8 @@ export interface ProjectileOptions {
   radius: number;
   pierce: number;
   ttl: number;
+  /** The firing weapon's slot (`OwnedWeapon.slot`), credited with the damage (#17). */
+  weaponSlot: number;
   /** Drawn scale; 1 when absent. */
   scale?: number;
   /** `MOTION_*`; `MOTION_STRAIGHT` when absent. */
@@ -183,6 +187,7 @@ export function spawnProjectile(
   cols.gravity[slot] = opts.gravity ?? 0;
   cols.critChance[slot] = opts.critChance ?? 0;
   cols.critMultiplier[slot] = opts.critMultiplier ?? 1;
+  cols.weaponSlot[slot] = opts.weaponSlot;
   if (motion === MOTION_RETURN) {
     const speed = Math.hypot(vx, vy);
     cols.speed[slot] = speed;
@@ -285,7 +290,7 @@ export function projectileSystem(world: World, dt: number): void {
         p.critChance[i] ?? 0,
         p.critMultiplier[i] ?? 1,
       );
-      damageEnemy(world, e, damage, dirX, dirY, p.knockback[i] ?? 0);
+      damageEnemy(world, e, damage, dirX, dirY, p.knockback[i] ?? 0, p.weaponSlot[i] ?? 0);
     }
     // Light sources (#16): hit after the enemy query, without using pierce.
     hitLightsInCircle(world, x, y, radius, p.damage[i] ?? 0);

@@ -1,6 +1,6 @@
 # Bosses and elites
 
-Bosses and elite enemies (#15, ADRs 0005, 0007, 0008): `reaper5` and `reaper10` are bosses that are never left behind (tethered to the player) and always drop a chest; any normal enemy can be an elite with 10× HP, 1.5× contact damage and 1.5× size over a red marker, and it drops a chest too. When they appear in the stage is #17; #21's Elite Call reuses `spawnElite`.
+Bosses and elite enemies (#15, ADRs 0005, 0007, 0008): `reaper5` and `reaper10` are bosses that are never left behind (tethered to the player) and always drop a chest; any normal enemy can be an elite with 10× HP, 1.5× contact damage and 1.5× size over a red marker, and it drops a chest too. When they appear in the stage is #17 (`stage-and-finale.md`: `reaper5` at 5:00, `reaper10` at 10:00, elites at 3:00, 8:00 and 13:30); #21's Elite Call reuses `spawnElite`.
 
 ## Sub-features
 
@@ -111,6 +111,10 @@ test('bosses 2: an elite is drawn 1.5× over a red marker and drops a chest (E a
   try {
     await startRun(page);
     const stop = answerLevelUps(page);
+    // Precondition only (#17): `E` jumps the clock to 5:00, whose waves and events (the elite at 3:00, reaper5 at 5:00)
+    // kill a fresh player within the 20 s wait, so `I` keeps him alive.
+    await page.keyboard.press('i');
+    await waitForSnapshot(page, (s) => s.debugInvulnerable === true, 2_000);
     await page.keyboard.press('e'); // precondition only: spawns an elite in front of the player
     const near = await waitForSnapshot(page, (s) => s.enemies >= 1 && s.timeS >= 300, 3_000);
     await ev.shot('elite-marker');
@@ -142,4 +146,5 @@ test('bosses 2: an elite is drawn 1.5× over a red marker and drops a chest (E a
 - The tether runs every 0.5 s, so a boss can be up to one interval of walking past 1360 units before it moves; the journey allows 80 units over. In #15's run the largest distance was 1358 over 30 s and 4110 units walked (2026-11-08, #15).
 - Walking straight runs into the boss each time it is placed ahead (contact 20); the journey sidesteps down briefly every 2 s so the player survives the 30 s (2026-11-08, #15).
 - The boss's death and its chest are covered at level 4 (`chest-open.test.ts`); killing 2000 HP with starting weapons is not practical in a journey until #17 brings bosses at their minute (2026-11-08, #15).
-- Bosses count toward `ENEMY_CAP`: `B` at the cap spawns nothing and logs `not spawned` (2026-11-08, #15).
+- Since #17, `E` jumping to 5:00 also fires the stage events up to 5:00 (the 3:00 elite ghoul and `reaper5`) and minute 5's denser mix, so journey 2's player died before the elite's chest (2 of 2 runs); it now presses `I` first. The forced elite is always a bat (50 HP), as it was in #15 when minute 5 started with bats (2026-11-08, #17).
+- Bosses count toward `ENEMY_CAP`. Before #17, `B` at the cap spawned nothing; since #17 a boss (and a scheduled elite) takes the slot of the live normal enemy farthest from the player, with no gem and no kill (`makeRoomForEnemy`), so `B`, the timed bosses and Death always appear (2026-11-08, #15; changed 2026-11-08, #17).
