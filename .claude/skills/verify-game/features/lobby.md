@@ -1,6 +1,6 @@
 # Lobby
 
-The multiplayer lobby (#19, ADRs 0004, 0006, 0009, 0011): from the title, Multiplayer leads through the character select to a nickname and room-code entry, then a lobby where two players meet by a 6-character code, ready up, and the host's Start shows a countdown in both browsers. Starting the versus match at zero is #20 (`app.startVersus` is a stub that logs `[vs] startVersus is not wired yet (#20)` in dev).
+The multiplayer lobby (#19, ADRs 0004, 0006, 0009, 0011): from the title, Multiplayer leads through the character select to a nickname and room-code entry, then a lobby where two players meet by a 6-character code, ready up, and the host's Start shows a countdown in both browsers. At zero the versus match starts (#20, `versus-match.md`).
 
 ## Sub-features
 
@@ -8,7 +8,7 @@ The multiplayer lobby (#19, ADRs 0004, 0006, 0009, 0011): from the title, Multip
 - **Validation:** Create and Join room stay disabled until `normalizeNickname` accepts the nickname (blank, zero-width or control characters, more than 12 characters fail; "Use 1–12 visible characters" shows under the field). "Join room" reveals a "Room code" textbox that upper-cases, drops characters outside `ABCDEFGHJKMNPQRSTUVWXYZ23456789` and keeps 6; "Join" is enabled only with 6 characters. Enter in the nickname field creates (or joins once a full code is entered), Enter in the code field joins.
 - **Server errors:** fixed English text under the field, the screen stays `multiplayerEntry`, the server's `message` is never shown: `roomNotFound` "Room not found or not joinable" (also full and in-match rooms, ADR 0011), `nicknameTaken` "That nickname is taken in this room", `invalidNickname` "Use 1–12 visible characters", `wrongPhase` "That room has already started", `rateLimited` "Too many attempts — wait a minute" (`roomFull` "That room is full" is never sent by the server). Editing the field clears the message.
 - **Lobby:** `state: 'lobby'`: "Room code" with the code (`.room-code`), "Copy" (clipboard, "Copied" for 1.5 s, or selects the code), the players as nickname, "(you)", host ★ and ready ✓ (text nodes only; `<b>x</b>` shows literally), "Ready"/"Not ready" (`aria-pressed`), "Start" (host only; enabled when there are 2 players and all are ready), "Leave". Status line: "Waiting for another player…", "Waiting for every player to be ready", "Waiting for the host to start", "Reconnecting…", or "Waiting for the room to reset" when the room is not in `lobby`. Arrows or WASD move focus between Ready, Start, Leave and Copy; Escape opens an inline "Leave the room?" row ("Leave the room", "Stay").
-- **Countdown:** the host's Start sends `startMatch`; on `matchStart` both pages show a `role="timer"` overlay "Match starts in 3/2/1" until `startAt` (clamped to 0–5 s); the two overlays appear within 300 ms of each other. At zero the dev console logs the `startVersus` stub line and the lobby stays.
+- **Countdown:** the host's Start sends `startMatch`; on `matchStart` both pages show a `role="timer"` overlay "Match starts in 3/2/1" until `startAt` (clamped to 0–5 s); the two overlays appear within 300 ms of each other. At zero both pages start the versus run (`state: 'versusPlaying'`, #20; the worker logs `[worker] run started, seed <n>`).
 - **Connection loss:** the server going away in the lobby shows "Reconnecting…", retries after 1, 2 and 4 s, then returns to `multiplayerEntry` with the notice "Connection lost — the room was left" and the nickname kept; the room is never rejoined. With the server still down the entry shows "Cannot reach the game server" and Retry.
 - **Single player:** Start never opens a WebSocket (only Vite's dev HMR socket, `/?token=`, exists in dev and e2e builds).
 - Snapshot fields: `state` (main thread) is `'multiplayerEntry'` or `'lobby'`; everything else is read from the DOM (ARIA roles and names) and the WebSocket frames.
@@ -26,7 +26,7 @@ The extension drives one Chrome profile, whose tabs share `localStorage` but not
 1. `tabs_context_mcp` `{ createIfEmpty: true }`; create tabs A and B (`tabs_create_mcp`); `gif_creator` `start_recording` on A; `navigate` both to `http://localhost:5180/`; `javascript_tool` `(await window.__vsTest.waitFor((s) => s.state === 'title', 30000)).state` in each.
 2. A: `computer` `key` `ArrowDown`, `key` `Enter`, `key` `Enter` → `state: "multiplayerEntry"`; `computer` `type` `Alice`, `key` `Enter` → `state: "lobby"`; `get_page_text` → the code; `screenshot`.
 3. B: same to the entry; `type` a zero-width nickname is not typeable here, so type three spaces and `find` "Create room button" → disabled; select all, `type` `Bob`, `left_click` "Join room", `type` `zzzzzz`, `key` `Enter` → "Room not found or not joinable"; select the code field, `type` A's code in lower case, select the nickname field, `type` `Alice`, `key` `Enter` → "That nickname is taken in this room"; change it to `Bob`, `key` `Enter` → `state: "lobby"`, both tabs list Alice and Bob; `screenshot` each.
-4. In both tabs `key` `Enter` (Ready) → ✓ on both rows; B: `find` "Start button" → none; A: `key` `ArrowDown`, `key` `Enter` → both tabs show "Match starts in"; `read_console_messages` `{ pattern: "startVersus" }` after 4 s → the stub line.
+4. In both tabs `key` `Enter` (Ready) → ✓ on both rows; B: `find` "Start button" → none; A: `key` `ArrowDown`, `key` `Enter` → both tabs show "Match starts in"; after 4 s `javascript_tool` `(await window.__vsTest.snapshot()).state` → `"versusPlaying"` in both tabs (#20).
 5. Markup: in a third tab, join A's room after one player leaves, with nickname `<b>x</b>` → shown literally (`read_page`: no `b` element in the list).
 6. Connection loss (own server only): in a terminal `pnpm server:down`; both tabs show "Reconnecting…", then within about 10 s the entry with "Connection lost — the room was left" and the nickname; `pnpm server:up`, then "Retry".
 7. `gif_creator` `stop_recording`, `export` `{ download: true, filename: "issue-<N>-lobby.gif" }`; close the tabs.
@@ -256,12 +256,9 @@ test('lobby 3: only the host sees Start, enabled when all are ready; the countdo
         p.evaluate(() => (window as unknown as { countdownAt?: number }).countdownAt),
       ),
     );
-    // The stub (#20) logs in dev when the countdown ends.
-    await expect
-      .poll(() => a.ev.pageLog.some((l) => l.includes('startVersus is not wired yet')), {
-        timeout: 7_000,
-      })
-      .toBe(true);
+    // At zero the versus match starts (#20).
+    for (const p of [a.page, b.page])
+      await waitForSnapshot(p, (s) => s.state === 'versusPlaying', 7_000);
     await a.ev.shot('a-after-countdown');
     const delta = Math.abs((at[0] ?? 0) - (at[1] ?? 1e9));
     a.ev.json('countdown', { a: at[0], b: at[1], deltaMs: delta });
@@ -378,4 +375,4 @@ test('lobby 6: single player never opens a WebSocket', async ({ browser }, testI
 - The countdown overlay times are taken with a `MutationObserver` in each page and compared by `Date.now()`; both contexts run on one machine, so the clocks agree. Measured delta: 0 ms against the local Docker server (2026-11-08, #19).
 - Journey 5 stops the server with `pnpm server:down`; never run it against a server another person or agent started. The reconnect backoff (1 + 2 + 4 s plus the attempts) takes 7–10 s before the entry screen returns (2026-11-08, #19).
 - The Claude in Chrome driver cannot type a zero-width character, so the invalid-nickname check there uses spaces; the Playwright journey also types `a​b` (2026-11-08, #19).
-- After `startVersus` (#20 stub) the server's room is `playing` for up to 15 minutes; leave and create a new room for the next journey (2026-11-08, #19).
+- After the countdown the room is `playing` until the match ends (#20, `versus-match.md`); create a new room for the next lobby journey (2026-11-08, #19; 2026-11-09, #20).

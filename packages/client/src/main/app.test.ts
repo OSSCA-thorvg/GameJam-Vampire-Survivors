@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ChestReward } from '@vs/shared';
 import type { LevelUpOption, MainToWorker, RunSummary } from '../protocol/worker-messages';
 import { CONNECTION_LOST, createApp, effects, reduce, type AppEvent, type AppState } from './app';
+import { createVersusController } from './match/versusController';
 import { NetClient, type OpenSocket, type SocketHandlers } from './net/client';
 
 const stats: RunSummary = {
@@ -172,8 +173,8 @@ describe('reduce', () => {
 describe('effects', () => {
   const seed = () => 7;
   it.each<[AppState, AppState, MainToWorker[]]>([
-    [selectSwift, playing, [{ type: 'startRun', seed: 7, characterId: 'swift' }]],
-    [results, playing, [{ type: 'startRun', seed: 7, characterId: 'warden' }]],
+    [selectSwift, playing, [{ type: 'startRun', seed: 7, characterId: 'swift', mode: 'single' }]],
+    [results, playing, [{ type: 'startRun', seed: 7, characterId: 'warden', mode: 'single' }]],
     [title, selectWarden, []],
     [selectWarden, selectSwift, []],
     [selectSwift, title, []],
@@ -189,7 +190,7 @@ describe('effects', () => {
 
   it('retries as the character chosen last', () => {
     expect(effects(results, playing, seed, { type: 'retry' }, 'ember')).toEqual([
-      { type: 'startRun', seed: 7, characterId: 'ember' },
+      { type: 'startRun', seed: 7, characterId: 'ember', mode: 'single' },
     ]);
   });
 
@@ -260,10 +261,10 @@ describe('createApp (happy-dom)', () => {
     expect(root.children).toHaveLength(1);
 
     expect(sent).toEqual([
-      { type: 'startRun', seed: 1, characterId: 'warden' },
+      { type: 'startRun', seed: 1, characterId: 'warden', mode: 'single' },
       { type: 'pause' },
       { type: 'resume' },
-      { type: 'startRun', seed: 2, characterId: 'warden' },
+      { type: 'startRun', seed: 2, characterId: 'warden', mode: 'single' },
       { type: 'endRun' },
     ]);
   });
@@ -354,8 +355,8 @@ describe('createApp (happy-dom)', () => {
     button('Start')?.click();
     expect(app.state).toEqual(selectSwift);
     expect(sent).toEqual([
-      { type: 'startRun', seed: 1, characterId: 'swift' },
-      { type: 'startRun', seed: 2, characterId: 'swift' },
+      { type: 'startRun', seed: 1, characterId: 'swift', mode: 'single' },
+      { type: 'startRun', seed: 2, characterId: 'swift', mode: 'single' },
       { type: 'pause' },
       { type: 'endRun' },
     ]);
@@ -534,5 +535,271 @@ describe('createApp multiplayer flow (happy-dom, fake socket)', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('versus match (#20)', () => {
+  const vRoom = { room: playingRoom, selfId: 'a', characterId: 'swift' as const, offline: false };
+  const vPlaying: AppState = { name: 'versusPlaying', overlay: null, ...vRoom };
+  const official = {
+    kind: 'official' as const,
+    headline: 'Win' as const,
+    ranking: [{ playerId: 'a', nickname: 'Alice', alive: true, kills: 3 }],
+    out: {},
+    note: null,
+  };
+  const vResult: AppState = { name: 'versusResult', result: official, ...vRoom };
+
+  it.each<[AppState, AppEvent, AppState]>([
+    [{ ...lobby, match }, { type: 'versusStarted' }, { ...vPlaying, room }],
+    [vPlaying, { type: 'roomState', room, selfId: 'a' }, { ...vPlaying, room }],
+    [
+      vPlaying,
+      { type: 'levelUp', level: 2, options },
+      { ...vPlaying, overlay: { kind: 'levelUp', level: 2, options } },
+    ],
+    [
+      { ...vPlaying, overlay: { kind: 'levelUp', level: 2, options } },
+      { type: 'chosen', index: 1 },
+      vPlaying,
+    ],
+    [
+      vPlaying,
+      { type: 'chestOpened', rewards },
+      { ...vPlaying, overlay: { kind: 'chest', rewards } },
+    ],
+    [{ ...vPlaying, overlay: { kind: 'chest', rewards } }, { type: 'chestClosed' }, vPlaying],
+    [vPlaying, { type: 'versusOffline' }, { ...vPlaying, offline: true }],
+    [vPlaying, { type: 'connectionLost' }, { ...vPlaying, offline: true }],
+    [vPlaying, { type: 'versusOver', result: official }, vResult],
+    [
+      vResult,
+      { type: 'rematch' },
+      { name: 'lobby', room: playingRoom, selfId: 'a', characterId: 'swift' },
+    ],
+    [vResult, { type: 'leave' }, title],
+    [vResult, { type: 'connectionLost' }, { ...vResult, offline: true }],
+  ])('%j + %j → %j', (state, event, next) => {
+    expect(reduce(state, event)).toEqual(next);
+  });
+
+  it.each<[AppState, AppEvent]>([
+    [vPlaying, { type: 'pauseToggle' }],
+    [vPlaying, { type: 'hidden' }],
+    [vPlaying, { type: 'quitToTitle' }],
+    [vPlaying, { type: 'gameOver', stats }],
+    [vPlaying, { type: 'matchStart', match }],
+    [vPlaying, { type: 'chosen', index: 0 }],
+    [
+      { ...vPlaying, overlay: { kind: 'levelUp', level: 2, options } },
+      { type: 'chosen', index: 9 },
+    ],
+    [{ ...vResult, offline: true }, { type: 'rematch' }],
+    [vResult, { type: 'gameOver', stats }],
+    [lobby, { type: 'versusOver', result: official }],
+  ])('%j ignores %j', (state, event) => {
+    expect(reduce(state, event)).toBe(state);
+  });
+
+  it('effects: dialogs answer the worker; leaving the match ends the run', () => {
+    const lu: AppState = { ...vPlaying, overlay: { kind: 'levelUp', level: 2, options } };
+    expect(effects(lu, vPlaying, () => 1, { type: 'chosen', index: 1 })).toEqual([
+      { type: 'levelUpChoice', index: 1 },
+    ]);
+    expect(
+      effects({ ...vPlaying, overlay: { kind: 'chest', rewards } }, vPlaying, () => 1),
+    ).toEqual([{ type: 'chestClosed' }]);
+    expect(effects(vPlaying, vResult, () => 1)).toEqual([]);
+    expect(effects(vResult, title, () => 1)).toEqual([{ type: 'endRun' }]);
+    expect(effects(vResult, lobby, () => 1)).toEqual([{ type: 'endRun' }]);
+    expect(effects({ ...lobby, match }, vPlaying, () => 1)).toEqual([]);
+  });
+});
+
+describe('createApp versus flow (happy-dom, fake socket and worker port)', () => {
+  const button = (name: string) =>
+    [...document.querySelectorAll('button')].find((b) => b.textContent === name);
+
+  async function inLobby() {
+    document.body.replaceChildren();
+    const root = document.createElement('div');
+    document.body.append(root);
+    const sockets: { on: SocketHandlers; sent: string[] }[] = [];
+    const open: OpenSocket = (_url, on) => {
+      const socket = { on, sent: [] as string[] };
+      sockets.push(socket);
+      return { send: (d) => socket.sent.push(d), close: () => undefined };
+    };
+    const posted: MainToWorker[] = [];
+    let versusCreated = 0;
+    const app = createApp(
+      root,
+      (m) => posted.push(m),
+      () => 1,
+      () => null,
+      () => new NetClient('ws://test/ws', open),
+      (opts) => {
+        versusCreated++;
+        return createVersusController(opts);
+      },
+    );
+    const socket = () => {
+      const s = sockets.at(-1);
+      if (!s) throw new Error('no socket');
+      return s;
+    };
+    const serverSays = (m: unknown) => {
+      socket().on.message(JSON.stringify(m));
+    };
+    const sent = () => socket().sent.map((d) => JSON.parse(d) as { type: string });
+    app.dispatch({ type: 'multiplayer' });
+    app.dispatch({ type: 'confirm' });
+    socket().on.open();
+    serverSays({ type: 'welcome', playerId: 'a' });
+    await Promise.resolve();
+    const both = {
+      ...room,
+      players: [
+        ...room.players,
+        { id: 'b', nickname: 'Bob', ready: true, host: false, connected: true },
+      ],
+    };
+    serverSays(both);
+    serverSays({ ...match, startAt: Date.now() });
+    serverSays({ ...both, phase: 'countdown' });
+    return { root, app, posted, sent, serverSays, both, versus: () => versusCreated };
+  }
+
+  it('the countdown starts a versus run (once); status is relayed; a death sends died; matchResult shows Lose; Rematch returns to the lobby', async () => {
+    // `startAt` is now: the lobby's countdown ends at once and calls `startVersus`.
+    const t = await inLobby();
+    expect(t.app.state.name).toBe('versusPlaying');
+    expect(t.versus()).toBe(1);
+    expect(t.posted).toEqual([
+      { type: 'setBackgroundPolicy', policy: 'simulate' },
+      { type: 'startRun', mode: 'versus', seed: 9, characterId: 'warden', finale: 'end' },
+    ]);
+    expect(t.root.querySelector('.opponent-name')?.textContent).toBe('Bob');
+    // Escape does not pause a versus match.
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', bubbles: true }));
+    expect(t.app.state.name).toBe('versusPlaying');
+    t.app.status({
+      type: 'status',
+      hp: 10,
+      maxHp: 120,
+      level: 2,
+      kills: 4,
+      alive: true,
+      elapsedMs: 250,
+    });
+    expect(t.sent().at(-1)).toEqual({
+      type: 'status',
+      status: { hp: 10, maxHp: 120, level: 2, kills: 4, alive: true, elapsedMs: 250 },
+    });
+    t.app.dispatch({ type: 'gameOver', stats });
+    expect(t.sent().at(-1)).toEqual({ type: 'died', kills: 3, elapsedMs: 75_400 });
+    expect(t.app.state.name).toBe('versusPlaying');
+    expect(t.root.querySelector('.results')).toBeNull();
+    t.serverSays({
+      type: 'matchResult',
+      outcome: 'win',
+      winnerId: 'b',
+      ranking: [
+        { playerId: 'b', nickname: 'Bob', alive: true, kills: 8 },
+        { playerId: 'a', nickname: 'Alice', alive: false, kills: 3 },
+      ],
+    });
+    expect(t.app.state.name).toBe('versusResult');
+    expect(t.root.querySelector('h2')?.textContent).toBe('Lose');
+    expect(t.root.querySelector('.opponent-panel')).toBeNull();
+    expect(t.posted.slice(2)).toEqual([
+      { type: 'forceEnd', reason: 'matchOver' },
+      { type: 'setBackgroundPolicy', policy: 'pause' },
+    ]);
+    t.serverSays({ ...t.both, phase: 'finished' });
+    button('Rematch')?.click();
+    expect(t.app.state.name).toBe('lobby');
+    expect(t.posted.at(-1)).toEqual({ type: 'endRun' });
+    expect(t.root.querySelector('.lobby .status')?.textContent).toBe(
+      'Waiting for the room to reset',
+    );
+    t.serverSays({
+      ...t.both,
+      phase: 'lobby',
+      players: t.both.players.map((p) => ({ ...p, ready: false })),
+    });
+    expect(t.root.querySelectorAll('.players li[data-ready="false"]')).toHaveLength(2);
+  });
+
+  it('Leave on the result sends leaveRoom and returns to the title; level-ups still work in versus', async () => {
+    const t = await inLobby();
+    expect(t.app.state.name).toBe('versusPlaying');
+    t.app.dispatch({ type: 'levelUp', level: 2, options });
+    expect(t.root.querySelector('.levelup, [role="dialog"]')).not.toBeNull();
+    t.app.dispatch({ type: 'chosen', index: 0 });
+    expect(t.posted.at(-1)).toEqual({ type: 'levelUpChoice', index: 0 });
+    t.app.dispatch({ type: 'gameOver', stats: { ...stats, cleared: true } });
+    expect(t.sent().at(-1)).toEqual({ type: 'survived', kills: 3 });
+    expect(t.root.querySelector('.versus-banner')?.textContent).toBe(
+      'Survived! Waiting for others',
+    );
+    t.serverSays({ type: 'matchResult', outcome: 'draw', winnerId: null, ranking: [] });
+    expect(t.root.querySelector('h2')?.textContent).toBe('Draw');
+    button('Leave')?.click();
+    expect(t.sent().at(-1)).toEqual({ type: 'leaveRoom' });
+    expect(t.app.state).toEqual(title);
+    expect(t.posted.at(-1)).toEqual({ type: 'endRun' });
+  });
+
+  it('safety fact: a single-player run creates no versusController, relays no status and opens no WebSocket', () => {
+    document.body.replaceChildren();
+    const root = document.createElement('div');
+    document.body.append(root);
+    const posted: MainToWorker[] = [];
+    let nets = 0;
+    let versus = 0;
+    const app = createApp(
+      root,
+      (m) => posted.push(m),
+      () => 5,
+      () => null,
+      () => {
+        nets++;
+        return new NetClient('ws://test/ws', () => {
+          throw new Error('no socket in single player');
+        });
+      },
+      (opts) => {
+        versus++;
+        return createVersusController(opts);
+      },
+    );
+    app.dispatch({ type: 'start' });
+    app.dispatch({ type: 'confirm' });
+    expect(posted).toEqual([{ type: 'startRun', seed: 5, characterId: 'warden', mode: 'single' }]);
+    // Even a stray worker status (the worker posts none in single mode) goes nowhere.
+    app.status({
+      type: 'status',
+      hp: 1,
+      maxHp: 1,
+      level: 1,
+      kills: 0,
+      alive: true,
+      elapsedMs: 250,
+    });
+    app.startVersus({
+      seed: 1,
+      startAt: 0,
+      roomCode: 'ABCDEF',
+      selfId: 'a',
+      players: [],
+      characterId: 'warden',
+    });
+    app.dispatch({ type: 'gameOver', stats });
+    expect(app.state).toEqual(results);
+    expect(root.querySelector('.results')).not.toBeNull();
+    expect(nets).toBe(0);
+    expect(versus).toBe(0);
+    expect(posted).toEqual([{ type: 'startRun', seed: 5, characterId: 'warden', mode: 'single' }]);
   });
 });

@@ -1,4 +1,5 @@
-import type { Finale, RunSummary } from '../../protocol/worker-messages';
+import type { Finale, RunMode, RunSummary } from '../../protocol/worker-messages';
+import type { SpawnLog } from './spawn-log';
 import type { GameView } from './view';
 import { clearWorld, createWorld, type World } from './world';
 
@@ -8,23 +9,29 @@ export interface Session {
   readonly world: World | null;
   /**
    * Clears the previous run (stores and every pool, disposing nothing) and builds a fresh world on the same paints.
-   * `finale` (#17) defaults to `'death'`.
+   * `finale` (#17) defaults to `'death'`, `mode` (#20) to `'single'`.
    */
-  start(seed: number, characterId: string, finale?: Finale): World;
+  start(seed: number, characterId: string, finale?: Finale, mode?: RunMode): World;
   /** Clears the run and hides everything: the empty frame of the screens between runs. */
   end(): void;
   /** Syncs the view to the current run; nothing outside a run. */
   render(): void;
 }
 
-export function createSession(view: GameView, onGameOver: (summary: RunSummary) => void): Session {
+/** `spawnLog` (#20, dev and e2e builds) is cleared and handed to every new world. */
+export function createSession(
+  view: GameView,
+  onGameOver: (summary: RunSummary) => void,
+  spawnLog?: SpawnLog,
+): Session {
   let world: World | null = null;
   return {
     get world() {
       return world;
     },
-    start(seed, characterId, finale) {
+    start(seed, characterId, finale, mode) {
       if (world) clearWorld(world);
+      spawnLog?.clear();
       world = createWorld({
         seed,
         characterId,
@@ -36,6 +43,8 @@ export function createSession(view: GameView, onGameOver: (summary: RunSummary) 
         pickupPools: view.pickupPools,
         chestPool: view.chestPool,
         finale,
+        mode,
+        ...(spawnLog ? { spawnLog } : {}),
         onGameOver,
       });
       // After `createWorld`, which resolves an unknown id to the default character; it acquires no paint.

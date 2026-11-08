@@ -1,8 +1,19 @@
 // The app state machine (ADR 0009): the only code that mounts screens. Each transition unmounts the old screen,
 // mounts the new one and tells the worker. The DOM never reads game state; what it shows arrives as messages (ADR 0004).
-import { CHARACTERS, type CharacterId, type ChestReward, type PlayerInfo } from '@vs/shared';
+import { CHARACTERS, type CharacterId, type ChestReward } from '@vs/shared';
 import { assertNever } from '../protocol/assert-never';
-import type { LevelUpOption, MainToWorker, RunSummary } from '../protocol/worker-messages';
+import type {
+  LevelUpOption,
+  MainToWorker,
+  RunSummary,
+  WorkerStatus,
+} from '../protocol/worker-messages';
+import {
+  createVersusController,
+  type VersusController,
+  type VersusControllerOptions,
+  type VersusStart,
+} from './match/versusController';
 import { browserSocket } from './net/browser-socket';
 import { NetClient, type NetState } from './net/client';
 import { SERVER_URL } from './net/config';
@@ -22,7 +33,23 @@ import {
 import { mount as mountPause } from './ui/pause';
 import { mount as mountResults } from './ui/results';
 import { mount as mountTitle } from './ui/title';
+import { mount as mountVersusResult, type VersusResult } from './ui/versus-result';
 import './ui/styles.css';
+
+/** A dialog over a running versus world (#20): the level-up choice (#11) or the chest (#15) pause only this world. */
+export type VersusOverlay =
+  | null
+  | { kind: 'levelUp'; level: number; options: LevelUpOption[] }
+  | { kind: 'chest'; rewards: ChestReward[] };
+
+/** What the versus states (#20) keep of the room, so Rematch returns to the same lobby. */
+interface VersusRoom {
+  room: RoomState;
+  selfId: string;
+  characterId: CharacterId;
+  /** The socket left `open` during or after the match: no more messages, no Rematch. */
+  offline: boolean;
+}
 
 export type AppState =
   | { name: 'title' }
@@ -43,7 +70,11 @@ export type AppState =
   | { name: 'levelUp'; level: number; options: LevelUpOption[] }
   /** #15: the worker paused the run while the chest overlay shows its rewards. */
   | { name: 'chest'; rewards: ChestReward[] }
-  | { name: 'results'; stats: RunSummary };
+  | { name: 'results'; stats: RunSummary }
+  /** #20: the versus match runs; Escape and a hidden tab do nothing (the world keeps simulating). */
+  | ({ name: 'versusPlaying'; overlay: VersusOverlay } & VersusRoom)
+  /** #20: the match is over: the server's result, or the local one when offline. */
+  | ({ name: 'versusResult'; result: VersusResult } & VersusRoom);
 
 export type AppEvent =
   | { type: 'start' }
@@ -73,7 +104,15 @@ export type AppEvent =
   /** #15: from the worker; a chest opened. */
   | { type: 'chestOpened'; rewards: ChestReward[] }
   /** #15: the chest overlay closed (Enter or its timer). */
-  | { type: 'chestClosed' };
+  | { type: 'chestClosed' }
+  /** #20: the lobby countdown ended and the versus run started. */
+  | { type: 'versusStarted' }
+  /** #20: the versus match ended for this player. */
+  | { type: 'versusOver'; result: VersusResult }
+  /** #20: the socket left `open` during the match. */
+  | { type: 'versusOffline' }
+  /** #20: Rematch on the versus result: back to the same room's lobby. */
+  | { type: 'rematch' };
 
 /** The notice on the entry screen after the socket closed unexpectedly (#19). */
 export const CONNECTION_LOST = 'Connection lost — the room was left';
@@ -143,6 +182,15 @@ export function reduce(
         }
         case 'matchStart':
           return { ...state, match: event.match };
+        case 'versusStarted':
+          return {
+            name: 'versusPlaying',
+            room: state.room,
+            selfId: state.selfId,
+            characterId: state.characterId,
+            offline: false,
+            overlay: null,
+          };
         case 'leave':
           return { name: 'title' };
         case 'connectionLost':
@@ -183,8 +231,66 @@ export function reduce(
       if (event.type === 'retry') return { name: 'playing', paused: false };
       if (event.type === 'quitToTitle') return { name: 'title' };
       return state;
+    case 'versusPlaying':
+      return reduceVersusPlaying(state, event);
+    case 'versusResult':
+      switch (event.type) {
+        case 'roomState':
+          return { ...state, room: event.room };
+        case 'versusOffline':
+        case 'connectionLost':
+          return state.offline ? state : { ...state, offline: true };
+        case 'rematch':
+          return state.offline
+            ? state
+            : {
+                name: 'lobby',
+                room: state.room,
+                selfId: state.selfId,
+                characterId: state.characterId,
+              };
+        case 'leave':
+          return { name: 'title' };
+        default:
+          return state;
+      }
     default:
       return assertNever(state);
+  }
+}
+
+/** The versus match (#20): the dialogs pause only this world (ADR 0004); the socket's loss keeps the match local. */
+function reduceVersusPlaying(
+  state: Extract<AppState, { name: 'versusPlaying' }>,
+  event: AppEvent,
+): AppState {
+  const { overlay } = state;
+  switch (event.type) {
+    case 'roomState':
+      return { ...state, room: event.room };
+    case 'versusOffline':
+    case 'connectionLost':
+      return state.offline ? state : { ...state, offline: true };
+    case 'versusOver': {
+      const { room, selfId, characterId, offline } = state;
+      return { name: 'versusResult', room, selfId, characterId, offline, result: event.result };
+    }
+    case 'levelUp':
+      return overlay === null
+        ? { ...state, overlay: { kind: 'levelUp', level: event.level, options: event.options } }
+        : state;
+    case 'chosen':
+      return overlay?.kind === 'levelUp' && event.index >= 0 && event.index < overlay.options.length
+        ? { ...state, overlay: null }
+        : state;
+    case 'chestOpened':
+      return overlay === null
+        ? { ...state, overlay: { kind: 'chest', rewards: event.rewards } }
+        : state;
+    case 'chestClosed':
+      return overlay?.kind === 'chest' ? { ...state, overlay: null } : state;
+    default:
+      return state;
   }
 }
 
@@ -200,6 +306,15 @@ export function effects(
   lastCharacter: CharacterId = DEFAULT_CHARACTER_ID,
 ): MainToWorker[] {
   if (from === to) return [];
+  // #20: the versus run is started by its controller; its dialogs answer the worker like single player's.
+  if (from.name === 'versusPlaying' && to.name === 'versusPlaying') {
+    if (from.overlay?.kind === 'levelUp' && to.overlay === null && event?.type === 'chosen')
+      return [{ type: 'levelUpChoice', index: event.index }];
+    if (from.overlay?.kind === 'chest' && to.overlay === null) return [{ type: 'chestClosed' }];
+    return [];
+  }
+  if (from.name === 'versusPlaying' || from.name === 'versusResult')
+    return to.name === 'title' || to.name === 'lobby' ? [{ type: 'endRun' }] : [];
   // The worker resumes by itself once no level-up is pending, or posts the next `levelUp`.
   if (from.name === 'levelUp')
     return event?.type === 'chosen' ? [{ type: 'levelUpChoice', index: event.index }] : [];
@@ -209,7 +324,7 @@ export function effects(
   if (to.name === 'chest') return [];
   if (to.name === 'playing' && from.name !== 'playing') {
     const characterId = from.name === 'characterSelect' ? from.selectedId : lastCharacter;
-    return [{ type: 'startRun', seed: seed(), characterId }];
+    return [{ type: 'startRun', seed: seed(), characterId, mode: 'single' }];
   }
   if (to.name === 'playing' && from.name === 'playing')
     return to.paused === from.paused ? [] : [{ type: to.paused ? 'pause' : 'resume' }];
@@ -219,21 +334,22 @@ export function effects(
   return [];
 }
 
-/** What #20's versus match starts from: the `matchStart` seed, the room and this player's character. */
-export interface VersusStart {
-  seed: number;
-  roomCode: string;
-  selfId: string;
-  players: PlayerInfo[];
-  characterId: CharacterId;
-}
+export type { VersusStart };
 
 export interface App {
   readonly state: AppState;
   dispatch(event: AppEvent): void;
-  /** Starts the versus match when the lobby countdown ends. A stub until #20: it logs in dev and stays in the lobby. */
+  /**
+   * Starts the versus match when the lobby countdown ends (#20): only from the lobby, with the socket open. Creates
+   * the match's `versusController`, which starts the `'versus'` run.
+   */
   startVersus(start: VersusStart): void;
+  /** A worker `status` (#20): relayed by the running versus match; ignored otherwise. */
+  status(message: WorkerStatus): void;
 }
+
+/** Creates the controller of one versus match; tests pass a fake. */
+export type CreateVersus = (opts: VersusControllerOptions) => VersusController;
 
 /** Creates the multiplayer flow's socket client; tests pass a fake. */
 export type CreateNet = () => NetClient;
@@ -258,6 +374,7 @@ export function createApp(
   seed: () => number = randomSeed,
   iconUrl: AssetUrl = () => null,
   createNet: CreateNet = defaultNet,
+  createVersus: CreateVersus = createVersusController,
 ): App {
   const doc = root.ownerDocument;
   let state: AppState = { name: 'title' };
@@ -279,6 +396,8 @@ export function createApp(
   let nickname: string | null = null;
   let entry: Screen<MultiplayerEntryProps> | null = null;
   let lobby: Screen<LobbyProps> | null = null;
+  /** The running versus match (#20); `null` outside `versusPlaying`, so single player never creates one. */
+  let versus: VersusController | null = null;
 
   const openNet = (): NetClient => {
     if (net) return net;
@@ -364,6 +483,7 @@ export function createApp(
     onCountdownDone: (match) => {
       app.startVersus({
         seed: match.seed,
+        startAt: match.startAt,
         roomCode: s.room.code,
         selfId: s.selfId,
         players: s.room.players,
@@ -460,6 +580,38 @@ export function createApp(
           },
         });
         break;
+      case 'versusPlaying':
+        if (state.overlay?.kind === 'levelUp')
+          screen = mountLevelUp(root, {
+            level: state.overlay.level,
+            options: state.overlay.options,
+            iconUrl,
+            onChoose: (index) => {
+              app.dispatch({ type: 'chosen', index });
+            },
+          });
+        else if (state.overlay?.kind === 'chest')
+          screen = mountChest(root, {
+            rewards: state.overlay.rewards,
+            iconUrl,
+            onClose: () => {
+              app.dispatch({ type: 'chestClosed' });
+            },
+          });
+        break;
+      case 'versusResult':
+        screen = mountVersusResult(root, {
+          result: state.result,
+          selfId: state.selfId,
+          canRematch: !state.offline,
+          onRematch: () => {
+            app.dispatch({ type: 'rematch' });
+          },
+          onLeave: () => {
+            app.dispatch({ type: 'leave' });
+          },
+        });
+        break;
       case 'results':
         screen = mountResults(root, {
           stats: state.stats,
@@ -481,6 +633,8 @@ export function createApp(
       return state;
     },
     dispatch(event) {
+      // The versus match reports the local run's end to the server (#20); the state follows its `versusOver`.
+      if (event.type === 'gameOver' && versus) versus.gameOver(event.stats);
       const next = reduce(state, event, lastCharacter);
       if (next === state) return;
       const messages = effects(state, next, seed, event, lastCharacter);
@@ -492,16 +646,36 @@ export function createApp(
         lastCharacter = state.selectedId;
       const from = state;
       state = next;
+      if (from.name === 'versusPlaying' && next.name !== 'versusPlaying') {
+        versus?.dispose();
+        versus = null;
+      }
       // The socket lives only inside the multiplayer flow (#19).
-      if (from.name === 'lobby' && next.name === 'title') net?.send({ type: 'leaveRoom' });
+      if ((from.name === 'lobby' || from.name === 'versusResult') && next.name === 'title')
+        net?.send({ type: 'leaveRoom' });
       if (next.name === 'title') closeNet();
       show();
       if (next.name === 'multiplayerEntry' && from.name !== 'multiplayerEntry') connect();
       for (const message of messages) post(message);
     },
     startVersus(start) {
-      // #20 replaces this stub with the versus run.
-      if (import.meta.env.DEV) console.warn('[vs] startVersus is not wired yet (#20)', start);
+      if (state.name !== 'lobby' || !net || versus) return;
+      versus = createVersus({
+        net,
+        post,
+        root,
+        start,
+        onResult: (result) => {
+          app.dispatch({ type: 'versusOver', result });
+        },
+        onOffline: () => {
+          app.dispatch({ type: 'versusOffline' });
+        },
+      });
+      app.dispatch({ type: 'versusStarted' });
+    },
+    status(message) {
+      versus?.status(message);
     },
   };
 

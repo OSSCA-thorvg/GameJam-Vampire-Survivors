@@ -1,0 +1,116 @@
+/* The versus match (#20, ADR 0009): the opponent panel, the in-match banner and the result screen. */
+.opponent-panel {
+  position: absolute;
+  top: 3.2rem;
+  right: 1rem;
+  width: 15rem;
+  color: var(--screen-fg);
+  pointer-events: none;
+}
+
+.opponent-panel .opponents {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.opponent-panel .opponent {
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  background: rgb(8 8 16 / 70%);
+  font-size: 0.9rem;
+}
+
+.opponent-panel .opponent-head,
+.opponent-panel .opponent-numbers {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  white-space: pre;
+  overflow: hidden;
+}
+
+.opponent-panel .opponent-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.opponent-panel .opponent-numbers {
+  font-variant-numeric: tabular-nums;
+}
+
+.opponent-panel .hp {
+  height: 6px;
+  margin: 0.25rem 0;
+  border-radius: 3px;
+  background: #3a2020;
+  overflow: hidden;
+}
+
+.opponent-panel .hp-fill {
+  height: 100%;
+  background: #c0392b;
+}
+
+.opponent-panel .badge {
+  padding: 0 0.35rem;
+  border-radius: 4px;
+  background: var(--accent);
+  font-size: 0.75rem;
+}
+
+.opponent-panel [hidden] {
+  display: none !important;
+}
+
+.opponent-panel .opponent[data-out='true'] {
+  opacity: 0.5;
+}
+
+.opponent-panel .opponent[data-out='true'] .opponent-name {
+  text-decoration: line-through;
+}
+
+.versus-banner {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  color: var(--screen-fg);
+  background: rgb(8 8 16 / 80%);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.versus-banner:empty {
+  display: none;
+}
+
+.screen.versus-result [hidden] {
+  display: none !important;
+}
+
+.screen.versus-result .ranking {
+  border-collapse: collapse;
+  font-size: 1.15rem;
+}
+
+.screen.versus-result .ranking th,
+.screen.versus-result .ranking td {
+  padding: 0.25rem 1rem;
+  white-space: pre;
+}
+
+.screen.versus-result .ranking tr[data-self='true'] {
+  color: var(--focus);
+}
+
+.screen.versus-result .note {
+  max-width: 32rem;
+  margin: 0;
+  opacity: 0.8;
+}

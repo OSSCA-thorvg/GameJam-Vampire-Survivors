@@ -84,8 +84,19 @@ async function boot(): Promise<void> {
     appRoot().append(screens);
     const started = createApp(screens, post, undefined, (id) => iconUrl(id));
     app = started;
-    if (import.meta.env.DEV || import.meta.env.MODE === 'e2e')
+    if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
       registerMainSnapshotField('state', () => started.state.name);
+      // #20: the dialog over a running versus world, and whether its socket was lost.
+      registerMainSnapshotField('versus', () => {
+        const s = started.state;
+        return s.name === 'versusPlaying' || s.name === 'versusResult'
+          ? {
+              overlay: s.name === 'versusPlaying' ? (s.overlay?.kind ?? null) : null,
+              offline: s.offline,
+            }
+          : null;
+      });
+    }
   };
 
   let testBridge: MainTestBridge | null = null;
@@ -128,6 +139,9 @@ async function boot(): Promise<void> {
         break;
       case 'chestOpened':
         app?.dispatch({ type: 'chestOpened', rewards: message.rewards });
+        break;
+      case 'status':
+        app?.status(message);
         break;
       default:
         assertNever(message);

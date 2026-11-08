@@ -224,3 +224,28 @@ it('stops stepping within the frame once a step pauses the loop, and resumes wit
   frame(STEP_MS);
   expect(steps).toBe(3);
 });
+
+it('forceEnd (#20): pause and stop leave no step or render scheduled; the next run restarts without a burst', () => {
+  const h = harness();
+  h.loop.setBackgroundPolicy('simulate');
+  h.loop.start();
+  h.frame(STEP_MS * 3);
+  const before = { ...h.counts };
+  expect(before.steps).toBeGreaterThan(0);
+  h.loop.pause();
+  h.loop.stop();
+  h.frame(1000);
+  h.loop.setVisibility(true);
+  h.loop.setVisibility(false);
+  h.frame(1000);
+  expect(h.counts.steps).toBe(before.steps);
+  expect(h.counts.renders).toBe(before.renders);
+  expect(h.frames.size).toBe(0);
+  expect(h.timers.size).toBe(0);
+  h.loop.resume();
+  h.loop.start();
+  h.frame(STEP_MS * 3);
+  // No catch-up for the two stopped seconds: at most the three steps of this frame.
+  expect(h.counts.steps - before.steps).toBeGreaterThan(0);
+  expect(h.counts.steps - before.steps).toBeLessThanOrEqual(3);
+});
