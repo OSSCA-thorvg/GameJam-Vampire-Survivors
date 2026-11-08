@@ -1,5 +1,6 @@
 import { MAX_ENEMY_RADIUS } from '@vs/shared';
-import { ENEMY_RADIUS } from '../../enemies';
+import { enemyRadius } from '../../enemies';
+import type { FxAssetId } from '../../fx';
 import type { WeaponPatternModule } from './types';
 
 /** The strike box at area 1, in world units: it starts at the player and extends this far to one side. */
@@ -26,22 +27,24 @@ export const whip: WeaponPatternModule = {
     const top = py - halfHeight;
     const bottom = py + halfHeight;
     const cx = (left + right) / 2;
-    const { x, y, type } = ctx.enemies.cols;
+    const { cols } = ctx.enemies;
+    const { x, y } = cols;
     const n = ctx.query(cx, py, Math.hypot(width / 2, halfHeight) + MAX_ENEMY_RADIUS, found);
     for (let k = 0; k < n; k++) {
       const e = found[k] ?? 0;
       const ex = x[e] ?? 0;
       const ey = y[e] ?? 0;
-      const r = ENEMY_RADIUS[type[e] ?? 0] ?? 0;
+      const r = enemyRadius(cols, e);
       const qx = Math.min(Math.max(ex, left), right);
       const qy = Math.min(Math.max(ey, top), bottom);
       if ((ex - qx) ** 2 + (ey - qy) ** 2 > r * r) continue;
       const dx = ex - px;
       const dy = ey - py;
       const d = Math.hypot(dx, dy);
-      ctx.damageEnemy(e, lv.damage, d > 0 ? dx / d : side, d > 0 ? dy / d : 0, lv.knockback);
+      ctx.weaponHit(w, lv, e, d > 0 ? dx / d : side, d > 0 ? dy / d : 0);
     }
     ctx.hitLightsInBox(left, top, right, bottom, lv.damage);
-    ctx.spawnFx('weapon.whip', cx, py, 0, side < 0, lv.durationSec, lv.area);
+    // `weapon.whip`, or `weapon.bloodyTear` once evolved (#15).
+    ctx.spawnFx(w.def.assetId as FxAssetId, cx, py, 0, side < 0, lv.durationSec, lv.area);
   },
 };

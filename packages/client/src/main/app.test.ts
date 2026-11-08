@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
+import type { ChestReward } from '@vs/shared';
 import type { LevelUpOption, MainToWorker } from '../protocol/worker-messages';
 import { createApp, effects, reduce, type AppEvent, type AppState } from './app';
 
@@ -21,6 +22,10 @@ const options: LevelUpOption[] = [
 const levelUp: AppState = { name: 'levelUp', level: 2, options };
 const selectWarden: AppState = { name: 'characterSelect', selectedId: 'warden' };
 const selectSwift: AppState = { name: 'characterSelect', selectedId: 'swift' };
+const rewards: ChestReward[] = [
+  { kind: 'evolve', fromWeaponId: 'whip', intoWeaponId: 'bloodyTear' },
+];
+const chest: AppState = { name: 'chest', rewards };
 
 describe('reduce', () => {
   it.each<[AppState, AppEvent, AppState]>([
@@ -38,6 +43,8 @@ describe('reduce', () => {
     [playing, { type: 'levelUp', level: 2, options }, levelUp],
     [paused, { type: 'levelUp', level: 2, options }, levelUp],
     [levelUp, { type: 'chosen', index: 1 }, playing],
+    [playing, { type: 'chestOpened', rewards }, chest],
+    [chest, { type: 'chestClosed' }, playing],
   ])('%j + %j → %j', (state, event, next) => {
     expect(reduce(state, event)).toEqual(next);
   });
@@ -66,6 +73,10 @@ describe('reduce', () => {
     [results, { type: 'levelUp', level: 2, options }],
     [playing, { type: 'chosen', index: 0 }],
     [levelUp, { type: 'pauseToggle' }],
+    [chest, { type: 'pauseToggle' }],
+    [chest, { type: 'hidden' }],
+    [chest, { type: 'quitToTitle' }],
+    [title, { type: 'chestOpened', rewards }],
     [levelUp, { type: 'hidden' }],
     [levelUp, { type: 'quitToTitle' }],
     [levelUp, { type: 'chosen', index: 2 }],
@@ -110,6 +121,10 @@ describe('effects', () => {
 
   it('sends the chosen index when leaving the level-up screen, and nothing when entering it', () => {
     expect(effects(playing, levelUp, seed, { type: 'levelUp', level: 2, options })).toEqual([]);
+    expect(effects(playing, chest, seed, { type: 'chestOpened', rewards })).toEqual([]);
+    expect(effects(chest, playing, seed, { type: 'chestClosed' })).toEqual([
+      { type: 'chestClosed' },
+    ]);
     expect(effects(levelUp, playing, seed, { type: 'chosen', index: 1 })).toEqual([
       { type: 'levelUpChoice', index: 1 },
     ]);
@@ -266,5 +281,28 @@ describe('createApp (happy-dom)', () => {
       { type: 'pause' },
       { type: 'endRun' },
     ]);
+  });
+
+  it('mounts the chest overlay on chestOpened, ignores Escape there, and Enter sends chestClosed', () => {
+    document.body.replaceChildren();
+    const root = document.createElement('div');
+    document.body.append(root);
+    const sent: MainToWorker[] = [];
+    const app = createApp(
+      root,
+      (m) => sent.push(m),
+      () => 1,
+    );
+    button('Start')?.click();
+    key('Enter');
+    app.dispatch({ type: 'chestOpened', rewards });
+    expect(app.state).toEqual(chest);
+    expect(root.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Treasure');
+    key('Escape');
+    expect(app.state).toEqual(chest);
+    key('Enter');
+    expect(app.state).toEqual(playing);
+    expect(root.children).toHaveLength(0);
+    expect(sent.slice(1)).toEqual([{ type: 'chestClosed' }]);
   });
 });

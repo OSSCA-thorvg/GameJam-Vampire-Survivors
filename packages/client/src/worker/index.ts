@@ -24,7 +24,12 @@ import { createLayers } from './render/layers';
 import { createGameView } from './game/view';
 import { createSession, type Session } from './game/session';
 import { createLevelUpFlow, xpForNextLevel } from './game/level';
+import { createChestFlow } from './game/systems/chest-open';
+import { spawnBoss } from './game/systems/bosses';
+import { forceEvolution, nextEvolution } from './game/debug-evolution';
 import {
+  readBosses,
+  readChestPositions,
   readEnemyPositions,
   readGemPositions,
   readPassives,
@@ -80,6 +85,20 @@ const levelUps = createLevelUpFlow({
     loop?.resume();
   },
 });
+/** The chest overlay (#15): pauses the loop after a step that opened a chest, resumes on `chestClosed`. */
+const chests = createChestFlow({
+  post,
+  pause: () => {
+    paused = true;
+    loop?.pause();
+  },
+  resume: () => {
+    paused = false;
+    loop?.resume();
+  },
+});
+/** The `E` debug key's next pair in `EVOLUTIONS`, kept across runs (dev builds only). */
+let evolutionIndex = 0;
 let library: AssetLibrary | null = null;
 let gallery: Gallery | null = null;
 let stress: StressScene | null = null;
@@ -107,6 +126,7 @@ function step(dtSec: number): void {
   if (world) {
     world.step(dtSec);
     levelUps.afterStep(world);
+    chests.afterStep(world);
   }
   if (import.meta.env.DEV) debugHooks?.onStep();
 }
@@ -223,6 +243,11 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
           runs.world ? { ...runs.world.damageDealt } : { hits: 0, total: 0 },
         );
         registerSnapshotField('gems', () => runs.world?.gems.count ?? 0);
+        registerSnapshotField('chests', () => runs.world?.chests.count ?? 0);
+        registerSnapshotField('chestPositions', () =>
+          runs.world ? readChestPositions(runs.world) : [],
+        );
+        registerSnapshotField('bosses', () => (runs.world ? readBosses(runs.world) : []));
         registerSnapshotField('gemPositions', () =>
           runs.world ? readGemPositions(runs.world) : [],
         );
@@ -249,6 +274,20 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         registerDebugHandler('spawnPickup', () => {
           const id = runs.world ? spawnDebugPickup(runs.world) : null;
           console.warn(`[debug] spawnPickup: ${id ?? 'nothing spawned'}`);
+        });
+      if (import.meta.env.DEV)
+        registerDebugHandler('forceEvolution', () => {
+          const world = runs.world;
+          if (!world || levelUps.open || chests.open) return;
+          const { done, log } = forceEvolution(world, nextEvolution(evolutionIndex));
+          if (done) evolutionIndex++;
+          console.warn(`[debug] forceEvolution: ${log}`);
+        });
+      if (import.meta.env.DEV)
+        registerDebugHandler('spawnBoss', () => {
+          const world = runs.world;
+          const slot = world ? spawnBoss(world, 'reaper5') : -1;
+          console.warn(`[debug] spawnBoss: ${slot < 0 ? 'not spawned' : 'reaper5'}`);
         });
       if (import.meta.env.DEV)
         registerDebugHandler('levelUp', () => {
@@ -299,6 +338,7 @@ function startRun(seed: number, characterId: string): void {
     return;
   }
   levelUps.reset();
+  chests.reset();
   const run = session.start(seed, characterId);
   run.input.dx = inputX;
   run.input.dy = inputY;
@@ -310,6 +350,7 @@ function startRun(seed: number, characterId: string): void {
 /** Clears the run and draws one empty frame (#9); the loop keeps running under the screens. */
 function endRun(): void {
   levelUps.reset();
+  chests.reset();
   session?.end();
   paused = false;
   loop?.resume();
@@ -376,6 +417,9 @@ function handle(message: GameMainToWorker): void {
       break;
     case 'levelUpChoice':
       if (session?.world) levelUps.choose(session.world, message.index);
+      break;
+    case 'chestClosed':
+      if (session?.world) chests.close(session.world);
       break;
     case 'debug':
       if (import.meta.env.DEV) dispatchDebug(message.command);

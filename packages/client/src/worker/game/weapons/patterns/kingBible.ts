@@ -1,5 +1,5 @@
 import { MAX_ENEMY_RADIUS } from '@vs/shared';
-import { ENEMY_RADIUS } from '../../enemies';
+import { enemyRadius } from '../../enemies';
 import { MAX_BOOKS } from '../visuals';
 import type { WeaponPatternModule } from './types';
 
@@ -25,6 +25,8 @@ export const kingBible: WeaponPatternModule = {
   update(ctx, w, lv, dt) {
     const { books } = ctx.visuals;
     w.phase = (w.phase + lv.speed * dt) % 360;
+    // Unholy Vespers (#15): the books never go away.
+    if (lv.permanent) w.activeLeft = Math.max(w.activeLeft, lv.durationSec);
     if (w.activeLeft <= 0) {
       books.count = 0;
       return;
@@ -36,7 +38,8 @@ export const kingBible: WeaponPatternModule = {
     const cooldown = lv.hitCooldown ?? 0;
     const hitT = ctx.enemyHitTimes[w.slot];
     const { x: px, y: py } = ctx.player;
-    const { x: ex, y: ey, type } = ctx.enemies.cols;
+    const { cols } = ctx.enemies;
+    const { x: ex, y: ey } = cols;
     const now = ctx.time;
     for (let i = 0; i < n; i++) {
       const angle = (w.phase + (360 * i) / n) * RAD;
@@ -49,7 +52,7 @@ export const kingBible: WeaponPatternModule = {
       const count = ctx.query(bx, by, reach + MAX_ENEMY_RADIUS, found);
       for (let k = 0; k < count; k++) {
         const e = found[k] ?? 0;
-        const r = reach + (ENEMY_RADIUS[type[e] ?? 0] ?? 0);
+        const r = reach + enemyRadius(cols, e);
         const dx = (ex[e] ?? 0) - bx;
         const dy = (ey[e] ?? 0) - by;
         if (dx * dx + dy * dy > r * r || now - (hitT[e] ?? 0) < cooldown) continue;
@@ -57,10 +60,11 @@ export const kingBible: WeaponPatternModule = {
         const ox = (ex[e] ?? 0) - px;
         const oy = (ey[e] ?? 0) - py;
         const d = Math.hypot(ox, oy);
-        ctx.damageEnemy(e, lv.damage, d > 0 ? ox / d : 1, d > 0 ? oy / d : 0, lv.knockback);
+        ctx.weaponHit(w, lv, e, d > 0 ? ox / d : 1, d > 0 ? oy / d : 0);
       }
     }
     books.count = n;
     books.scale = lv.area;
+    books.evolved = w.def.evolved === true;
   },
 };

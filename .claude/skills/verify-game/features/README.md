@@ -18,6 +18,8 @@ One file per user-facing feature. A PR that adds or changes user-facing behaviou
 | `level-up.md`                  | the level-up dialog, frozen run, choices, the heal card, the `L` key                                  | #11   |
 | `passives.md`                  | passive cards, the stat block, Candelabrador, Spinach, Pummarola, slots, `P`                          | #12   |
 | `character-select.md`          | the four characters, keyboard and mouse choice, starting weapons and stats, Retry keeps the character | #14   |
+| `chests-and-evolutions.md`     | treasure chests, the reward overlay, the 8 evolutions, the `E` key                                    | #15   |
+| `bosses-and-elites.md`         | bosses (`B`), the boss tether, elites with their marker and chest                                     | #15   |
 | `light-sources-and-pickups.md` | braziers around the player, breaking them, the five pickups, `K`, level gates                         | #16   |
 
 ## Baseline preconditions

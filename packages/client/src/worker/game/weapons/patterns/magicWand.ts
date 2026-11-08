@@ -1,4 +1,4 @@
-import type { ProjectileOptions } from '../../projectiles';
+import type { ProjectileAssetId, ProjectileOptions } from '../../projectiles';
 import { aimAt } from './aim';
 import type { WeaponPatternModule } from './types';
 
@@ -20,13 +20,20 @@ const opts: ProjectileOptions = {
  * last movement direction when there is none, hitting up to `pierce` enemies within `durationSec`.
  */
 export const magicWand: WeaponPatternModule = {
-  fire(ctx, _w, lv) {
+  fire(ctx, w, lv) {
     const { x, y } = ctx.player;
     const dir = aimAt(ctx, ctx.nearest(x, y, WAND_RANGE));
     opts.damage = lv.damage;
     opts.knockback = lv.knockback;
     opts.pierce = lv.pierce;
     opts.ttl = lv.durationSec;
-    ctx.spawnProjectile('weapon.magicWand', x, y, dir.x * lv.speed, dir.y * lv.speed, opts);
+    ctx.spawnProjectile(
+      w.def.assetId as ProjectileAssetId,
+      x,
+      y,
+      dir.x * lv.speed,
+      dir.y * lv.speed,
+      opts,
+    );
   },
 };

@@ -31,6 +31,7 @@ export function createSession(view: GameView, onGameOver: (stats: RunStats) => v
         gemPools: view.gemPools,
         lightPools: view.lightPools,
         pickupPools: view.pickupPools,
+        chestPool: view.chestPool,
         onGameOver,
       });
       // After `createWorld`, which resolves an unknown id to the default character; it acquires no paint.

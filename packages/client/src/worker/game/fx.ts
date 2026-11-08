@@ -27,6 +27,9 @@ export const FX_ASSETS = [
   'fx.hit',
   'fx.enemyDeath',
   'fx.levelUp',
+  // #15: the evolved whip arc and the chest-opening burst.
+  'weapon.bloodyTear',
+  'fx.chestOpen',
 ] as const satisfies readonly DrawableAssetId[];
 export type FxAssetId = (typeof FX_ASSETS)[number];
 
@@ -41,18 +44,25 @@ export interface FxState {
  * gets a small pool instead of `FX_CAP`.
  */
 export const LEVEL_UP_FX_PREWARM = 2;
+/** The same for the effects of #15: the Bloody Tear arc (two strikes at most live) and the `fx.chestOpen` Lottie. */
+export const BLOODY_TEAR_FX_PREWARM = 4;
+export const CHEST_OPEN_FX_PREWARM = 2;
+
+const FX_PREWARM: Readonly<Partial<Record<FxAssetId, number>>> = {
+  'fx.levelUp': LEVEL_UP_FX_PREWARM,
+  'weapon.bloodyTear': BLOODY_TEAR_FX_PREWARM,
+  'fx.chestOpen': CHEST_OPEN_FX_PREWARM,
+};
 
 /**
- * One pool per effect asset, each prewarmed to `FX_CAP` (`fx.levelUp` to `LEVEL_UP_FX_PREWARM`), so no ordinary spawn
+ * One pool per effect asset, each prewarmed to `FX_CAP` (the rare ones to their `*_FX_PREWARM`), so no ordinary spawn
  * grows a pool during a run. Created once per worker by the game view and reused by every run (#9).
  */
 export function createFxPools(
   library: Pick<AssetLibrary, 'create'>,
   layer: Pick<Scene, 'add'>,
 ): PaintPool[] {
-  return FX_ASSETS.map(
-    (id) => new PaintPool(library, id, layer, id === 'fx.levelUp' ? LEVEL_UP_FX_PREWARM : FX_CAP),
-  );
+  return FX_ASSETS.map((id) => new PaintPool(library, id, layer, FX_PREWARM[id] ?? FX_CAP));
 }
 
 export function createFxState(pools?: readonly PaintPool[]): FxState {

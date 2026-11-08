@@ -48,6 +48,12 @@ export function applyStats(lv: WeaponLevel, s: Readonly<StatBlock>, out: WeaponL
   out.returnAfter = lv.returnAfter;
   out.orbitRadius = lv.orbitRadius;
   out.burstIntervalSec = lv.burstIntervalSec;
+  // The evolution fields (#15), read by the patterns only when present.
+  out.healEveryHits = lv.healEveryHits;
+  out.critChance = lv.critChance;
+  out.critMultiplier = lv.critMultiplier;
+  out.radial = lv.radial;
+  out.permanent = lv.permanent;
   return out;
 }
 

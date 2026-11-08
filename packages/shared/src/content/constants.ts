@@ -1,3 +1,6 @@
+import { ELITE } from './chests.js';
+import { ENEMIES } from './enemies.js';
+
 /** Initial vector-art budgets (ADR 0007); #22 measures changes to these caps. */
 export const ENEMY_CAP = 400;
 export const PROJECTILE_CAP = 600;
@@ -18,8 +21,14 @@ export const PLAYER_RADIUS = 14;
  * docs/reference/gameplay.md § Core loop).
  */
 export const HIT_INVULN_SEC = 0.5;
-/** The largest enemy radius any content may use; the contact query reaches `PLAYER_RADIUS + MAX_ENEMY_RADIUS`. */
-export const MAX_ENEMY_RADIUS = 24;
+/**
+ * The largest collision radius any enemy can have (#15): `radius × ELITE.scale` over normal enemies (any of them can
+ * be an elite) and `radius` over bosses (never elites). The contact query reaches `PLAYER_RADIUS + MAX_ENEMY_RADIUS`
+ * and the weapon queries `+ MAX_ENEMY_RADIUS`, so they find every enemy. 48 with the content of #15.
+ */
+export const MAX_ENEMY_RADIUS = Math.max(
+  ...Object.values(ENEMIES).map((e) => (e.boss ? e.radius : e.radius * ELITE.scale)),
+);
 /** Weapons the player can hold at once (ADR 0008); the owned array's index is the slot. */
 export const MAX_WEAPON_SLOTS = 6;
 

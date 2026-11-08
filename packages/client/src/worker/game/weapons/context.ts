@@ -1,12 +1,13 @@
-import type { Rng } from '@vs/shared';
+import type { Rng, WeaponLevel } from '@vs/shared';
 import type { Camera } from '../camera';
-import { damageEnemy } from '../combat';
+import { damageEnemy, isDead } from '../combat';
 import type { EnemyStore } from '../enemies';
 import { hitLightsInBox, hitLightsInCircle } from '../light-sources';
 import { spawnFx, type FxAssetId } from '../fx';
 import type { PlayerState } from '../player';
 import { spawnProjectile, type ProjectileAssetId, type ProjectileOptions } from '../projectiles';
 import type { World } from '../world';
+import type { OwnedWeapon } from './owned';
 import type { WeaponVisuals } from './visuals';
 
 /** What a weapon pattern may read and do, bound to one world (#10). Built once per world, never per step. */
@@ -52,6 +53,22 @@ export interface WeaponContext {
    */
   hitLightsInCircle(x: number, y: number, r: number, damage: number, cooldown?: number): number;
   hitLightsInBox(left: number, top: number, right: number, bottom: number, damage: number): number;
+  /**
+   * A direct hit of weapon `w` (#15): `damageEnemy` with `lv.damage`, times `critMultiplier` when a `critChance` roll
+   * (`rng`) succeeds, and with `healEveryHits`, 1 HP healed (capped at `maxHp`) on every Nth hit that lands on a live
+   * enemy.
+   */
+  weaponHit(w: OwnedWeapon, lv: WeaponLevel, slot: number, dirX: number, dirY: number): void;
+}
+
+/** `amount` times `critMultiplier` when a `critChance` roll on `rng` succeeds; `amount` without a crit chance. */
+export function rollCrit(
+  rng: Rng,
+  amount: number,
+  critChance: number,
+  critMultiplier: number,
+): number {
+  return critChance > 0 && rng.next() < critChance ? amount * critMultiplier : amount;
 }
 
 export function createWeaponContext(world: World): WeaponContext {
@@ -90,5 +107,21 @@ export function createWeaponContext(world: World): WeaponContext {
       hitLightsInCircle(world, x, y, r, damage, cooldown),
     hitLightsInBox: (left, top, right, bottom, damage) =>
       hitLightsInBox(world, left, top, right, bottom, damage),
+    weaponHit: (w, lv, slot, dirX, dirY) => {
+      if (isDead(world, slot)) return;
+      const amount = rollCrit(
+        world.weaponRng,
+        lv.damage,
+        lv.critChance ?? 0,
+        lv.critMultiplier ?? 1,
+      );
+      damageEnemy(world, slot, amount, dirX, dirY, lv.knockback);
+      const every = lv.healEveryHits ?? 0;
+      if (every <= 0) return;
+      w.hits++;
+      if (w.hits % every !== 0) return;
+      const { player } = world;
+      player.hp = Math.min(player.maxHp, player.hp + 1);
+    },
   };
 }

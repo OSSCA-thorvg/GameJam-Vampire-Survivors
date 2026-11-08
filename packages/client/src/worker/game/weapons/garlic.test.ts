@@ -32,7 +32,11 @@ describe('garlic', () => {
     }
     // 5 s at a 1.3 s tick: 3 ticks; at area 2 the aura reaches 100 + 12 units.
     expect(ticks).toBe(3);
-    expect(world.weaponVisuals.garlic).toEqual({ shown: true, scale: garlicDrawScale(2) });
+    expect(world.weaponVisuals.garlic).toEqual({
+      shown: true,
+      scale: garlicDrawScale(2),
+      evolved: false,
+    });
     expect(GARLIC_RADIUS * 2).toBe(100);
   });
 

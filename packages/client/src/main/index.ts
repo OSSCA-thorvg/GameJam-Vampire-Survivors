@@ -126,6 +126,9 @@ async function boot(): Promise<void> {
       case 'levelUp':
         app?.dispatch({ type: 'levelUp', level: message.level, options: message.options });
         break;
+      case 'chestOpened':
+        app?.dispatch({ type: 'chestOpened', rewards: message.rewards });
+        break;
       default:
         assertNever(message);
     }
@@ -189,6 +192,8 @@ async function boot(): Promise<void> {
     registerDebugKey('KeyL', { kind: 'levelUp' });
     registerDebugKey('KeyP', { kind: 'grantPassive' });
     registerDebugKey('KeyK', { kind: 'spawnPickup' });
+    registerDebugKey('KeyE', { kind: 'forceEvolution' });
+    registerDebugKey('KeyB', { kind: 'spawnBoss' });
     installDebugTools(worker);
   }
 }

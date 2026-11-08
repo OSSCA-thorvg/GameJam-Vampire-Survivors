@@ -39,7 +39,7 @@ Things to measure from footage and write down here: player move speed (screen wi
 ## Enemies and waves
 
 - Enemies generally spawn just outside the screen and can despawn if the player moves far enough away. **[Fandom wiki: Enemies]**
-- Bosses do not despawn when the player moves away; they are teleported back onto the screen. **[Fandom wiki: Enemies]**
+- Bosses do not despawn when the player moves away; they are teleported back onto the screen. **[Fandom wiki: Enemies]** This game (#15) tethers bosses: every 0.5 s a boss farther than 1360 units from the player moves to the spawn ring, ahead of the player when it moves (`bossTetherSystem`).
 - Waves normally change about once per minute, and each stage has its own wave table. **[vampire.survivors.wiki: Boss]**
 - At the time limit, the stage is cleared and a very strong final enemy ("Death") appears. **[Wikipedia]**
 - One wiki source mentions a hard cap of about 500 enemies alive. This game's caps are in ADR 0007. **[Fandom wiki; low confidence]**
@@ -99,6 +99,7 @@ Pickups come from breakable light sources (braziers and candles) on the map. Hig
 - A chest usually gives 1 reward, rarely 3, and more rarely 5. **[Namu Wiki §7.4]**
 - Some chests carry an evolution chance. **[Namu Wiki §7.4]**
 - In this game chests never give gold (ADR 0008).
+- This game (#15, `packages/shared/src/content/chests.ts`, initial values, **untuned**): bosses (`reaper5`, `reaper10`) and elites drop one chest each; a chest within `PLAYER_RADIUS + 16` units opens when no level-up is pending, pauses the run and shows its rewards. One draw on the chest stream gives 5 rewards below 3% × luck, 3 below 20% × luck, else 1 (3% / 17% / 80% at luck 1, unit-tested over 10,000 rolls). Each reward is, in order of priority, an evolution, a level of a random owned weapon or passive below max, or a 30 HP heal. Elites have 10× HP, 1.5× contact damage and 1.5× size. **[unverified]**: the owner decided not to tune against the original, and no footage was watched in #15. Still unclear: the original's exact 1/3/5 odds and how luck scales them, and how often a chest that could evolve actually does.
 
 ## Level-up and evolution rules
 
@@ -108,7 +109,7 @@ Pickups come from breakable light sources (braziers and candles) on the map. Hig
 - With nothing left to upgrade, the original offers Gold or Floor Chicken. **[vampire.survivors.wiki: Level up]** This game has no gold (ADR 0008, REQUIREMENTS #8, #9) and offers a single heal of 30 HP (`LEVELUP_HEAL`, untuned) instead.
 - Weapons reach max level at 8. **[unverified]**
 - Passives (#12, `packages/shared/src/content/passives.ts`, initial values, untuned): every passive reaches max level at 5, with one additive modifier per level: Hollow Heart max HP +20, Empty Tome cooldown −8%, Bracer projectile speed +10%, Candelabrador area +10%, Clover luck +10%, Spellbinder duration +10%, Spinach might +10%, Pummarola recovery +0.2 HP/s. **[unverified]**: not checked against footage or the wiki (the owner deferred tuning). Still unclear: whether the original's Hollow Heart is a flat +20 or +20% of max HP (they agree only at level 1 with 100 base HP), and whether every passive's max level is 5.
-- An evolution happens when a chest is opened while a max-level weapon and its paired passive are both owned. **[unverified]**
+- An evolution happens when a chest is opened while a max-level weapon and its paired passive are both owned. **[unverified]** This game (#15) also requires a run time of at least 5:00 (`EVOLUTION_MIN_TIME_S`, the user decision of 2026-11-07 for the 15-minute run; ADR 0008), any passive level counts (level 1 is enough), the evolved weapon takes the base weapon's slot at level 1 and the passive stays. The 8 pairs and their evolved stats are in `weapons.ts` and `evolutions.ts`, initial values, **untuned**. Still unclear, not checked against footage or the wiki (the owner deferred tuning): whether the original's passive level matters, and its minute threshold (commonly said to be 10:00).
 - **Observed in this game** (source: `verify-game` `features/level-up.md`, issue #11 verification, 2026-11-08): the dialog freezes `timeS` and every enemy until a card is chosen, Escape does nothing, and play resumes at the same `timeS`; with the Whip and the Magic Wand at level 8 (16 level-ups through the `L` key) the only card is the heal. Since #12 (source: `features/passives.md` and `level-up.md`, issue #12 verification, 2026-11-08) the heal comes only after both weapons are at 8 and 6 passives at 5 (46 level-ups); with 6 passives owned no card offers a 7th; with Clover at 5 (luck 1.5) 9 of 16 level-ups showed a 4th card; Spinach at 5 raised the level-1 Whip's damage per hit from 10 to 15; Candelabrador at 5 drew the Whip arc 1.5 times as large.
 
 ## Multiplayer in the original (context only)

@@ -1,10 +1,11 @@
 // The app state machine (ADR 0009): the only code that mounts screens. Each transition unmounts the old screen,
 // mounts the new one and tells the worker. The DOM never reads game state; what it shows arrives as messages (ADR 0004).
-import { CHARACTERS, type CharacterId } from '@vs/shared';
+import { CHARACTERS, type CharacterId, type ChestReward } from '@vs/shared';
 import { assertNever } from '../protocol/assert-never';
 import type { LevelUpOption, MainToWorker, RunStats } from '../protocol/worker-messages';
 import type { AssetUrl } from './ui/asset-url';
 import { mount as mountCharacterSelect, type CharacterSelectProps } from './ui/character-select';
+import { mount as mountChest } from './ui/chest';
 import type { Screen } from './ui/dom';
 import { mount as mountLevelUp } from './ui/levelup';
 import { mount as mountPause } from './ui/pause';
@@ -19,6 +20,8 @@ export type AppState =
   | { name: 'playing'; paused: boolean }
   /** #11: the worker paused the run for a level-up choice. */
   | { name: 'levelUp'; level: number; options: LevelUpOption[] }
+  /** #15: the worker paused the run while the chest overlay shows its rewards. */
+  | { name: 'chest'; rewards: ChestReward[] }
   | { name: 'results'; stats: RunStats };
 
 export type AppEvent =
@@ -35,7 +38,11 @@ export type AppEvent =
   /** #11: from the worker; a level-up choice is waiting. */
   | { type: 'levelUp'; level: number; options: LevelUpOption[] }
   /** #11: the player chose option `index` on the level-up screen. */
-  | { type: 'chosen'; index: number };
+  | { type: 'chosen'; index: number }
+  /** #15: from the worker; a chest opened. */
+  | { type: 'chestOpened'; rewards: ChestReward[] }
+  /** #15: the chest overlay closed (Enter or its timer). */
+  | { type: 'chestClosed' };
 
 /** The character the select screen starts on when none was chosen yet this session. */
 export const DEFAULT_CHARACTER_ID: CharacterId = CHARACTERS[0]?.id ?? 'warden';
@@ -79,6 +86,8 @@ export function reduce(
           return { name: 'results', stats: event.stats };
         case 'levelUp':
           return { name: 'levelUp', level: event.level, options: event.options };
+        case 'chestOpened':
+          return { name: 'chest', rewards: event.rewards };
         default:
           return state;
       }
@@ -87,6 +96,9 @@ export function reduce(
       return event.type === 'chosen' && event.index >= 0 && event.index < state.options.length
         ? { name: 'playing', paused: false }
         : state;
+    case 'chest':
+      // Like the level-up screen: Escape, a hidden tab and quitting do nothing; only closing the overlay resumes.
+      return event.type === 'chestClosed' ? { name: 'playing', paused: false } : state;
     case 'results':
       if (event.type === 'retry') return { name: 'playing', paused: false };
       if (event.type === 'quitToTitle') return { name: 'title' };
@@ -112,6 +124,9 @@ export function effects(
   if (from.name === 'levelUp')
     return event?.type === 'chosen' ? [{ type: 'levelUpChoice', index: event.index }] : [];
   if (to.name === 'levelUp') return [];
+  // The worker resumes when told the overlay closed.
+  if (from.name === 'chest') return [{ type: 'chestClosed' }];
+  if (to.name === 'chest') return [];
   if (to.name === 'playing' && from.name !== 'playing') {
     const characterId = from.name === 'characterSelect' ? from.selectedId : lastCharacter;
     return [{ type: 'startRun', seed: seed(), characterId }];
@@ -134,8 +149,8 @@ const randomSeed = (): number => crypto.getRandomValues(new Uint32Array(1))[0] ?
 /**
  * Starts the app on the title screen, mounting screens into `root`. Escape while playing toggles the pause; hiding the
  * tab while playing pauses (the worker's `'pause'` background policy already stops the simulation, and the overlay
- * stays until the player resumes). The level-up screen (#11) ignores both; `iconUrl` resolves its icons and the
- * character select's portraits (#14).
+ * stays until the player resumes). The level-up screen (#11) and the chest overlay (#15) ignore both; `iconUrl`
+ * resolves their icons and the character select's portraits (#14).
  */
 export function createApp(
   root: HTMLElement,
@@ -203,6 +218,15 @@ export function createApp(
           iconUrl,
           onChoose: (index) => {
             app.dispatch({ type: 'chosen', index });
+          },
+        });
+        break;
+      case 'chest':
+        screen = mountChest(root, {
+          rewards: state.rewards,
+          iconUrl,
+          onClose: () => {
+            app.dispatch({ type: 'chestClosed' });
           },
         });
         break;

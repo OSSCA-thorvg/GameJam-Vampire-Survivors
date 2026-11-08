@@ -44,6 +44,11 @@ describe('ENEMIES', () => {
       expect(ENEMIES[id].id).toBe(id);
       expect(ASSET_IDS).toContain(ENEMIES[id].assetId);
     }
-    expect(ENEMY_LIST.map((id) => ENEMIES[id].assetId)).toEqual(['enemy.bat', 'enemy.ghoul']);
+    expect(ENEMY_LIST.map((id) => ENEMIES[id].assetId)).toEqual([
+      'enemy.bat',
+      'enemy.ghoul',
+      'boss.reaper5',
+      'boss.reaper10',
+    ]);
   });
 });

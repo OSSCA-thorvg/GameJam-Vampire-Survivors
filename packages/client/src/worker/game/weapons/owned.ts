@@ -25,6 +25,8 @@ export interface OwnedWeapon {
   activeLeft: number;
   /** Orbit angle in degrees (King Bible, #13). */
   phase: number;
+  /** Enemy hits since it was added or evolved, for `healEveryHits` (#15). */
+  hits: number;
 }
 
 export interface WeaponsState {
@@ -52,7 +54,21 @@ export function addWeapon(world: WeaponsState, id: WeaponId): boolean {
     burstFacingX: 1,
     activeLeft: 0,
     phase: 0,
+    hits: 0,
   });
+  return true;
+}
+
+/**
+ * Replaces the owned `fromId` with `intoId` at level 1 in the same slot (#15), so `slot` and its hit-time column stay
+ * with it; the timers carry over. False when `fromId` is not owned or `intoId` already is.
+ */
+export function evolveWeapon(world: WeaponsState, fromId: WeaponId, intoId: WeaponId): boolean {
+  const weapon = world.weapons.find((w) => w.def.id === fromId);
+  if (!weapon || world.weapons.some((w) => w.def.id === intoId)) return false;
+  weapon.def = WEAPONS[intoId];
+  weapon.level = 1;
+  weapon.hits = 0;
   return true;
 }
 

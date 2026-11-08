@@ -4,12 +4,13 @@ import { WEAPONS, WEAPON_LIST } from './weapons.js';
 
 const ids: readonly string[] = ASSET_IDS;
 
-it('gives every base weapon full stats for levels 1–8, upgrade texts for 2–8 and cataloged art', () => {
+it('gives every base weapon full stats, its own pattern for levels 1–8, upgrade texts for 2–8 and cataloged art', () => {
   expect(new Set(WEAPON_LIST).size).toBe(WEAPON_LIST.length);
   for (const id of WEAPON_LIST) {
     const def = WEAPONS[id];
     expect(def.id, id).toBe(id);
     expect(def.pattern, id).toBe(id);
+    expect(def.evolved, id).toBeUndefined();
     expect(def.maxLevel, id).toBe(8);
     expect(def.levels, id).toHaveLength(def.maxLevel);
     expect(def.levelText, id).toHaveLength(def.maxLevel - 1);
@@ -100,4 +101,13 @@ it('expands the #13 tables: flat steps add, percent steps add fractions of L1', 
   });
   expect(WEAPONS.fireWand.levels[7]).toMatchObject({ damage: 90, speed: 600, amount: 3 });
   expect(WEAPONS.garlic.levels[7]).toMatchObject({ damage: 9, area: 1.8, cooldownSec: 1.1 });
+});
+
+it("checks the evolved weapons separately: one level and their base weapon's pattern (#15)", () => {
+  const evolved = Object.values(WEAPONS).filter((w) => w.evolved);
+  expect(evolved.map((w) => w.pattern).sort()).toEqual([...WEAPON_LIST].sort());
+  for (const def of evolved) {
+    expect(def.maxLevel, def.id).toBe(1);
+    expect(def.levels, def.id).toHaveLength(1);
+  }
 });

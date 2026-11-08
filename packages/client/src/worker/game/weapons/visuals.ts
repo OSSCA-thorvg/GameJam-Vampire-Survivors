@@ -10,16 +10,24 @@ export interface WeaponVisuals {
   readonly books: {
     count: number;
     scale: number;
+    /** Drawn with `weapon.unholyVespers` instead of `weapon.kingBible` (#15). */
+    evolved: boolean;
     readonly x: Float32Array;
     readonly y: Float32Array;
   };
   /** Garlic: shown around the player while owned, at `scale` (`garlicDrawScale`: the art's visible ring is the hit radius). */
-  readonly garlic: { shown: boolean; scale: number };
+  readonly garlic: { shown: boolean; scale: number; evolved: boolean };
 }
 
 export function createWeaponVisuals(): WeaponVisuals {
   return {
-    books: { count: 0, scale: 1, x: new Float32Array(MAX_BOOKS), y: new Float32Array(MAX_BOOKS) },
-    garlic: { shown: false, scale: 1 },
+    books: {
+      count: 0,
+      scale: 1,
+      evolved: false,
+      x: new Float32Array(MAX_BOOKS),
+      y: new Float32Array(MAX_BOOKS),
+    },
+    garlic: { shown: false, scale: 1, evolved: false },
   };
 }

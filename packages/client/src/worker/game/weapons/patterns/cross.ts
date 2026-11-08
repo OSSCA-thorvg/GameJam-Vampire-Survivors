@@ -1,4 +1,4 @@
-import { MOTION_RETURN, type ProjectileOptions } from '../../projectiles';
+import { MOTION_RETURN, type ProjectileAssetId, type ProjectileOptions } from '../../projectiles';
 import { aimAt } from './aim';
 import type { WeaponPatternModule } from './types';
 
@@ -24,7 +24,7 @@ const opts: ProjectileOptions = {
  * most once each way.
  */
 export const cross: WeaponPatternModule = {
-  fire(ctx, _w, lv) {
+  fire(ctx, w, lv) {
     const { x, y } = ctx.player;
     const dir = aimAt(ctx, ctx.nearest(x, y, CROSS_RANGE));
     opts.damage = lv.damage;
@@ -34,6 +34,15 @@ export const cross: WeaponPatternModule = {
     opts.pierce = lv.pierce;
     opts.ttl = lv.durationSec;
     opts.returnAfter = lv.returnAfter ?? 0;
-    ctx.spawnProjectile('weapon.cross', x, y, dir.x * lv.speed, dir.y * lv.speed, opts);
+    opts.critChance = lv.critChance ?? 0;
+    opts.critMultiplier = lv.critMultiplier ?? 1;
+    ctx.spawnProjectile(
+      w.def.assetId as ProjectileAssetId,
+      x,
+      y,
+      dir.x * lv.speed,
+      dir.y * lv.speed,
+      opts,
+    );
   },
 };

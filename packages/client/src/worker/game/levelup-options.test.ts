@@ -230,3 +230,17 @@ it('draws upgrades a little more often than new items (weights 1.2 and 1)', () =
   expect(upgrades / (upgrades + news)).toBeGreaterThan(0.51);
   expect(upgrades / (upgrades + news)).toBeLessThan(0.58);
 });
+
+it('never offers an evolved weapon, nor a base weapon whose evolution is owned (#15)', () => {
+  const evolvedIds = Object.values(WEAPONS)
+    .filter((w) => w.evolved)
+    .map((w) => w.id);
+  for (let seed = 0; seed < 200; seed++) {
+    const options = buildLevelUpOptions(at(seed, [owned(WEAPONS.bloodyTear, 1)]), undefined, NONE);
+    for (const o of options) {
+      if (o.kind !== 'newWeapon' && o.kind !== 'upgradeWeapon') continue;
+      expect(o.weaponId).not.toBe('whip');
+      expect(evolvedIds).not.toContain(o.weaponId);
+    }
+  }
+});
