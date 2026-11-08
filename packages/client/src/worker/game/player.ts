@@ -22,6 +22,12 @@ export interface PlayerState {
   invulnTime: number;
   /** Flat damage reduction per hit; 0 until #12's passive sets it. */
   armor: number;
+  /** XP toward the next level and the current level (#11); `levelSystem` moves XP into levels. */
+  xp: number;
+  level: number;
+  /** Multipliers on the magnet radius and on collected XP; 1 until #12's stats replace them. */
+  magnetMul: number;
+  growthMul: number;
 }
 
 /** A player at the origin facing right with full HP, moving at `BASE_MOVE_SPEED` (#14 scales it per character). */
@@ -39,6 +45,10 @@ export function createPlayer(): PlayerState {
     maxHp: BASE_MAX_HP,
     invulnTime: 0,
     armor: 0,
+    xp: 0,
+    level: 1,
+    magnetMul: 1,
+    growthMul: 1,
   };
 }
 

@@ -1,6 +1,9 @@
 // DOM helpers for the screens (ADR 0009). Text is only ever set with `textContent`, never parsed as markup (ADR 0011).
 
-/** What `h()` accepts: an id, a class, a button type, plain text, a role, `aria-*` and `data-*` attributes, and `on:<event>` listeners. */
+/**
+ * What `h()` accepts: an id, a class, a button type, plain text, a role, an image `src` and `alt`, `aria-*` and
+ * `data-*` attributes, and `on:<event>` listeners.
+ */
 export interface Attrs {
   id?: string;
   class?: string;
@@ -8,6 +11,9 @@ export interface Attrs {
   text?: string;
   role?: string;
   type?: string;
+  /** For `<img>` only: an asset URL from `asset-url.ts` (#11), never user data. */
+  src?: string;
+  alt?: string;
   [aria: `aria-${string}`]: string | undefined;
   [data: `data-${string}`]: string | undefined;
   [listener: `on:${string}`]: ((event: Event) => void) | undefined;
@@ -30,7 +36,10 @@ export function h<K extends keyof HTMLElementTagNameMap>(
     if (key === 'text') el.textContent = value as string;
     else if (key.startsWith('on:'))
       el.addEventListener(key.slice(3), value as (event: Event) => void);
-    else if (['id', 'class', 'role', 'type'].includes(key) || /^(aria|data)-[a-z-]+$/.test(key))
+    else if (
+      ['id', 'class', 'role', 'type', 'src', 'alt'].includes(key) ||
+      /^(aria|data)-[a-z-]+$/.test(key)
+    )
       el.setAttribute(key, value as string);
     else throw new Error(`h(): unsupported attribute '${key}'`);
   }

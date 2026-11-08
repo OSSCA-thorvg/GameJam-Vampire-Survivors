@@ -14,6 +14,8 @@ One file per user-facing feature. A PR that adds or changes user-facing behaviou
 | `run-flow.md`      | title, pause on Escape or hidden tab, results, retry, keyboard-only screens  | #9    |
 | `player-health.md` | contact damage, invulnerability and blink, death, the ThorVG HUD             | #9    |
 | `weapons.md`       | the Whip, the Magic Wand (`G`), hits, flash, knockback, kills, the cap       | #10   |
+| `xp-gems.md`       | gem drops and tiers, the magnet, collection, the XP bar, the merge gem       | #11   |
+| `level-up.md`      | the level-up dialog, frozen run, choices, the heal card, the `L` key         | #11   |
 
 ## Baseline preconditions
 
@@ -28,6 +30,7 @@ One file per user-facing feature. A PR that adds or changes user-facing behaviou
 - State comes only from `window.__vsTest.snapshot()` / `waitFor` (dev and e2e builds). The bridge only reads; nothing sets gameplay state.
 - Debug keys (`CLAUDE.md` table) and `__vsDebug.post` only reach preconditions; say which ones a journey used.
 - Wait on snapshot predicates (`waitForSnapshot`, `__vsTest.waitFor`), not fixed sleeps, except where a feature measures time.
+- Since #11 a run pauses on every level-up (`state: 'levelUp'`) until a card is chosen. A journey that plays a run for more than a few seconds and is not about level-ups calls `answerLevelUps(page)` (`e2e/helpers.ts`) right after starting the run, which presses `1` on each dialog; with Claude in Chrome, press `1` whenever the dialog shows.
 
 ## Reporting
 
@@ -47,5 +50,6 @@ Snapshot fields a feature relies on are registered by name with `registerSnapsho
 
 ## Gotchas
 
+- Since #11 the first level-up comes after about 7–8 s standing still at minute 0. Journeys written before #11 that wait for time or death stalled on the dialog (enemies 1, player-health 3, run-flow 2, weapons 1 and 4); they now call `answerLevelUps`. The movement seam check counted the XP bar along the top edge as a seam and now skips that band (2026-11-08, #11).
 - `verify:launch --with-server` was proven in #31 both ways (2026-11-08): reusing a server already answering `/healthz` (left running by cleanup) and starting the `vs-verify` compose project (`docker compose -p vs-verify down` by cleanup). It needs `.env` (`cp .env.example .env`); keep it until cleanup has run, since `compose down` reads it too. `down` keeps the `vs-verify-server` image and the `vs-verify_server_node_modules` volume as a cache.
 - A server started with `pnpm server:up` uses the same host port 8787, so `--with-server` reuses it instead of starting `vs-verify`.

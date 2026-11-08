@@ -37,6 +37,7 @@ Save the spec as `verification/issue-<N>/journeys/player-health.spec.ts`. After 
 // Feature-map journeys for .claude/skills/verify-game/features/player-health.md (#9).
 import { expect, test } from '@playwright/test';
 import {
+  answerLevelUps,
   noteEvidence,
   pageErrors,
   snapshot,
@@ -142,6 +143,7 @@ test('player-health 3: at 0 HP the run stops and the results show the survived t
   noteEvidence(testInfo, ev);
   try {
     await startRun(page);
+    answerLevelUps(page); // #11: a run pauses on each level-up; answer it with 1 and keep playing
     const dead = await waitForSnapshot(page, (s) => s.state === 'results', 90_000);
     await ev.shot('results');
     await page.waitForTimeout(1000);
@@ -162,8 +164,12 @@ test('player-health 3: at 0 HP the run stops and the results show the survived t
     expect(player(dead).hp).toBe(0);
     expect(dead.paused).toBe(true);
     expect(later.timeS).toBe(dead.timeS);
-    // Since #10 the Whip kills bats, so the results show the run's final kill count.
-    expect(shown).toEqual({ time: expected, kills: String(dead.kills), level: '1' });
+    // Since #10 the Whip kills bats, so the results show the run's final kill count; since #11 the level reached.
+    expect(shown).toEqual({
+      time: expected,
+      kills: String(dead.kills),
+      level: String((dead.player as { level: number }).level),
+    });
     await expect(page.getByRole('button', { name: 'Retry' })).toBeFocused();
     expect(pageErrors(ev)).toEqual([]);
   } finally {

@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { fakePaintLibrary } from './pool-test-helpers';
 import { createStore } from '../ecs/store';
 import { PaintPool, RenderBinding } from './pool';
@@ -74,4 +74,23 @@ it('reuses the same binding after a new-run pool releaseAll and store clear', ()
     store.clear();
     expect(pool.visibleCount).toBe(0);
   }
+});
+
+it('restarts a Lottie instance each time it is acquired, and leaves static paints alone (#11)', () => {
+  const { create, layer } = fakePaintLibrary();
+  const lottie = { frame: vi.fn() };
+  const restart = vi.fn();
+  const library = {
+    create: () => ({ ...create(), lottie: lottie as never }),
+    restart,
+  };
+  const pool = new PaintPool(library, 'fx.levelUp', layer, 1);
+  const handle = pool.acquire();
+  pool.release(handle);
+  pool.acquire();
+  expect(restart).toHaveBeenCalledTimes(2);
+  expect(restart).toHaveBeenLastCalledWith(pool.get(handle));
+  const plain = new PaintPool({ create, restart }, 'gem.blue', layer, 1);
+  plain.acquire();
+  expect(restart).toHaveBeenCalledTimes(2);
 });

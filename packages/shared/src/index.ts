@@ -17,7 +17,16 @@ export {
   HIT_INVULN_SEC,
   MAX_ENEMY_RADIUS,
   MAX_WEAPON_SLOTS,
+  BASE_PICKUP_RANGE,
+  GEM_COLLECT_RADIUS,
+  GEM_FLY_START_SPEED,
+  GEM_FLY_ACCEL,
+  LEVELUP_CHOICES,
+  LEVELUP_HEAL,
+  MAX_PASSIVE_SLOTS,
 } from './content/constants.js';
+export { xpToNext, gemTier } from './content/xp.js';
+export type { GemTier } from './content/xp.js';
 export { ENEMIES, ENEMY_LIST } from './content/enemies.js';
 export type { EnemyDef, EnemyId } from './content/enemies.js';
 export { STAGE, validateStage } from './content/stage.js';

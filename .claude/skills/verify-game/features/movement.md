@@ -36,6 +36,7 @@ Save the first spec as `verification/issue-<N>/journeys/movement.spec.ts` and th
 // Feature-map journey for .claude/skills/verify-game/features/movement.md (#7).
 import { expect, test, type Page } from '@playwright/test';
 import {
+  answerLevelUps,
   holdKeys,
   noteEvidence,
   pageErrors,
@@ -54,13 +55,18 @@ const player = (s: GameSnapshot): PlayerSnap => s.player as PlayerSnap;
 
 /** Holds `keys` for `ms` and returns the snapshots before and after, plus the simulated time between them. */
 async function hold(page: Page, keys: string[], ms: number) {
-  const before = await snapshot(page);
-  await holdKeys(page, keys, ms);
-  await page.waitForTimeout(100); // let the release reach the worker
-  const after = await snapshot(page);
-  const dx = player(after).x - player(before).x;
-  const dy = player(after).y - player(before).y;
-  return { before, after, dx, dy, dist: Math.hypot(dx, dy) };
+  const level = (s: GameSnapshot) => (s.player as { level: number }).level;
+  for (let attempt = 1; ; attempt++) {
+    const before = await snapshot(page);
+    await holdKeys(page, keys, ms);
+    await page.waitForTimeout(100); // let the release reach the worker
+    const after = await snapshot(page);
+    const dx = player(after).x - player(before).x;
+    const dy = player(after).y - player(before).y;
+    // #11: a level-up during the hold froze the run until `answerLevelUps` chose; hold again for a full distance.
+    if (level(after) === level(before) || attempt === 3)
+      return { before, after, dx, dy, dist: Math.hypot(dx, dy) };
+  }
 }
 
 /**
@@ -89,20 +95,22 @@ async function seams(page: Page, png: Buffer) {
     const dark = (x: number, y: number) => lum((y * w + x) * 4) < baseLum - 12;
     const rows: number[] = [];
     const cols: number[] = [];
-    for (let y = 0; y < h; y++) {
+    // The XP bar along the top edge (#11, 12 view units of 720, plus the `Lv n` outline) is HUD, not ground.
+    const top = Math.ceil((16 * h) / 720);
+    for (let y = top; y < h; y++) {
       let n = 0;
       for (let x = 0; x < w; x++) if (dark(x, y)) n++;
       if (n > w / 2) rows.push(y);
     }
     for (let x = 0; x < w; x++) {
       let n = 0;
-      for (let y = 0; y < h; y++) if (dark(x, y)) n++;
-      if (n > h / 2) cols.push(x);
+      for (let y = top; y < h; y++) if (dark(x, y)) n++;
+      if (n > (h - top) / 2) cols.push(x);
     }
     let darkestBorder = 255;
-    for (let x = 0; x < w; x++)
-      darkestBorder = Math.min(darkestBorder, lum(x * 4), lum(((h - 1) * w + x) * 4));
-    for (let y = 0; y < h; y++)
+    // The top edge is under the XP bar and the HUD texts since #11, so only the other three edges are checked.
+    for (let x = 0; x < w; x++) darkestBorder = Math.min(darkestBorder, lum(((h - 1) * w + x) * 4));
+    for (let y = top; y < h; y++)
       darkestBorder = Math.min(darkestBorder, lum(y * w * 4), lum((y * w + w - 1) * 4));
     return { width: w, height: h, baseLum, rows, cols, edgeGap: darkestBorder < baseLum - 12 };
   }, png.toString('base64'));
@@ -110,8 +118,17 @@ async function seams(page: Page, png: Buffer) {
 
 /** Screenshots the page as evidence and asserts the ground shows no seam and no gap at the view edges. */
 async function shotWithoutSeams(page: Page, ev: ReturnType<typeof startEvidence>, name: string) {
+  // #11: the level-up dialog dims the whole view; check the ground only in frames without it.
+  const clear = async () => (await snapshot(page)).state !== 'levelUp';
+  let png = await page.screenshot();
+  for (let i = 0; i < 20; i++) {
+    const before = await clear();
+    png = await page.screenshot();
+    if (before && (await clear())) break;
+    await page.waitForTimeout(100);
+  }
   await ev.shot(name);
-  const result = await seams(page, await page.screenshot());
+  const result = await seams(page, png);
   ev.json(`seams-${name}`, result);
   expect(result).toMatchObject({ rows: [], cols: [], edgeGap: false });
 }
@@ -124,6 +141,7 @@ test('movement: 8 directions at one speed, facing, stop, camera and ground', asy
   noteEvidence(testInfo, ev);
   try {
     const ready = await startRun(page);
+    answerLevelUps(page); // #11: a run pauses on each level-up; answer it with 1 and keep playing
     expect(ready.renderer).toBe('gl');
     expect(player(ready)).toMatchObject({ facingX: 1 });
     expect(ready.testScene).toBeUndefined();
@@ -184,6 +202,7 @@ test('movement: 8 directions at one speed, facing, stop, camera and ground', asy
     // 5. ArrowLeft + ArrowUp for 30 s into negative coordinates, a screenshot every 5 s. A fresh run (#9): the
     // first one has taken contact damage by now and could die on the way.
     await startRun(page);
+    answerLevelUps(page); // #11: a run pauses on each level-up; answer it with 1 and keep playing
     const trail: PlayerSnap[] = [];
     await page.keyboard.down('ArrowLeft');
     await page.keyboard.down('ArrowUp');
@@ -216,6 +235,7 @@ test.describe('at a fractional view scale', () => {
     noteEvidence(testInfo, ev);
     try {
       await startRun(page);
+      answerLevelUps(page); // #11: a run pauses on each level-up; answer it with 1 and keep playing
       await page.keyboard.down('ArrowLeft');
       await page.keyboard.down('ArrowUp');
       for (let i = 1; i <= 4; i++) {
@@ -296,6 +316,7 @@ test('movement: switching tabs while holding a key stops the player', async ({
 
 ## Gotchas
 
+- Since #11 the HUD's XP bar spans the top edge: the seam check skips the top band (16 view units) and no longer checks the top edge for gaps, and the journeys answer level-up dialogs with `answerLevelUps`; a hold during which the level rose is repeated (up to 3 times), since the dialog froze part of it, and the seam check skips frames with the dialog, which dims the whole view (2026-11-08, #11).
 - The 30 s diagonal run (step 5) runs into relocated enemies ahead: one #9 run ended it at 15 HP of 100. It starts a fresh run for that reason, but a death on the way remains possible until the invulnerability precondition exists (`KeyI`, #17); if it dies (the trail stops short, `state: 'results'`), rerun once and report it, never shorten the run (2026-11-08, #9).
 - Since #9 the run starts from the title screen and the player takes contact damage: `startRun` (`e2e/helpers.ts`) presses Enter on "Start"; a long journey that stands still dies and ends on the results screen. Hiding the tab mid-run brings the pause overlay back (2026-11-08, #9).
 - Each extension `key` press is an instant down and up, so the extension cannot prove distances per second; use the Playwright holds (2026-11-08, #7).

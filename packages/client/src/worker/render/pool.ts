@@ -4,7 +4,10 @@ import type { AssetInstance, AssetLibrary } from '../assets/library';
 
 export { RenderBinding } from './binding';
 
-/** Owns live instances for a layer; release hides them without disposing or unregistering Lottie playback. */
+/**
+ * Owns live instances for a layer; release hides them without disposing or unregistering Lottie playback. Acquiring a
+ * Lottie instance restarts it at frame 0 when the library can (`AssetLibrary.restart`, #11).
+ */
 export class PaintPool {
   private readonly instances: AssetInstance[] = [];
   private readonly free: number[] = [];
@@ -19,7 +22,7 @@ export class PaintPool {
     return count;
   }
   constructor(
-    private readonly library: Pick<AssetLibrary, 'create'>,
+    private readonly library: Pick<AssetLibrary, 'create'> & Partial<Pick<AssetLibrary, 'restart'>>,
     private readonly id: DrawableAssetId,
     private readonly layer: Pick<Scene, 'add'>,
     prewarm: number,
@@ -42,7 +45,9 @@ export class PaintPool {
     const handle = this.free.pop();
     if (handle === undefined) throw new Error('Pool growth did not provide a handle');
     this.active[handle] = true;
-    this.get(handle).paint.visible(true);
+    const instance = this.get(handle);
+    if (instance.lottie) this.library.restart?.(instance);
+    instance.paint.visible(true);
     return handle;
   }
   release(handle: number): void {

@@ -15,7 +15,7 @@ function setup() {
   return { ...fake, view, world, byId };
 }
 
-it('creates every paint once: ground, enemy, projectile and effect pools, player, HP bar, skull, fill and two texts', () => {
+it('creates every paint once: ground, gem, enemy, projectile and effect pools, player, HP and XP bars, skull, fills and texts', () => {
   const { view, byId, paints } = setup();
   expect(byId('stage.ground')).toHaveLength(96);
   expect(byId('enemy.bat')).toHaveLength(200);
@@ -23,13 +23,19 @@ it('creates every paint once: ground, enemy, projectile and effect pools, player
   expect(byId('weapon.magicWand')).toHaveLength(300);
   for (const id of ['weapon.whip', 'fx.hit', 'fx.enemyDeath'])
     expect(byId(id), id).toHaveLength(64);
+  expect(byId('fx.levelUp')).toHaveLength(2);
+  expect(byId('gem.blue')).toHaveLength(200);
+  expect(byId('gem.green')).toHaveLength(50);
+  expect(byId('gem.red')).toHaveLength(50);
+  expect(byId('ui.xpBar')).toHaveLength(1);
   expect(byId('player.warden')).toHaveLength(1);
   expect(byId('ui.hpBar')).toHaveLength(1);
   expect(byId('ui.skull')).toHaveLength(1);
-  expect(byId('Shape')).toHaveLength(1);
-  expect(byId('Text')).toHaveLength(2);
-  expect(view.countPaints()).toBe(991);
-  expect(paints).toHaveLength(994);
+  // The HP fill and the XP fill; the level, the timer and the kill counter.
+  expect(byId('Shape')).toHaveLength(2);
+  expect(byId('Text')).toHaveLength(3);
+  expect(view.countPaints()).toBe(1294);
+  expect(paints).toHaveLength(1299);
 });
 
 it('follows the camera, snapped to device pixels', () => {
@@ -61,7 +67,7 @@ it('scales the HP fill by hp / maxHp under the player and keeps the frame 6 unit
 
 it('writes the timer text only when the shown second changes, as mm:ss', () => {
   const { view, world, byId } = setup();
-  const timer = byId('Text')[0];
+  const timer = byId('Text')[1];
   const writes = timer?.textWrites ?? 0;
   for (let i = 0; i < 59; i++) {
     world.time += 1 / 60;
@@ -101,13 +107,23 @@ it('hides everything on clear and shows the HUD again on begin', () => {
   const { view, byId } = setup();
   view.clear();
   const shown = (id: string) => byId(id).filter((p) => p.visible).length;
-  for (const id of ['stage.ground', 'player.warden', 'ui.hpBar', 'ui.skull', 'Shape', 'Text'])
+  for (const id of [
+    'stage.ground',
+    'player.warden',
+    'ui.hpBar',
+    'ui.skull',
+    'ui.xpBar',
+    'Shape',
+    'Text',
+  ])
     expect(shown(id), id).toBe(0);
   view.begin();
   expect(shown('stage.ground')).toBe(96);
   expect(shown('player.warden')).toBe(1);
-  expect(shown('Text')).toBe(2);
-  expect(byId('Text').map((t) => t.text)).toEqual(['00:00', '0']);
+  expect(shown('ui.xpBar')).toBe(1);
+  expect(shown('Shape')).toBe(2);
+  expect(shown('Text')).toBe(3);
+  expect(byId('Text').map((t) => t.text)).toEqual(['Lv 1', '00:00', '0']);
 });
 
 it('dims a hit enemy to 140 while it flashes, writing opacity only on change, and draws bolts and effects', () => {
@@ -157,4 +173,25 @@ it('dims a hit enemy to 140 while it flashes, writing opacity only on change, an
   expect(boltPaint?.matrix?.e23).toBeCloseTo(20, 4);
   expect(boltPaint?.matrix?.e21).toBeCloseTo(1, 4);
   expect(shown('fx.hit')).toHaveLength(1);
+});
+
+it('fills the XP bar by xp / xpToNext(level) across the view and writes "Lv n" only when the level changes (#11)', () => {
+  const { view, world, byId } = setup();
+  const fill = () => byId('Shape')[1]?.matrix;
+  const level = byId('Text')[0];
+  world.player.xp = 2;
+  view.render(world);
+  expect(fill()?.e11).toBeCloseTo(2 / 5);
+  expect([fill()?.e13, fill()?.e23]).toEqual([2, 2]);
+  const writes = level?.textWrites ?? 0;
+  view.render(world);
+  expect(level?.textWrites).toBe(writes);
+  world.player.level = 3;
+  world.player.xp = 50;
+  view.render(world);
+  expect(level?.text).toBe('Lv 3');
+  expect(fill()?.e11).toBe(1);
+  // The frame spans the full 1280-unit width (400 × 3.2); the fake has no anchor offset, so its centre is (640, 6).
+  const frame = byId('ui.xpBar')[0]?.matrix;
+  expect([frame?.e11, frame?.e22, frame?.e13, frame?.e23]).toEqual([3.2, 1, 640, 6]);
 });

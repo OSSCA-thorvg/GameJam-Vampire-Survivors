@@ -26,6 +26,7 @@ export const FX_ASSETS = [
   'weapon.whip',
   'fx.hit',
   'fx.enemyDeath',
+  'fx.levelUp',
 ] as const satisfies readonly DrawableAssetId[];
 export type FxAssetId = (typeof FX_ASSETS)[number];
 
@@ -36,14 +37,22 @@ export interface FxState {
 }
 
 /**
- * One pool per effect asset, each prewarmed to `FX_CAP`, so no spawn ever grows a pool during a run. Created once per
- * worker by the game view and reused by every run (#9).
+ * Paints prewarmed for `fx.levelUp` (#11): a Lottie instance, ticked every step, shown about once per level, so it
+ * gets a small pool instead of `FX_CAP`.
+ */
+export const LEVEL_UP_FX_PREWARM = 2;
+
+/**
+ * One pool per effect asset, each prewarmed to `FX_CAP` (`fx.levelUp` to `LEVEL_UP_FX_PREWARM`), so no ordinary spawn
+ * grows a pool during a run. Created once per worker by the game view and reused by every run (#9).
  */
 export function createFxPools(
   library: Pick<AssetLibrary, 'create'>,
   layer: Pick<Scene, 'add'>,
 ): PaintPool[] {
-  return FX_ASSETS.map((id) => new PaintPool(library, id, layer, FX_CAP));
+  return FX_ASSETS.map(
+    (id) => new PaintPool(library, id, layer, id === 'fx.levelUp' ? LEVEL_UP_FX_PREWARM : FX_CAP),
+  );
 }
 
 export function createFxState(pools?: readonly PaintPool[]): FxState {

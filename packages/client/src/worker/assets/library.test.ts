@@ -214,6 +214,33 @@ describe('AssetLibrary', () => {
     expect(held.lottie?.frame()).toBe(29);
     expect(fetch).toHaveBeenCalledTimes(2);
   });
+  it('restarts a Lottie instance at frame 0 (#11)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof globalThis.fetch>(() => Promise.resolve(new Response(lottieJson))),
+    );
+    const library = await AssetLibrary.load(
+      TVG,
+      'https://example.test/',
+      () => undefined,
+      manifest({
+        'fx.levelUp': {
+          file: 'fx/level-up.json',
+          format: 'lottie',
+          size: [96, 96],
+          anchor: [0.5, 0.5],
+        },
+      }),
+    );
+    const ring = library.create('fx.levelUp');
+    library.tick(0.5);
+    expect(ring.lottie?.frame()).toBe(15);
+    library.restart(ring);
+    expect(ring.lottie?.frame()).toBe(0);
+    library.tick(0.1);
+    expect(ring.lottie?.frame()).toBeCloseTo(3);
+  });
 });
 
 it('does not repeat a validation diagnostic in the combined missing warning', async () => {

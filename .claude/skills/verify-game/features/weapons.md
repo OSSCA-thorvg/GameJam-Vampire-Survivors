@@ -40,6 +40,7 @@ Save the spec as `verification/issue-<N>/journeys/weapons.spec.ts`. After `pnpm 
 // Feature-map journeys for .claude/skills/verify-game/features/weapons.md (#10).
 import { expect, test, type Page } from '@playwright/test';
 import {
+  answerLevelUps,
   holdKeys,
   noteEvidence,
   pageErrors,
@@ -134,6 +135,7 @@ test('weapons 1: standing still, the whip strikes the facing side, hit enemies a
   noteEvidence(testInfo, ev);
   try {
     const start = await startRun(page);
+    answerLevelUps(page); // #11: a run pauses on each level-up; answer it with 1 and keep playing
     expect(start.renderer).toBe('gl');
     expect(weapons(start)).toEqual([{ id: 'whip', level: 1 }]);
     expect(player(start).facingX).toBe(1);
@@ -280,9 +282,10 @@ test('weapons 4: the results kills equal the last snapshot kills and the HUD cou
   noteEvidence(testInfo, ev);
   try {
     await startRun(page);
+    answerLevelUps(page); // #11: a run pauses on each level-up; answer it with 1 and keep playing
     const samples: { timeS: number; kills: number; hp: number }[] = [];
     let last = await snapshot(page);
-    while (last.state === 'playing') {
+    while (last.state === 'playing' || last.state === 'levelUp') {
       samples.push({ timeS: last.timeS, kills: last.kills as number, hp: player(last)?.hp ?? 0 });
       if (samples.length % 50 === 0) await ev.shot(`hud-${String(Math.floor(last.timeS))}s`);
       await page.waitForTimeout(200);

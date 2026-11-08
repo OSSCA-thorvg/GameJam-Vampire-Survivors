@@ -29,6 +29,7 @@ export function createSession(view: GameView, onGameOver: (stats: RunStats) => v
         enemyPools: view.enemyPools,
         projectilePools: view.projectilePools,
         fxPools: view.fxPools,
+        gemPools: view.gemPools,
         onGameOver,
       });
       return world;

@@ -8,6 +8,7 @@ import { setTransform } from '../render/transform';
 import { snapToPixel } from './camera';
 import { createEnemyPools } from './enemies';
 import { createFxPools } from './fx';
+import { createGemPools } from './gems';
 import { createProjectilePools } from './projectiles';
 import type { World } from './world';
 
@@ -24,6 +25,7 @@ export interface GameViewOptions {
   layers: {
     world: Pick<Scene, 'translate'>;
     ground: Pick<Scene, 'add'>;
+    pickups: Pick<Scene, 'add'>;
     enemies: Pick<Scene, 'add'>;
     projectiles: Pick<Scene, 'add'>;
     player: Pick<Scene, 'add'>;
@@ -44,6 +46,8 @@ export interface GameView {
   /** Pool `i` draws `PROJECTILE_ASSETS[i]` and `FX_ASSETS[i]` (#10); borrowed the same way. */
   readonly projectilePools: readonly PaintPool[];
   readonly fxPools: readonly PaintPool[];
+  /** Pool `i` draws `GEM_ASSETS[i]` (#11), in the `pickups` layer; borrowed the same way. */
+  readonly gemPools: readonly PaintPool[];
   /** Every pool the view owns, for the `paintsCreated` count. */
   readonly pools: readonly PaintPool[];
   /** `created` summed over every pool. */
@@ -52,12 +56,13 @@ export interface GameView {
   clear(): void;
   /** Shows the ground, the player and the HUD for a new run, from the existing paints. */
   begin(): void;
-  /** Syncs the camera, ground, enemies (with their hit flash), projectiles, player, effects and HUD from `world`. No `canvas.update()`/`render()`. */
+  /** Syncs the camera, ground, gems, enemies (with their hit flash), projectiles, player, effects and HUD from `world`. No `canvas.update()`/`render()`. */
   render(world: World): void;
 }
 
 export function createGameView({ TVG, library, layers, scale }: GameViewOptions): GameView {
   const ground = createGround(library, layers.ground);
+  const gemPools = createGemPools(library, layers.pickups);
   const enemyPools = createEnemyPools(library, layers.enemies);
   const projectilePools = createProjectilePools(library, layers.projectiles);
   const fxPools = createFxPools(library, layers.fx);
@@ -66,6 +71,7 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
   const hud = createHud(TVG, library, layers);
   const pools: readonly PaintPool[] = [
     ground.pool,
+    ...gemPools,
     ...enemyPools,
     ...projectilePools,
     playerPool,
@@ -79,6 +85,7 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
     enemyPools,
     projectilePools,
     fxPools,
+    gemPools,
     pools,
     countPaints() {
       let total = 0;
@@ -99,12 +106,13 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
     },
     render(world) {
       const s = scale();
-      const { camera, player: p, enemies, projectiles, fx } = world;
+      const { camera, player: p, enemies, projectiles, fx, gems } = world;
       layers.world.translate(
         snapToPixel(VIEW_WIDTH / 2 - camera.x, s),
         snapToPixel(VIEW_HEIGHT / 2 - camera.y, s),
       );
       ground.sync(camera.x, camera.y);
+      world.gemBinding?.sync(gems, gems.cols.x, gems.cols.y);
       world.enemyBinding?.sync(
         enemies,
         enemies.cols.x,
@@ -134,6 +142,8 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
         maxHp: p.maxHp,
         timeSec: world.time,
         kills: world.stats.kills,
+        xp: p.xp,
+        level: p.level,
       });
     },
   };

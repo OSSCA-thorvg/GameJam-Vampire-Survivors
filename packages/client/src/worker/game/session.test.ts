@@ -1,6 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { createSession } from './session';
 import { createGameView } from './view';
+import { stepAnsweringLevelUps } from './test-level-ups';
 import { fakeGameView } from './view-test-helpers';
 
 it('reuses every pooled paint: five runs, each played until the crowd arrives, create none', () => {
@@ -13,11 +14,10 @@ it('reuses every pooled paint: five runs, each played until the crowd arrives, c
   for (let run = 0; run < 5; run++) {
     const world = session.start(1000 + run, 'warden');
     perRun.push(created());
-    // Ten seconds: the minute-0 crowd spawns (15 and more bats) and binds paints.
-    for (let i = 0; i < 600; i++) {
-      world.step(1 / 60);
+    // Ten seconds: the minute-0 crowd spawns (15 and more bats) and binds paints; gems and level-ups too (#11).
+    stepAnsweringLevelUps(world, 600, () => {
       session.render();
-    }
+    });
     expect(world.enemies.count).toBeGreaterThanOrEqual(15);
   }
   session.end();

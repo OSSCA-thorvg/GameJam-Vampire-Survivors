@@ -1,6 +1,7 @@
 // The only message contract between the main thread and the game worker (ADR 0004). Types only: compiled by both
 // tsconfig.main.json and tsconfig.worker.json. Later issues extend these unions; every `switch` on `type` or `kind`
 // is exhaustive and ends in `assertNever` (./assert-never.ts).
+import type { AssetId, WeaponId } from '@vs/shared';
 
 /** Hidden-tab behaviour: `'pause'` for single player, `'simulate'` for versus play (ADRs 0004, 0005). */
 export type BackgroundPolicy = 'pause' | 'simulate';
@@ -14,9 +15,22 @@ export interface RunStats {
   timeSec: number;
   /** Enemies killed by weapons (#10). */
   kills: number;
-  /** 1 until XP and level-up (#11). */
+  /** The level reached (#11). */
   level: number;
 }
+
+/** One card of the level-up choice (#11). Text and icon come from content data only. #12 adds passives. */
+export type LevelUpOption =
+  | { kind: 'newWeapon'; weaponId: WeaponId; name: string; description: string; iconId: AssetId }
+  | {
+      kind: 'upgradeWeapon';
+      weaponId: WeaponId;
+      name: string;
+      toLevel: number;
+      description: string;
+      iconId: AssetId;
+    }
+  | { kind: 'heal'; amount: number; description: string; iconId: null };
 
 export type MainToWorker =
   | {
@@ -38,6 +52,8 @@ export type MainToWorker =
   | { type: 'startRun'; seed: number; characterId: string }
   /** #9: clears the run and draws an empty frame (back to the title). */
   | { type: 'endRun' }
+  /** #11: the option chosen on the open level-up screen, an index into its `options`. */
+  | { type: 'levelUpChoice'; index: number }
   | { type: 'debug'; command: DebugCommand }
   | TestSnapshotRequest;
 
@@ -49,6 +65,11 @@ export type WorkerToMain =
   | { type: 'stats'; fps: number; stepsPerSecond: number }
   /** #9: the player's HP reached 0; the run has stopped. Sent once per run. */
   | { type: 'gameOver'; stats: RunStats }
+  /**
+   * #11: a level-up is waiting; the worker has paused the run. `level` is the level being reached. Sent again, one at a
+   * time, after each `levelUpChoice` while more are pending.
+   */
+  | { type: 'levelUp'; level: number; options: LevelUpOption[] }
   | TestSnapshotReply;
 
 /**
@@ -79,7 +100,9 @@ export type DebugCommand =
   /** #5: toggles the `?gallery` speed preview (`KeyV`). */
   | { kind: 'galleryPreview' }
   /** #10: adds the first weapon of `WEAPON_LIST` the player does not own, at level 1 (`KeyG`). */
-  | { kind: 'grantWeapon' };
+  | { kind: 'grantWeapon' }
+  /** #11: grants exactly the XP missing for the next level (`KeyL`). */
+  | { kind: 'levelUp' };
 
 /**
  * Read-only worker state for verification (`window.__vsTest`, dev and e2e builds only). One flat object: fields
@@ -107,6 +130,6 @@ export type GameSnapshot = WorkerSnapshot & {
   ready: boolean;
   /** Git revision the client was served from (`__VS_BUILD_REV__`). */
   buildRev: string;
-  /** `'booting'` until `ready`; then the screen from `main/app.ts` (#9): `'title'`, `'playing'` or `'results'`. */
+  /** `'booting'` until `ready`; then the screen from `main/app.ts` (#9): `'title'`, `'playing'`, `'levelUp'` (#11) or `'results'`. */
   state: string;
 };
