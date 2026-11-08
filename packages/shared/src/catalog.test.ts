@@ -14,7 +14,7 @@ describe('catalog', () => {
     });
     expect(rows.find((row) => row.id === 'icon.weapon.whip')).toMatchObject({
       size: [32, 32],
-      format: 'svg',
+      format: 'png',
     });
     expect(rows.find((row) => row.id === 'font.hud')).toMatchObject({ size: null, format: 'ttf' });
   });
@@ -22,6 +22,15 @@ describe('catalog', () => {
     expect(() => parseCatalog(catalog.replace('`enemy.ghoul`', '`enemy.bat`'))).toThrow(
       /line \d+:.*duplicate/,
     );
+  });
+  it('uses the explicit Icons Format column instead of hardcoding SVG', () => {
+    expect(
+      parseCatalog(
+        '## Icons\n| ID | Format | Status |\n| --- | --- | --- |\n| `icon.weapon.whip` | png | final |',
+      ),
+    ).toEqual([
+      { id: 'icon.weapon.whip', size: [32, 32], format: 'png', mass: false, status: 'final' },
+    ]);
   });
   it('rejects malformed sizes and missing Size outside icons/fonts', () => {
     expect(() => parseCatalog(catalog.replace('48×48', '-48×48'))).toThrow(/line \d+/);

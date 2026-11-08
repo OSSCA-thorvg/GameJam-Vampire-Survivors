@@ -21,3 +21,11 @@ export { ENEMIES, ENEMY_LIST } from './content/enemies.js';
 export type { EnemyDef, EnemyId } from './content/enemies.js';
 export { STAGE, validateStage } from './content/stage.js';
 export type { StageDef, WaveDef } from './content/stage.js';
+export {
+  inspectPng,
+  MAX_IMAGE_AXIS,
+  MAX_IMAGE_DECODED_BYTES,
+  MAX_IMAGE_ENCODED_BYTES,
+} from './png.js';
+export { validateLottie, MAX_LOTTIE_IMAGES, MAX_LOTTIE_DECODED_BYTES } from './lottie.js';
+export type { LottieImage, ValidatedLottie } from './lottie.js';

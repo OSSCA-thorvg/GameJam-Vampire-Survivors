@@ -43,7 +43,8 @@ export function parseCatalog(markdown: string): CatalogRow[] {
       fail('invalid ID list');
     const icons = heading.startsWith('Icons');
     const fonts = heading.startsWith('Fonts');
-    const formatToken = icons ? 'svg' : cell('Format').split(/[\s,]/)[0];
+    const formatToken =
+      icons && !headers.includes('Format') ? 'svg' : cell('Format').split(/[\s,]/)[0];
     if (!['svg', 'lottie', 'png', 'webp', 'ttf'].includes(formatToken ?? ''))
       fail('invalid format');
     const format = formatToken as CatalogFormat;

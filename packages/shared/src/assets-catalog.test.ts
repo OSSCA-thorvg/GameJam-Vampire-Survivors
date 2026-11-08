@@ -1,6 +1,8 @@
 // The starter asset pack (#5) stays in sync with the catalog, follows the naming rule, keeps mass art within the
 // ADR 0007 budget and stays inert (ADR 0011): assets are fetched by the worker and parsed by ThorVG.
 import { existsSync, readFileSync } from 'node:fs';
+import { validateLottie } from './lottie';
+import { massBudgetErrors, scanSvg, svgSafetyErrors } from './svg-safety';
 import { describe, expect, it } from 'vitest';
 import { parseCatalog, type CatalogRow } from './catalog';
 
@@ -13,6 +15,7 @@ interface Entry {
   format: string;
   size?: [number, number];
   anchor?: [number, number];
+  filter?: string;
 }
 const manifest = JSON.parse(read('manifest.json')) as { assets: Record<string, Entry> };
 const entries = Object.entries(manifest.assets);
@@ -39,18 +42,6 @@ const EXTENSIONS: Record<string, string> = {
   webp: 'webp',
   ttf: 'ttf',
 };
-/** Shapes counted by the mass budget (ADR 0007: at most 4). */
-const SHAPES = new Set(['path', 'circle', 'rect', 'ellipse', 'polygon', 'polyline', 'line']);
-const FORBIDDEN_IN_MASS = new Set([
-  'lineargradient',
-  'radialgradient',
-  'filter',
-  'mask',
-  'clippath',
-  'image',
-  'text',
-]);
-
 /** The naming rule in assets/README.md: the ID without its first segment, kebab-case, joined with hyphens. */
 function expectedFile(row: Pick<CatalogRow, 'id' | 'format'>): string {
   const parts = row.id.split('.');
@@ -60,100 +51,14 @@ function expectedFile(row: Pick<CatalogRow, 'id' | 'format'>): string {
   return `${FOLDERS[first] ?? '?'}/${name.join('-')}.${EXTENSIONS[row.format] ?? '?'}`;
 }
 
-interface Tag {
-  name: string;
-  attrs: Map<string, string>;
-}
-
-/** A minimal SVG tag scanner (no dependency): every start tag, its lower-cased name and attributes. */
-function scanSvg(text: string): Tag[] {
-  const body = text.replace(/<!--[\s\S]*?-->/g, '');
-  if (/<!DOCTYPE|<!ENTITY|<\?xml-stylesheet|<!\[CDATA\[/i.test(body))
-    throw new Error('DOCTYPE, entities, stylesheets and CDATA are not allowed');
-  const tags: Tag[] = [];
-  for (const match of body.matchAll(/<([A-Za-z][\w:.-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g)) {
-    const attrs = new Map<string, string>();
-    const raw = match[2] ?? '';
-    const rest = raw.replace(
-      /([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g,
-      (_all, key: string, a?: string, b?: string) => {
-        attrs.set(key.toLowerCase(), a ?? b ?? '');
-        return '';
-      },
-    );
-    if (rest.replace(/\//g, '').trim())
-      throw new Error(`unparsed attribute text in <${match[1] ?? ''}>`);
-    tags.push({ name: (match[1] ?? '').toLowerCase(), attrs });
-  }
-  if (tags[0]?.name !== 'svg') throw new Error('the first element must be <svg>');
-  return tags;
-}
-
-/** Problems that make an SVG not inert: scripts, event handlers, external references, embedded HTML. */
-function svgSafetyErrors(text: string): string[] {
-  const errors: string[] = [];
-  for (const tag of scanSvg(text)) {
-    if (tag.name === 'script' || tag.name === 'foreignobject') errors.push(`<${tag.name}>`);
-    for (const [key, value] of tag.attrs) {
-      if (key.startsWith('on')) errors.push(`event handler ${key}`);
-      if ((key === 'href' || key === 'xlink:href') && !value.startsWith('#'))
-        errors.push(`external reference ${key}="${value}"`);
-      if (/url\(\s*(?!['"]?#)/i.test(value)) errors.push(`external url() in ${key}`);
-    }
-    if (tag.name === 'style') errors.push('<style>');
-  }
-  if (/javascript:/i.test(text)) errors.push('javascript: URL');
-  return errors;
-}
-
-/** Problems that put a mass SVG over the ADR 0007 budget. */
-function massBudgetErrors(text: string): string[] {
-  const tags = scanSvg(text);
-  const errors: string[] = [];
-  const shapes = tags.filter((tag) => SHAPES.has(tag.name)).length;
-  if (shapes > 4) errors.push(`${String(shapes)} shapes (at most 4)`);
-  for (const tag of tags) {
-    if (FORBIDDEN_IN_MASS.has(tag.name)) errors.push(`<${tag.name}>`);
-    for (const [key, value] of tag.attrs) {
-      if (key.startsWith('stroke')) errors.push(`${key} attribute`);
-      if (key === 'style' && /stroke/i.test(value)) errors.push('stroke in style');
-    }
-  }
-  return errors;
-}
-
-/** Problems that make a Lottie file unsafe or malformed: missing fields, image assets, expressions. */
-function lottieErrors(text: string): string[] {
-  const errors: string[] = [];
-  let json: unknown;
+function lottieErrors(text: string, owner = 'fx/level-up.json'): string[] {
   try {
-    json = JSON.parse(text);
-  } catch {
-    return ['invalid JSON'];
+    const value: unknown = JSON.parse(text);
+    validateLottie(value, owner);
+    return [];
+  } catch (error) {
+    return [error instanceof Error ? error.message : String(error)];
   }
-  if (typeof json !== 'object' || json === null) return ['not an object'];
-  const root = json as Record<string, unknown>;
-  for (const key of ['v', 'fr', 'ip', 'op', 'w', 'h', 'layers'])
-    if (!(key in root)) errors.push(`missing ${key}`);
-  if (Array.isArray(root.assets))
-    for (const asset of root.assets as Record<string, unknown>[])
-      if ('p' in asset) errors.push('image asset (p)');
-  const walk = (value: unknown, path: string): void => {
-    if (Array.isArray(value)) {
-      value.forEach((item, i) => {
-        walk(item, `${path}[${String(i)}]`);
-      });
-    } else if (typeof value === 'object' && value !== null)
-      for (const [key, child] of Object.entries(value)) {
-        // Expressions are strings in `x`; easing handles also use `x`, but as numbers or number arrays.
-        if (key === 'x' && typeof child === 'string') errors.push(`expression at ${path}.x`);
-        if (key === 'ty' && (child === 2 || child === 5))
-          errors.push(`image or text layer at ${path}`);
-        walk(child, `${path}.${key}`);
-      }
-  };
-  walk(json, '$');
-  return errors;
 }
 
 describe('starter asset pack', () => {
@@ -230,17 +135,18 @@ describe('starter asset pack', () => {
     const errors = mass.flatMap((row) => {
       const entry = manifest.assets[row.id];
       if (!entry) return [`${row.id}: no manifest entry`];
-      if (entry.format !== 'svg') return [`${row.id}: mass art must be svg`];
+      if (entry.format === 'png') return [];
+      if (entry.format !== 'svg') return [`${row.id}: mass art must be static SVG or PNG`];
       return massBudgetErrors(read(entry.file)).map((problem) => `${row.id}: ${problem}`);
     });
     expect(errors).toEqual([]);
   });
 
-  it('every Lottie file is shape-only and has no expressions', () => {
+  it('every Lottie file has only safe shape or same-owner image layers', () => {
     const lotties = entries.filter(([, entry]) => entry.format === 'lottie');
     expect(lotties.length).toBeGreaterThan(0);
     const errors = lotties.flatMap(([id, entry]) =>
-      lottieErrors(read(entry.file)).map((problem) => `${id}: ${problem}`),
+      lottieErrors(read(entry.file), entry.file).map((problem) => `${id}: ${problem}`),
     );
     expect(errors).toEqual([]);
   });
@@ -259,7 +165,7 @@ describe('asset checks reject what they must', () => {
     expect(svgSafetyErrors(text)).not.toEqual([]);
   });
   it('rejects a doctype with entities', () => {
-    expect(() => scanSvg(`<!DOCTYPE svg [<!ENTITY a "b">]>${head}</svg>`)).toThrow();
+    expect(() => svgSafetyErrors(`<!DOCTYPE svg [<!ENTITY a "b">]>${head}</svg>`)).toThrow();
   });
   it('accepts local fragment references', () => {
     expect(
@@ -286,7 +192,12 @@ describe('asset checks reject what they must', () => {
       lottieErrors(JSON.stringify({ ...base, assets: [{ id: 'i', p: 'x.png' }] })),
     ).not.toEqual([]);
     expect(
-      lottieErrors(JSON.stringify({ ...base, layers: [{ o: { x: [0.3], y: [0] } }] })),
+      lottieErrors(
+        JSON.stringify({
+          ...base,
+          layers: [{ ty: 4, shapes: [], ks: { o: { x: [0.3], y: [0] } } }],
+        }),
+      ),
     ).toEqual([]);
   });
 });
