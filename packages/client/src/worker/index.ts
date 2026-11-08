@@ -22,7 +22,7 @@ import { loadManifest } from './assets/manifest';
 import { AssetLibrary } from './assets/library';
 import { createLayers } from './render/layers';
 import { createWorld, type World } from './game/world';
-import { readPlayerSnapshot } from './game/snapshot';
+import { readEnemyPositions, readPlayerSnapshot } from './game/snapshot';
 import { buildGallery, type Gallery } from './debug/gallery';
 import { noteFrame, registerSnapshotField, takeSnapshot } from './test-bridge';
 import type { StressScene } from './debug/stress';
@@ -171,6 +171,8 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
       if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
         registerSnapshotField('timeS', () => run.time);
         registerSnapshotField('player', () => readPlayerSnapshot(run));
+        registerSnapshotField('enemies', () => run.enemies.count);
+        registerSnapshotField('enemyPositions', () => readEnemyPositions(run));
       }
     }
     assetState.placeholders = [...library.placeholders];

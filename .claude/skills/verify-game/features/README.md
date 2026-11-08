@@ -10,6 +10,7 @@ One file per user-facing feature. A PR that adds or changes user-facing behaviou
 | `room-server.md` | the WebSocket room server: rooms, ready, match start, result, limits       | #18   |
 | `gallery.md`     | drawable catalog gallery, anchors, loading, replacements and font fallback | #3    |
 | `movement.md`    | 8-direction movement, facing, stopping, the centred camera and the ground  | #7    |
+| `enemies.md`     | wave spawning off-screen, chase, separation, relocation and the enemy cap  | #8    |
 
 ## Baseline preconditions
 
