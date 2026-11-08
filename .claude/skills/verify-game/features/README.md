@@ -4,11 +4,12 @@ One file per user-facing feature. A PR that adds or changes user-facing behaviou
 
 | File             | Feature                                                                    | Since |
 | ---------------- | -------------------------------------------------------------------------- | ----- |
-| `boot.md`        | page load, worker start, ThorVG `gl`, test scene, unsupported browsers     | #2    |
+| `boot.md`        | page load, worker start, ThorVG `gl`, the run starts, unsupported browsers | #2    |
 | `hidden-tab.md`  | the hidden-tab background policies `'pause'` and `'simulate'`              | #2    |
 | `debug-tools.md` | the dev-only perf overlay and fast-forward, and their absence in builds    | #2    |
 | `room-server.md` | the WebSocket room server: rooms, ready, match start, result, limits       | #18   |
 | `gallery.md`     | drawable catalog gallery, anchors, loading, replacements and font fallback | #3    |
+| `movement.md`    | 8-direction movement, facing, stopping, the centred camera and the ground  | #7    |
 
 ## Baseline preconditions
 

@@ -29,6 +29,8 @@ Things to measure from footage and write down here: player move speed (screen wi
 ## Core loop
 
 - The player only moves. Weapons fire automatically on their own cooldowns. **[unverified]**
+- Movement: eight directions at one constant speed, diagonals as fast as straight moves, the camera keeping the player exactly centred over an endless field. **[unverified]**
+- Move speed: this game uses `BASE_MOVE_SPEED = 140` world units per second, 0.109 view widths per second (1280-unit view), measured in the running game by the #7 movement journey (140.0 units per held second, straight and diagonal, 2026-11-08). The original's speed in view widths per second has **not been measured from footage yet** **[unverified]**: in #7 no footage could be watched, so 140 is the issue's initial value, untuned. To measure: in a long unedited run (Video references), time how long the character takes to walk from one screen edge to the other with no MoveSpeed bonus (Antonio, early minutes), record source and timestamp here, and set `BASE_MOVE_SPEED` to 1280 × (view widths per second).
 - Killing enemies drops experience gems. Collecting them fills the XP bar, and each level-up offers a choice of new or upgraded weapons and passives. **[unverified]**
 - A run lasts until the time limit or death. ADR 0005 sets 15 minutes for this game; the original uses 30. **[Wikipedia]**
 

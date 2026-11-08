@@ -53,7 +53,7 @@ export interface WorkerDebugOptions {
   root: Scene;
   loop: Loop;
   post: (message: WorkerToMain) => void;
-  /** Describes the simulation state for the dev log, for example the test scene's simulated time. */
+  /** Describes the simulation state for the dev log, for example the run's time and player position. */
   describe: () => string;
   now?: () => number;
 }
