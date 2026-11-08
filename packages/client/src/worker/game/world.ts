@@ -1,4 +1,4 @@
-import { createRng, type Rng } from '@vs/shared';
+import { createRng, type CharacterId, type Rng } from '@vs/shared';
 import type { Axis, RunStats } from '../../protocol/worker-messages';
 import type { PaintPool } from '../render/pool';
 import { cameraSystem, createCamera, type Camera } from './camera';
@@ -11,20 +11,20 @@ import { levelSystem } from './level';
 import { createPlayer, playerMovementSystem, type PlayerState } from './player';
 import { type PassivesState } from './passives';
 import { createProjectileState, projectileSystem, type ProjectileState } from './projectiles';
-import { recomputeStats } from './stats';
+import { applyCharacter, resolveCharacter } from './start-run';
 import { contactDamageSystem } from './systems/contact-damage';
 import { enemyMovementSystem } from './systems/enemy-movement';
 import { enemyRelocateSystem } from './systems/enemy-relocate';
 import { recoverySystem } from './systems/recovery';
 import { spawnerSystem } from './systems/spawner';
 import { createWeaponContext, type WeaponContext } from './weapons/context';
-import { addWeapon, type WeaponsState } from './weapons/owned';
+import { type WeaponsState } from './weapons/owned';
 import { createWeaponVisuals, type WeaponVisuals } from './weapons/visuals';
 import { weaponSystem } from './weapons/system';
 
 export interface WorldOptions {
   seed: number;
-  /** Stored, unused until #14. */
+  /** The `CharacterId` to play (#14); an unknown or omitted id plays `CHARACTERS[0]` (Warden). */
   characterId?: string;
   /** The view's enemy pools (`GameView.enemyPools`, #9). Omitted in unit tests: the world then only simulates. */
   enemyPools?: readonly PaintPool[];
@@ -41,7 +41,8 @@ export interface WorldOptions {
 export interface World
   extends EnemyState, ProjectileState, FxState, WeaponsState, PassivesState, GemState {
   readonly seed: number;
-  readonly characterId: string;
+  /** The character played (#14), always a known id: `startRun`'s id, or `CHARACTERS[0]` when that was unknown. */
+  readonly characterId: CharacterId;
   /** Simulated seconds. */
   time: number;
   /** Root stream. Each system forks its own named stream (`world.rng.fork('spawn')`, #8) and never draws from it. */
@@ -133,11 +134,12 @@ export function createWorld({
   onGameOver,
 }: WorldOptions): World {
   const rng = createRng(seed);
+  const character = resolveCharacter(characterId);
   // A function, so TypeScript does not narrow `state` across the systems that may change it.
   const dead = (): boolean => world.state === 'dead';
   const world: World = {
     seed,
-    characterId,
+    characterId: character.id,
     time: 0,
     rng,
     input: { dx: 0, dy: 0 },
@@ -179,9 +181,7 @@ export function createWorld({
     },
   };
   const weaponContext = createWeaponContext(world);
-  // The default character's starting weapon; #14 makes it per character.
-  addWeapon(world, 'whip');
-  recomputeStats(world);
+  applyCharacter(world, character);
   return world;
 }
 

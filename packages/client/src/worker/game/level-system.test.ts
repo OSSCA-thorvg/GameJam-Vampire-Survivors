@@ -5,10 +5,10 @@ import { FX_ASSETS } from './fx';
 import { applyLevelUpOption, createLevelUpFlow, levelSystem, xpForNextLevel } from './level';
 import { grantNextPassive } from './passives';
 import { grantNextWeapon } from './weapons/owned';
-import { createWorld } from './world';
+import { createBaseWorld } from './base-world';
 
 function setup() {
-  const world = createWorld({ seed: 3 });
+  const world = createBaseWorld({ seed: 3 });
   world.weapons.length = 0;
   const posted: Extract<WorkerToMain, { type: 'levelUp' }>[] = [];
   const pause = vi.fn();

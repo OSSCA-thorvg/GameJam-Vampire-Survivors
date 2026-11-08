@@ -17,7 +17,7 @@ const LOADOUTS: WeaponId[][] = [
 /** A world drawing through a fake game view, holding `loadout` at level 8; HP is refilled every step. */
 function maxedRun(loadout: WeaponId[], seed: number) {
   const view = createGameView(fakeGameView().options);
-  view.begin();
+  view.begin('warden');
   const world = createWorld({
     seed,
     enemyPools: view.enemyPools,

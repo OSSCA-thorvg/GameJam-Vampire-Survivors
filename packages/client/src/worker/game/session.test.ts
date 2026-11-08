@@ -35,7 +35,7 @@ it('starts each run fresh and clears the previous enemies', () => {
   const second = session.start(2, 'warden');
   expect(first.enemies.count).toBe(0);
   expect(second).not.toBe(first);
-  expect(second.player.hp).toBe(100);
+  expect(second.player.hp).toBe(120); // Warden's full HP (#14)
   expect(second.time).toBe(0);
   session.end();
   expect(session.world).toBeNull();

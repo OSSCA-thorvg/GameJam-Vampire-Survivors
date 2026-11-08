@@ -22,7 +22,6 @@ export function createSession(view: GameView, onGameOver: (stats: RunStats) => v
     },
     start(seed, characterId) {
       if (world) clearWorld(world);
-      view.begin();
       world = createWorld({
         seed,
         characterId,
@@ -32,6 +31,8 @@ export function createSession(view: GameView, onGameOver: (stats: RunStats) => v
         gemPools: view.gemPools,
         onGameOver,
       });
+      // After `createWorld`, which resolves an unknown id to the default character; it acquires no paint.
+      view.begin(world.characterId);
       return world;
     },
     end() {

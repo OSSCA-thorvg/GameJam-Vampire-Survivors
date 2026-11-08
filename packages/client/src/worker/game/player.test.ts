@@ -1,10 +1,10 @@
 import { BASE_MOVE_SPEED } from '@vs/shared';
 import { describe, expect, it } from 'vitest';
 import type { Axis } from '../../protocol/worker-messages';
-import { createWorld } from './world';
+import { createBaseWorld } from './base-world';
 
 function run(dx: Axis, dy: Axis, steps = 60) {
-  const world = createWorld({ seed: 1 });
+  const world = createBaseWorld({ seed: 1 });
   world.input = { dx, dy };
   for (let i = 0; i < steps; i++) world.step(1 / 60);
   return world;
@@ -27,7 +27,7 @@ describe('player movement', () => {
     expect(left.player.x).toBeLessThan(0);
   });
   it('keeps facingX and lastDir when input turns vertical or stops, and stops immediately', () => {
-    const world = createWorld({ seed: 1 });
+    const world = createBaseWorld({ seed: 1 });
     world.input = { dx: -1, dy: 0 };
     world.step(1 / 60);
     expect(world.player.facingX).toBe(-1);
@@ -47,7 +47,7 @@ describe('player movement', () => {
     expect(world.player.facingX).toBe(1);
   });
   it('starts at the origin facing right with lastDir (1, 0)', () => {
-    const { player } = createWorld({ seed: 1 });
+    const { player } = createBaseWorld({ seed: 1 });
     expect(player).toMatchObject({ x: 0, y: 0, facingX: 1, lastDirX: 1, lastDirY: 0 });
   });
 });

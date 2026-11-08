@@ -58,3 +58,33 @@ export const effCooldown = (base: number, s: Readonly<StatBlock>): number =>
 export const effAmount = (base: number, s: Readonly<StatBlock>): number => base + s.amount;
 export const effSpeed = (base: number, s: Readonly<StatBlock>): number => base * s.speed;
 export const effDuration = (base: number, s: Readonly<StatBlock>): number => base * s.duration;
+
+/** The stat names shown in the UI (#14's character cards). */
+export const STAT_LABELS: Readonly<Record<StatId, string>> = Object.freeze({
+  might: 'Might',
+  area: 'Area',
+  cooldown: 'Cooldown',
+  amount: 'Amount',
+  speed: 'Projectile speed',
+  duration: 'Duration',
+  maxHp: 'Max HP',
+  recovery: 'Recovery',
+  armor: 'Armor',
+  moveSpeed: 'Move speed',
+  magnet: 'Magnet',
+  luck: 'Luck',
+  growth: 'Growth',
+});
+
+/** Stats whose modifiers add a flat number; the others add to a factor around 1 and read as percents. */
+const FLAT_STATS: ReadonlySet<StatId> = new Set<StatId>(['amount', 'armor', 'maxHp', 'recovery']);
+
+/**
+ * A modifier as UI text: flat stats as signed numbers ("+20 Max HP"), factor stats as signed percents
+ * ("−5% Move speed"). Negative values use the minus sign U+2212.
+ */
+export function formatModifier({ stat, add }: StatModifier): string {
+  const value = FLAT_STATS.has(stat) ? Number(add.toFixed(2)) : Math.round(add * 100);
+  const sign = value < 0 ? '\u2212' : '+';
+  return `${sign}${String(Math.abs(value))}${FLAT_STATS.has(stat) ? '' : '%'} ${STAT_LABELS[stat]}`;
+}

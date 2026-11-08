@@ -13,7 +13,7 @@ When the tab is hidden, the worker follows its background policy: `'pause'` (def
 
 ## How to get to it (user POV)
 
-Switch to another browser tab while the game runs, wait three seconds, and come back. The policy journeys stay on the title screen; the run journey first presses Enter on "Start" (#9). `'simulate'` has no player entry point until versus play (#20); reach only that precondition with `__vsDebug.post({ type: 'setBackgroundPolicy', policy: 'simulate' })`. The visibility behavior itself must be native, never a posted worker visibility message.
+Switch to another browser tab while the game runs, wait three seconds, and come back. The policy journeys stay on the title screen; the run journey first presses Enter on "Start" (#9) and Enter again on the character select (#14). `'simulate'` has no player entry point until versus play (#20); reach only that precondition with `__vsDebug.post({ type: 'setBackgroundPolicy', policy: 'simulate' })`. The visibility behavior itself must be native, never a posted worker visibility message.
 
 ## Driving it
 
@@ -153,6 +153,8 @@ test('hidden tab: a single-player run pauses while hidden and shows the pause ov
     expect((await openGame(page, baseURL)).renderer).toBe('gl');
     await waitForSnapshot(page, (s) => s.state === 'title', 5_000);
     await page.keyboard.press('Enter');
+    await waitForSnapshot(page, (s) => s.state === 'characterSelect', 5_000);
+    await page.keyboard.press('Enter'); // the default Warden (#14)
     await waitForSnapshot(page, (s) => s.state === 'playing' && s.timeS >= 1, 10_000);
     await ev.shot('playing');
     visibility = await hidePage(page);

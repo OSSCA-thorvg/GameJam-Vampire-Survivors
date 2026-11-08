@@ -6,11 +6,11 @@ The 8 passive items and the player stat block (#12, ADRs 0004, 0008, 0009): leve
 
 - **Data:** `PASSIVES` in `packages/shared/src/content/passives.ts`, max level 5 each, one additive modifier per level (initial values, untuned): Hollow Heart max HP +20, Empty Tome cooldown −0.08, Bracer projectile speed +0.1, Candelabrador area +0.1, Clover luck +0.1, Spellbinder duration +0.1, Spinach might +0.1, Pummarola recovery +0.2 HP/s.
 - **Cards:** a passive card (`data-kind` `newPassive` or `upgradePassive`) shows its `icon.passive.*` as `<img alt="">` (`/icons/passive-*.png`), the name, `NEW` or `Lv x → y`, and the passive's `description`. Choosing one adds it to `snapshot().passives` (`{ id, level }[]` in slot order) or raises its level, and `snapshot().stats` changes at once.
-- **Stats:** `snapshot().stats` starts at `BASE_STATS` (might 1, area 1, cooldown 1, amount 0, speed 1, duration 1, maxHp 100, recovery 0, armor 0, moveSpeed 1, magnet 1, luck 1, growth 1) and equals base + level × modifier for each owned passive.
+- **Stats:** `snapshot().stats` starts at `BASE_STATS` (might 1, area 1, cooldown 1, amount 0, speed 1, duration 1, maxHp 100, recovery 0, armor 0, moveSpeed 1, magnet 1, luck 1, growth 1) plus the character's modifiers (#14; the default Warden: maxHp 120, armor 1, moveSpeed 0.95) and equals that + level × modifier for each owned passive.
 - **Candelabrador:** `stats.area` is `1 + 0.1 × level`; the Whip arc (`weapon.whip`, 160×40 at area 1) is drawn that much larger and hits that much farther.
 - **Spinach:** `stats.might` is `1 + 0.1 × level`; every weapon hit deals `damage × might`. With Spinach at 5 a level-1 Whip hit deals 15 instead of 10: `snapshot().damageDealt` (`{ hits, total }`, every weapon hit on a live enemy since the run started) rises by 15 per hit instead of 10. So a ghoul (15 HP) dies from one level-1 strike instead of two (unit test `stats.test.ts`, see Gotchas).
 - **Pummarola:** `player.hp` rises by `stats.recovery` per second while alive and never exceeds `maxHp`.
-- **Hollow Heart:** `player.maxHp` and `stats.maxHp` rise by 20 per level and `player.hp` rises by the same 20 (the HUD HP bar under the player stays about as full: 95/100 becomes 115/120).
+- **Hollow Heart:** `player.maxHp` and `stats.maxHp` rise by 20 per level and `player.hp` rises by the same 20 (the HUD HP bar under the player stays about as full: Warden's 116/120 becomes 136/140).
 - **Slots:** never more than 6 passives (`MAX_PASSIVE_SLOTS`); with 6 owned no card is `newPassive`, and no card offers a level above 5.
 - **4th card:** with `stats.luck` above 1 (Clover) about `min(0.5, luck − 1)` of the level-ups show 4 cards; `4` chooses the 4th (`level-up.md`).
 - **Debug key `P` (dev builds):** adds the first passive of `PASSIVES` not owned, or with 6 owned a level of the first owned one below 5 (`debug-tools.md`). Only for preconditions.
@@ -463,7 +463,7 @@ test('passives 5: Hollow Heart raises maxHp and HP by 20 each and the bar keeps 
     });
     expect(player(after).maxHp).toBe(player(open).maxHp + 20);
     expect(player(after).hp).toBeCloseTo(player(open).hp + 20, 6);
-    expect(stats(after).maxHp).toBe(120);
+    expect(stats(after).maxHp).toBe(140); // Warden's 120 (#14) + 20
     expect(pageErrors(ev)).toEqual([]);
   } finally {
     ev.flush();

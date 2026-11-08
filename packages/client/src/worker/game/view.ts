@@ -1,4 +1,5 @@
 import type { Scene, ThorVGNamespace } from '@thorvg/webcanvas';
+import { CHARACTERS, type CharacterId } from '@vs/shared';
 import type { AssetLibrary } from '../assets/library';
 import { VIEW_HEIGHT, VIEW_WIDTH } from '../constants';
 import { createGround } from '../render/ground';
@@ -55,8 +56,8 @@ export interface GameView {
   countPaints(): number;
   /** Releases every pooled paint and hides the HUD: the empty frame between runs. */
   clear(): void;
-  /** Shows the ground, the player and the HUD for a new run, from the existing paints. */
-  begin(): void;
+  /** Shows the ground, `characterId`'s player sprite (#14) and the HUD for a new run, from the existing paints. */
+  begin(characterId: CharacterId): void;
   /** Syncs the camera, ground, garlic aura, gems, enemies (with their hit flash), projectiles, books, player, effects and HUD from `world`. No `canvas.update()`/`render()`. */
   render(world: World): void;
 }
@@ -70,7 +71,10 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
   const projectilePools = createProjectilePools(library, layers.projectiles);
   const bookPool = new PaintPool(library, 'weapon.kingBible', layers.projectiles, MAX_BOOKS);
   const fxPools = createFxPools(library, layers.fx);
-  const playerPool = new PaintPool(library, 'player.warden', layers.player, 1);
+  // One sprite per character (#14), all created at boot; a run acquires only its character's.
+  const playerPools = new Map(
+    CHARACTERS.map((c) => [c.id, new PaintPool(library, c.spriteId, layers.player, 1)] as const),
+  );
   // Created after the player pool, so the HP bar draws above the sprite in the same layer.
   const hud = createHud(TVG, library, layers);
   const pools: readonly PaintPool[] = [
@@ -80,11 +84,13 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
     ...enemyPools,
     ...projectilePools,
     bookPool,
-    playerPool,
+    ...playerPools.values(),
     ...fxPools,
     ...hud.pools,
   ];
-  let player = playerPool.get(0);
+  const defaultPool = playerPools.get(CHARACTERS[0]?.id ?? 'warden');
+  if (!defaultPool) throw new Error('CHARACTERS is empty');
+  let player = defaultPool.get(0);
   let opacity = OPAQUE;
   /** Book handles acquired, `shownBooks` of them; acquired or released only when the shown count changes. */
   const bookHandles = new Int32Array(MAX_BOOKS);
@@ -108,10 +114,11 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
       garlicHandle = -1;
       hud.setVisible(false);
     },
-    begin() {
+    begin(characterId) {
       view.clear();
       ground.acquire();
-      player = playerPool.get(playerPool.acquire());
+      const pool = playerPools.get(characterId) ?? defaultPool;
+      player = pool.get(pool.acquire());
       player.paint.opacity(OPAQUE);
       opacity = OPAQUE;
       hud.setVisible(true);

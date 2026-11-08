@@ -19,10 +19,15 @@ const options: LevelUpOption[] = [
   },
 ];
 const levelUp: AppState = { name: 'levelUp', level: 2, options };
+const selectWarden: AppState = { name: 'characterSelect', selectedId: 'warden' };
+const selectSwift: AppState = { name: 'characterSelect', selectedId: 'swift' };
 
 describe('reduce', () => {
   it.each<[AppState, AppEvent, AppState]>([
-    [title, { type: 'start' }, playing],
+    [title, { type: 'start' }, selectWarden],
+    [selectWarden, { type: 'select', id: 'swift' }, selectSwift],
+    [selectSwift, { type: 'confirm' }, playing],
+    [selectSwift, { type: 'back' }, title],
     [playing, { type: 'pauseToggle' }, paused],
     [paused, { type: 'pauseToggle' }, playing],
     [playing, { type: 'hidden' }, paused],
@@ -35,6 +40,13 @@ describe('reduce', () => {
     [levelUp, { type: 'chosen', index: 1 }, playing],
   ])('%j + %j → %j', (state, event, next) => {
     expect(reduce(state, event)).toEqual(next);
+  });
+
+  it('starts the select screen on the character chosen last this session', () => {
+    expect(reduce(title, { type: 'start' }, 'ember')).toEqual({
+      name: 'characterSelect',
+      selectedId: 'ember',
+    });
   });
 
   it.each<[AppState, AppEvent]>([
@@ -58,6 +70,15 @@ describe('reduce', () => {
     [levelUp, { type: 'quitToTitle' }],
     [levelUp, { type: 'chosen', index: 2 }],
     [levelUp, { type: 'chosen', index: -1 }],
+    [selectWarden, { type: 'select', id: 'warden' }],
+    [selectWarden, { type: 'select', id: 'nobody' as never }],
+    [selectWarden, { type: 'start' }],
+    [selectWarden, { type: 'pauseToggle' }],
+    [selectWarden, { type: 'hidden' }],
+    [selectWarden, { type: 'retry' }],
+    [selectWarden, { type: 'quitToTitle' }],
+    [title, { type: 'confirm' }],
+    [playing, { type: 'back' }],
   ])('ignores %j + %j (same state object)', (state, event) => {
     expect(reduce(state, event)).toBe(state);
   });
@@ -66,8 +87,11 @@ describe('reduce', () => {
 describe('effects', () => {
   const seed = () => 7;
   it.each<[AppState, AppState, MainToWorker[]]>([
-    [title, playing, [{ type: 'startRun', seed: 7, characterId: 'warden' }]],
+    [selectSwift, playing, [{ type: 'startRun', seed: 7, characterId: 'swift' }]],
     [results, playing, [{ type: 'startRun', seed: 7, characterId: 'warden' }]],
+    [title, selectWarden, []],
+    [selectWarden, selectSwift, []],
+    [selectSwift, title, []],
     [playing, paused, [{ type: 'pause' }]],
     [paused, playing, [{ type: 'resume' }]],
     [paused, title, [{ type: 'endRun' }]],
@@ -76,6 +100,12 @@ describe('effects', () => {
     [title, title, []],
   ])('%j → %j sends %j', (from, to, messages) => {
     expect(effects(from, to, seed)).toEqual(messages);
+  });
+
+  it('retries as the character chosen last', () => {
+    expect(effects(results, playing, seed, { type: 'retry' }, 'ember')).toEqual([
+      { type: 'startRun', seed: 7, characterId: 'ember' },
+    ]);
   });
 
   it('sends the chosen index when leaving the level-up screen, and nothing when entering it', () => {
@@ -107,6 +137,8 @@ describe('createApp (happy-dom)', () => {
     expect(app.state).toEqual(title);
     expect(document.activeElement).toBe(button('Start'));
     button('Start')?.click();
+    expect(app.state).toEqual(selectWarden);
+    key('Enter');
     expect(app.state).toEqual(playing);
     expect(root.children).toHaveLength(0);
 
@@ -158,6 +190,7 @@ describe('createApp (happy-dom)', () => {
       () => 1,
     );
     button('Start')?.click();
+    key('Enter');
     app.dispatch({ type: 'levelUp', level: 2, options });
     expect(app.state).toEqual(levelUp);
     expect(root.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Level up');
@@ -187,6 +220,51 @@ describe('createApp (happy-dom)', () => {
     );
     button('Start')?.blur();
     key('Enter');
+    expect(app.state).toEqual(selectWarden);
+  });
+
+  it('chooses a character with the keyboard, goes back with Escape, remembers the choice and retries as it (#14)', () => {
+    document.body.replaceChildren();
+    const root = document.createElement('div');
+    document.body.append(root);
+    const sent: MainToWorker[] = [];
+    let n = 0;
+    const app = createApp(
+      root,
+      (m) => sent.push(m),
+      () => ++n,
+    );
+    const selected = () => root.querySelector('[role="option"][aria-selected="true"]');
+    button('Start')?.click();
+    expect(root.querySelectorAll('[role="listbox"] [role="option"]')).toHaveLength(4);
+    expect(document.activeElement).toBe(selected());
+    key('ArrowRight');
+    key('KeyD');
+    expect(app.state).toEqual(selectSwift);
+    expect(selected()?.getAttribute('data-character')).toBe('swift');
+    expect(document.activeElement).toBe(selected());
+    key('Escape');
+    expect(app.state).toEqual(title);
+    button('Start')?.click();
+    // Not confirmed, so the select screen starts on the default again.
+    expect(app.state).toEqual(selectWarden);
+    key('ArrowLeft');
+    expect(app.state).toEqual({ name: 'characterSelect', selectedId: 'aurelia' });
+    key('KeyA');
+    expect(app.state).toEqual(selectSwift);
+    key('Enter');
     expect(app.state).toEqual(playing);
+    app.dispatch({ type: 'gameOver', stats });
+    button('Retry')?.click();
+    app.dispatch({ type: 'pauseToggle' });
+    button('Quit to title')?.click();
+    button('Start')?.click();
+    expect(app.state).toEqual(selectSwift);
+    expect(sent).toEqual([
+      { type: 'startRun', seed: 1, characterId: 'swift' },
+      { type: 'startRun', seed: 2, characterId: 'swift' },
+      { type: 'pause' },
+      { type: 'endRun' },
+    ]);
   });
 });

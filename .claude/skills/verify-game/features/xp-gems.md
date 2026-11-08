@@ -115,7 +115,8 @@ test('xp-gems 1: kills drop gems where they die, walking near one pulls it in, X
     const p = player(lying);
     const keys = [target[2] > p.x ? 'ArrowRight' : 'ArrowLeft'];
     if (Math.abs(target[3] - p.y) > 30) keys.push(target[3] > p.y ? 'ArrowDown' : 'ArrowUp');
-    const walkMs = ((Math.hypot(target[2] - p.x, target[3] - p.y) - 50) / 140) * 1000;
+    // Warden's speed (#14): 140 × 0.95.
+    const walkMs = ((Math.hypot(target[2] - p.x, target[3] - p.y) - 50) / 133) * 1000;
     await holdKeys(page, keys, Math.max(100, walkMs));
     const after = await waitForSnapshot(
       page,

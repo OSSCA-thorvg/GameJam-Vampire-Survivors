@@ -1,14 +1,15 @@
 import { HIT_INVULN_SEC, PLAYER_RADIUS } from '@vs/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { spawnEnemy } from '../enemies';
-import { createWorld, type World } from '../world';
+import type { World } from '../world';
+import { createBaseWorld } from '../base-world';
 import { contactDamageSystem } from './contact-damage';
 
 const DT = 1 / 60;
 
 /** Ten enemies on the player: five bats (damage 5) and five ghouls (damage 10). */
 function crowded(onGameOver?: () => void): World {
-  const world = createWorld({ seed: 1, onGameOver });
+  const world = createBaseWorld({ seed: 1, onGameOver });
   // Keep the spawner quiet so only the crowd below touches the player.
   world.spawnTimer = 1e9;
   for (let i = 0; i < 10; i++) spawnEnemy(world, i % 2 ? 'ghoul' : 'bat', i - 5, 3);
@@ -44,7 +45,7 @@ describe('contact damage', () => {
   });
 
   it('ignores enemies beyond PLAYER_RADIUS + radius and applies armor with a minimum of 1', () => {
-    const world = createWorld({ seed: 1 });
+    const world = createBaseWorld({ seed: 1 });
     // A bat (radius 12) just out of reach, then a bat just in reach.
     spawnEnemy(world, 'bat', PLAYER_RADIUS + 12, 0);
     contactStep(world);

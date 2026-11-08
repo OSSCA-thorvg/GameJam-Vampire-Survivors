@@ -36,7 +36,7 @@ export interface PlayerState {
    * inventory changes, never re-created and never touched per frame.
    */
   readonly stats: StatBlock;
-  /** The character's modifiers; empty until #14 fills it. */
+  /** The character's modifiers, set once by `applyCharacter` (#14). */
   readonly characterModifiers: StatModifier[];
   /** Modifiers gained during the run (#16 pushes Little Clover here). */
   readonly runModifiers: StatModifier[];

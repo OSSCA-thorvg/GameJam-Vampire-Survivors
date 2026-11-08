@@ -29,11 +29,11 @@ Every piece of art the game uses, by logical ID (ADRs 0007/0016). Code and conte
 | `player.warden` | 48×48 | png | Sturdy whip starter (Antonio's role) | C2, G3 | final |
 | `player.ember` | 48×48 | png | Fire-wand glass cannon | G3 | final |
 | `player.swift` | 48×48 | png | Adult female elf knife starter: silver hair, blue clothing, visible pointed ears, pale ivory skin | G3 | final |
-| `player.aurelia` | 48×48 | png | Adult female white-and-gold paladin carrying the existing cross; artwork only, gameplay roster/stats deferred to #14 | future #14 | final |
+| `player.aurelia` | 48×48 | png | Adult female white-and-gold paladin carrying the existing cross; Cross starter (#14) | G3 | final |
 | `portrait.warden` | 128×128 | png | Character-select portrait | G3 | final |
 | `portrait.ember` | 128×128 | png | Character-select portrait | G3 | final |
-| `portrait.swift` | 128×128 | png | Matching pale-ivory female elf portrait; gameplay selection remains future #14 | G3 | final |
-| `portrait.aurelia` | 128×128 | png | Matching adult female paladin portrait; artwork only, selection/stats deferred to #14 | future #14 | final |
+| `portrait.swift` | 128×128 | png | Matching pale-ivory female elf portrait; character-select portrait (#14) | G3 | final |
+| `portrait.aurelia` | 128×128 | png | Matching adult female paladin portrait; character-select portrait (#14) | G3 | final |
 
 ## Enemies — `assets/enemies/`
 

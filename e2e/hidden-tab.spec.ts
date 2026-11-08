@@ -121,6 +121,9 @@ test('hidden tab: a single-player run pauses while hidden and shows the pause ov
     expect((await openGame(page, baseURL)).renderer).toBe('gl');
     await waitForSnapshot(page, (s) => s.state === 'title', 5_000);
     await page.keyboard.press('Enter');
+    // The character select (#14): Enter plays the default character.
+    await waitForSnapshot(page, (s) => s.state === 'characterSelect', 5_000);
+    await page.keyboard.press('Enter');
     await waitForSnapshot(page, (s) => s.state === 'playing' && s.timeS >= 1, 10_000);
     await ev.shot('playing');
     visibility = await hidePage(page);

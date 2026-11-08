@@ -9,7 +9,8 @@ import { contactDamageSystem } from './systems/contact-damage';
 import { WHIP_WIDTH } from './weapons/patterns/whip';
 import { addWeapon } from './weapons/owned';
 import { applyStats, weaponSystem } from './weapons/system';
-import { createWorld, type World } from './world';
+import type { World } from './world';
+import { createBaseWorld } from './base-world';
 
 const DT = 1 / 60;
 
@@ -22,7 +23,7 @@ function withPassive(world: World, id: PassiveId, level: number): World {
 
 describe('recomputeStats', () => {
   it('starts every world at BASE_STATS with the #7/#9 base fields', () => {
-    const world = createWorld({ seed: 1 });
+    const world = createBaseWorld({ seed: 1 });
     expect(world.player.stats).toEqual(BASE_STATS);
     expect(world.player.maxHp).toBe(100);
     expect(world.player.hp).toBe(100);
@@ -31,18 +32,17 @@ describe('recomputeStats', () => {
   });
 
   it('adds perLevel × level: Spinach Lv3 gives might 1.3, Empty Tome Lv5 gives cooldown 0.6', () => {
-    expect(withPassive(createWorld({ seed: 1 }), 'spinach', 3).player.stats.might).toBeCloseTo(
+    expect(withPassive(createBaseWorld({ seed: 1 }), 'spinach', 3).player.stats.might).toBeCloseTo(
       1.3,
       10,
     );
-    expect(withPassive(createWorld({ seed: 1 }), 'emptyTome', 5).player.stats.cooldown).toBeCloseTo(
-      0.6,
-      10,
-    );
+    expect(
+      withPassive(createBaseWorld({ seed: 1 }), 'emptyTome', 5).player.stats.cooldown,
+    ).toBeCloseTo(0.6, 10);
   });
 
   it('applies character and run modifiers, and derives armor and move speed', () => {
-    const world = createWorld({ seed: 1 });
+    const world = createBaseWorld({ seed: 1 });
     world.player.characterModifiers.push({ stat: 'moveSpeed', add: 0.2 });
     world.player.runModifiers.push({ stat: 'armor', add: 2 });
     recomputeStats(world);
@@ -51,7 +51,7 @@ describe('recomputeStats', () => {
   });
 
   it('raises HP with max HP by the same delta, and clamps it when max HP falls', () => {
-    const world = createWorld({ seed: 1 });
+    const world = createBaseWorld({ seed: 1 });
     world.player.hp = 50;
     withPassive(world, 'hollowHeart', 1);
     expect(world.player.maxHp).toBe(120);
@@ -64,7 +64,7 @@ describe('recomputeStats', () => {
   });
 
   it('keeps the same stats object and is idempotent', () => {
-    const world = withPassive(createWorld({ seed: 1 }), 'candelabrador', 2);
+    const world = withPassive(createBaseWorld({ seed: 1 }), 'candelabrador', 2);
     const stats = world.player.stats;
     const before = { ...stats };
     recomputeStats(world);
@@ -75,7 +75,7 @@ describe('recomputeStats', () => {
   });
 
   it('armor from the stats never reduces a hit below 1', () => {
-    const world = createWorld({ seed: 1 });
+    const world = createBaseWorld({ seed: 1 });
     world.spawnTimer = 1e9;
     world.player.runModifiers.push({ stat: 'armor', add: 50 });
     recomputeStats(world);
@@ -89,7 +89,7 @@ describe('recomputeStats', () => {
 
 describe('passive inventory', () => {
   it('holds at most 6 passives, never twice, each up to its max level', () => {
-    const world = createWorld({ seed: 1 });
+    const world = createBaseWorld({ seed: 1 });
     expect(addPassive(world, 'spinach')).toBe(true);
     expect(addPassive(world, 'spinach')).toBe(false);
     for (let l = 2; l <= 5; l++) expect(levelUpPassive(world, 'spinach')).toBe(true);
@@ -102,7 +102,7 @@ describe('passive inventory', () => {
   });
 
   it('grants the next passive with P, then levels with 6 owned, then nothing', () => {
-    const world = createWorld({ seed: 1 });
+    const world = createBaseWorld({ seed: 1 });
     const granted: (string | null)[] = [];
     for (let i = 0; i < 6 + 6 * 4 + 1; i++) granted.push(grantNextPassive(world));
     expect(granted.slice(0, 6)).toEqual([
