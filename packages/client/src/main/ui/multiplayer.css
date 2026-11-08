@@ -1,0 +1,149 @@
+/* The multiplayer entry and lobby screens (#19, ADR 0009). */
+.multiplayer-entry [hidden],
+.lobby [hidden] {
+  display: none !important;
+}
+
+.multiplayer-entry .field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+  min-width: 14rem;
+  text-align: left;
+}
+
+.multiplayer-entry input {
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--button-bg);
+  border-radius: 6px;
+  color: var(--screen-fg);
+  background: #11111b;
+  font: inherit;
+  font-size: 1.15rem;
+}
+
+.multiplayer-entry input.code {
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.multiplayer-entry input:focus {
+  border-color: var(--focus);
+  outline: none;
+}
+
+.multiplayer-entry input[aria-invalid='true'] {
+  border-color: var(--accent);
+}
+
+.multiplayer-entry .join-row {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--gap) / 2);
+  min-width: 14rem;
+}
+
+.screen .field-error {
+  min-height: 1.2em;
+  margin: 0;
+  color: #ff7b7b;
+}
+
+.screen .status,
+.screen .notice {
+  margin: 0;
+}
+
+.screen .notice {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+}
+
+.multiplayer-entry .connection {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+}
+
+.screen button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.lobby .room {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--gap) / 2);
+  margin: 0;
+}
+
+.lobby .room-code {
+  font-family: ui-monospace, monospace;
+  font-size: 2rem;
+  letter-spacing: 0.2em;
+  user-select: all;
+}
+
+.lobby .copied {
+  min-width: 4em;
+}
+
+.lobby .players {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 16rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lobby .player {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  background: var(--button-bg);
+  white-space: pre;
+}
+
+.lobby .player-name {
+  flex: 1;
+  text-align: left;
+}
+
+.lobby .player-you {
+  opacity: 0.7;
+}
+
+.lobby .player-host {
+  color: var(--focus);
+}
+
+.lobby .player-ready {
+  color: #7bd88f;
+}
+
+.lobby .confirm-row {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--gap) / 2);
+}
+
+.lobby .countdown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap);
+  background: var(--overlay-bg);
+  font-size: 1.5rem;
+}
+
+.lobby .countdown-number {
+  font-size: 6rem;
+}
