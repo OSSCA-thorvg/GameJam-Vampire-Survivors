@@ -76,9 +76,9 @@ describe('contact damage', () => {
     expect(onGameOver).toHaveBeenCalledWith(
       expect.objectContaining({ timeSec: world.time, kills: 0, level: 1, cleared: false }),
     );
-    // Three hits 0.5 s apart (the crowd shifts, so the strongest toucher varies), before the Whip's first strike at
-    // 1.35 s: dead in the step after 1 s, then frozen.
-    expect(world.time).toBeCloseTo(1 + DT, 6);
+    // Two ghoul hits (8 + 8) 0.5 s apart, before the Whip's first strike at 1.35 s: dead in the step after 0.5 s, then
+    // frozen. Before #105 the faster bats shifted the crowd so a bat (5) landed one of the hits and death took three.
+    expect(world.time).toBeCloseTo(0.5 + DT, 6);
     const frozen = { time: world.time, x: Array.from(world.enemies.cols.x) };
     world.step(DT);
     expect(world.time).toBe(frozen.time);

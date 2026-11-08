@@ -30,7 +30,8 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
     id: 'bat',
     assetId: 'enemy.bat',
     maxHp: 5,
-    speed: 140,
+    // 0.85 × BASE_MOVE_SPEED, below every character's starting speed (#105; untuned, enforced by characters.test.ts).
+    speed: 119,
     contactDamage: 5,
     radius: 12,
     knockbackResist: 0,

@@ -1,7 +1,9 @@
 import { expect, it } from 'vitest';
 import { ASSET_IDS } from '../generated/asset-ids.js';
 import { CHARACTERS, findCharacter } from './characters.js';
-import { STAT_IDS, formatModifier } from './stats.js';
+import { BASE_MOVE_SPEED } from './constants.js';
+import { ENEMIES } from './enemies.js';
+import { BASE_STATS, STAT_IDS, formatModifier } from './stats.js';
 import { WEAPONS } from './weapons.js';
 
 const ids: readonly string[] = ASSET_IDS;
@@ -24,6 +26,17 @@ it('defines the four characters with unique ids, distinct starting weapons and c
       expect(Number.isFinite(m.add) && m.add !== 0, c.id).toBe(true);
     }
   }
+});
+
+it('starts every character faster than a bat, so an attentive player can outrun bats (#105)', () => {
+  for (const c of CHARACTERS) {
+    const factor = c.modifiers
+      .filter((m) => m.stat === 'moveSpeed')
+      .reduce((sum, m) => sum + m.add, BASE_STATS.moveSpeed);
+    expect(BASE_MOVE_SPEED * factor, c.id).toBeGreaterThan(ENEMIES.bat.speed);
+  }
+  // 0.85 × BASE_MOVE_SPEED (initial value, untuned); the slowest character, Warden, moves 133.
+  expect(ENEMIES.bat.speed).toBe(Math.round(0.85 * BASE_MOVE_SPEED));
 });
 
 it('finds a character by id and returns undefined for an unknown id', () => {
