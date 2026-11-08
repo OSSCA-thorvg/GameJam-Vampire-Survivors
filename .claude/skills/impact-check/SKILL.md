@@ -12,6 +12,8 @@ Rules: `.claude/rules/verification.md`. Listing callers is not the job; grep doe
 Check each of these that the change touches:
 
 - **Thread boundary (ADR 0004):** messages in `packages/client/src/protocol/worker-messages.ts`. Both the sender and the receiver must handle a changed shape, and nothing may cross the boundary per frame per entity.
+- **Dev debug tools (#2):** `DebugCommand` kinds and the reserved key codes in `CLAUDE.md`'s table; `registerDebugKey`, `registerDebugHandler` and `registerPerfStat` callers. A call outside `if (import.meta.env.DEV)` ships debug code to production: `grep -r __vsDebug packages/client/dist` must print nothing after `pnpm --filter client build`.
+- **WASM and CSP delivery (#2):** `/thorvg/thorvg.wasm` (the `copyThorvgWasm` plugin and `initThorVG`'s `locateFile`), and the preview CSP in `packages/client/vite.config.ts`, which mirrors ADR 0011 plus `worker-src blob:` for the support probe.
 - **Network protocol (ADRs 0005, 0006):** `packages/shared/src/protocol.ts`, the server validators, rate limits and size limits, and the protocol version. An old client against a new server must fail cleanly.
 - **Content data (ADR 0008):** IDs referenced across characters, weapons, evolutions, passives, waves and pickups, plus the debug keys that grant them.
 - **Asset IDs (ADR 0007):** `assets/CATALOG.md`, `assets/manifest.json`, generated `ASSET_IDS`, and the mass-art budget.
