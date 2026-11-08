@@ -24,7 +24,8 @@ const found = new Int32Array(512);
 /**
  * Garlic (#13): an aura always shown around the player, its drawn ring on the hit radius (`garlicDrawScale`, #91;
  * `ctx.visuals.garlic`). Each burst (its cooldown is the damage tick; `amount` adds nothing) damages every enemy
- * overlapping the circle of `GARLIC_RADIUS × area` and pushes it away from the player.
+ * overlapping the circle of `GARLIC_RADIUS × area` and pushes it away from the player;
+ * light sources in the circle are hit too (#16).
  */
 export const garlic: WeaponPatternModule = {
   fire(ctx, _w, lv, shot) {
@@ -43,6 +44,7 @@ export const garlic: WeaponPatternModule = {
       const d = Math.sqrt(d2);
       ctx.damageEnemy(e, lv.damage, d > 0 ? dx / d : 1, d > 0 ? dy / d : 0, lv.knockback);
     }
+    ctx.hitLightsInCircle(px, py, radius, lv.damage);
   },
   update(ctx, _w, lv) {
     const { garlic: aura } = ctx.visuals;

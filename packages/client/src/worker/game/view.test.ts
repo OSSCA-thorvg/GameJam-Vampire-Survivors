@@ -2,6 +2,9 @@ import { HIT_INVULN_SEC } from '@vs/shared';
 import { expect, it } from 'vitest';
 import { cleanupSystem, damageEnemy } from './combat';
 import { spawnEnemy } from './enemies';
+import { addLight, hitLightsInCircle } from './light-sources';
+import { PICKUP_FAMILY_LIGHT, spawnPickup } from './pickups';
+import { freezeEnemies } from './systems/freeze';
 import { createGameView } from './view';
 import { fakeGameView } from './view-test-helpers';
 import { createBaseWorld } from './base-world';
@@ -37,13 +40,18 @@ it('creates every paint once: ground, garlic, gem, enemy, projectile, book and e
   // One sprite per character (#14).
   for (const id of ['player.warden', 'player.ember', 'player.swift', 'player.aurelia'])
     expect(byId(id), id).toHaveLength(1);
+  // Light sources, their pickups and the frost overlay (#16).
+  for (const id of ['stage.brazier', 'stage.brazierBroken']) expect(byId(id), id).toHaveLength(16);
+  for (const id of ['floorChicken', 'rosary', 'orologion', 'vacuum', 'littleClover'])
+    expect(byId(`pickup.${id}`), id).toHaveLength(32);
+  expect(byId('fx.freeze')).toHaveLength(1);
   expect(byId('ui.hpBar')).toHaveLength(1);
   expect(byId('ui.skull')).toHaveLength(1);
   // The HP fill and the XP fill; the level, the timer and the kill counter.
   expect(byId('Shape')).toHaveLength(2);
   expect(byId('Text')).toHaveLength(3);
-  expect(view.countPaints()).toBe(1526);
-  expect(paints).toHaveLength(1531);
+  expect(view.countPaints()).toBe(1719);
+  expect(paints).toHaveLength(1724);
 });
 
 it('follows the camera, snapped to device pixels', () => {
@@ -253,4 +261,33 @@ it('shows the King Bible books and the garlic aura from the weapon visuals, on t
   // A new run starts with the aura re-acquired from the same pool; nothing was created.
   expect(shown('weapon.garlic')).toHaveLength(1);
   expect(paints).toHaveLength(created);
+});
+
+it('draws lights and pickups from their pools and stretches the frost overlay over the view only while frozen (#16)', () => {
+  const fake = fakeGameView();
+  const view = createGameView(fake.options);
+  view.begin('warden');
+  const world = createBaseWorld({
+    seed: 1,
+    lightPools: view.lightPools,
+    pickupPools: view.pickupPools,
+  });
+  const shown = (id: string) => fake.paints.filter((p) => p.id === id && p.visible);
+  addLight(world, 100, 0);
+  spawnPickup(world, PICKUP_FAMILY_LIGHT, 0, 200, 0);
+  view.render(world);
+  expect(shown('stage.brazier')).toHaveLength(1);
+  expect(shown('pickup.floorChicken')).toHaveLength(1);
+  expect(shown('fx.freeze')).toHaveLength(0);
+  hitLightsInCircle(world, 100, 0, 1, 1);
+  freezeEnemies(world, 10);
+  view.render(world);
+  expect(shown('stage.brazier')).toHaveLength(0);
+  expect(shown('stage.brazierBroken')).toHaveLength(1);
+  const [overlay] = shown('fx.freeze');
+  expect(overlay?.opacity).toBe(80);
+  expect(overlay?.matrix).toMatchObject({ e11: 1280 / 64, e22: 720 / 64 });
+  world.time = 10;
+  view.render(world);
+  expect(shown('fx.freeze')).toHaveLength(0);
 });

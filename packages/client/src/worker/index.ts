@@ -32,6 +32,9 @@ import {
   readWeapons,
 } from './game/snapshot';
 import { grantNextPassive } from './game/passives';
+import { readLights } from './game/light-sources';
+import { readPickups, spawnDebugPickup } from './game/pickups';
+import { isFrozen } from './game/systems/freeze';
 import { recomputeStats } from './game/stats';
 import { grantNextWeapon } from './game/weapons/owned';
 import { buildGallery, type Gallery } from './debug/gallery';
@@ -223,6 +226,9 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         registerSnapshotField('gemPositions', () =>
           runs.world ? readGemPositions(runs.world) : [],
         );
+        registerSnapshotField('lights', () => (runs.world ? readLights(runs.world) : []));
+        registerSnapshotField('pickups', () => (runs.world ? readPickups(runs.world) : []));
+        registerSnapshotField('frozen', () => (runs.world ? isFrozen(runs.world) : false));
         // An unsupported `?stress` value falls back to this view, but it is still a stress boot: no `debug` field (#92).
         if (!message.debug?.stress)
           registerSnapshotField('debug', () => ({ paintsCreated: gameView.countPaints() }));
@@ -238,6 +244,11 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
           const granted = world ? grantNextPassive(world) : null;
           if (world && granted) recomputeStats(world);
           console.warn(`[debug] grantPassive: ${granted ?? 'nothing to grant'}`);
+        });
+      if (import.meta.env.DEV)
+        registerDebugHandler('spawnPickup', () => {
+          const id = runs.world ? spawnDebugPickup(runs.world) : null;
+          console.warn(`[debug] spawnPickup: ${id ?? 'nothing spawned'}`);
         });
       if (import.meta.env.DEV)
         registerDebugHandler('levelUp', () => {

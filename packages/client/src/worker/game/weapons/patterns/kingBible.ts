@@ -15,7 +15,7 @@ const RAD = Math.PI / 180;
  * (`activeLeft`; the cooldown holds meanwhile, so the gap after it is visible). While out, `amount` books (at most
  * `MAX_BOOKS`) orbit the player at `orbitRadius × area`, `speed` degrees per second, evenly spaced; each enemy a book
  * overlaps is hit when this weapon has not hit it for `hitCooldown` seconds (`ctx.enemyHitTimes[slot]`), pushed
- * away from the player. Writes the books into `ctx.visuals.books`; none while inactive.
+ * away from the player. Light sources a book overlaps are hit under the same cooldown (#16). Writes the books into `ctx.visuals.books`; none while inactive.
  */
 export const kingBible: WeaponPatternModule = {
   fire(_ctx, w, lv, shot) {
@@ -44,6 +44,7 @@ export const kingBible: WeaponPatternModule = {
       const by = py + Math.sin(angle) * orbit;
       books.x[i] = bx;
       books.y[i] = by;
+      ctx.hitLightsInCircle(bx, by, reach, lv.damage, cooldown);
       if (!hitT) continue;
       const count = ctx.query(bx, by, reach + MAX_ENEMY_RADIUS, found);
       for (let k = 0; k < count; k++) {

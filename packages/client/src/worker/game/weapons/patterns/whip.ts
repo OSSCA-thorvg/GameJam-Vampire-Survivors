@@ -11,7 +11,7 @@ const found = new Int32Array(256);
 
 /**
  * Whip (#10): an axis-aligned strike box of `WHIP_WIDTH × WHIP_HEIGHT` scaled by `area`, from the player toward the
- * side the burst started facing; the second shot of a burst (`amount >= 2`) strikes the opposite side. Every enemy
+ * side the burst started facing (light sources in the box are hit too, #16); the second shot of a burst (`amount >= 2`) strikes the opposite side. Every enemy
  * whose circle overlaps the box (closest-point test) is hit once per strike, pushed away from the player. Shows
  * `weapon.whip` over the box for `durationSec`, flipped on the left side.
  */
@@ -41,6 +41,7 @@ export const whip: WeaponPatternModule = {
       const d = Math.hypot(dx, dy);
       ctx.damageEnemy(e, lv.damage, d > 0 ? dx / d : side, d > 0 ? dy / d : 0, lv.knockback);
     }
+    ctx.hitLightsInBox(left, top, right, bottom, lv.damage);
     ctx.spawnFx('weapon.whip', cx, py, 0, side < 0, lv.durationSec, lv.area);
   },
 };

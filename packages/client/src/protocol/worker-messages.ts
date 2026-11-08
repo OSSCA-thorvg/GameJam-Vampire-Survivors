@@ -119,7 +119,9 @@ export type DebugCommand =
   /** #11: grants exactly the XP missing for the next level (`KeyL`). */
   | { kind: 'levelUp' }
   /** #12: adds the first passive of `PASSIVES` not owned or, with 6 owned, levels the first below max (`KeyP`). */
-  | { kind: 'grantPassive' };
+  | { kind: 'grantPassive' }
+  /** #16: drops the next `PICKUPS` entry (cycling, ignoring its level gate) 48 units right of the player (`KeyK`). */
+  | { kind: 'spawnPickup' };
 
 /**
  * Read-only worker state for verification (`window.__vsTest`, dev and e2e builds only). One flat object: fields
