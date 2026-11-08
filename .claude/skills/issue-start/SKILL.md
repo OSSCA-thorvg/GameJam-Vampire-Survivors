@@ -1,11 +1,11 @@
 ---
 name: issue-start
-description: Begin implementing a GitHub issue — verify it is ready, switch its label from status:ready to status:in-progress, assign yourself, create the branch, read the ADRs it cites, and check the work's scope with impact-check. Use before writing any code for an issue ("start #12", "implement issue 12", "12번 시작").
+description: The only way to begin implementing a GitHub issue — verify it is ready (prerequisite gate), switch its label from status:ready to status:in-progress, assign yourself, create the issue's own git worktree and branch, post the marked start comment, read the ADRs it cites, and check the work's scope with impact-check. Use before writing any code for an issue ("start #12", "implement issue 12", "12번 시작").
 ---
 
 # issue-start
 
-Code for an issue is written only after this skill has run. If the user asks to implement an issue directly, run this first.
+**This skill is the only way to start work on an issue.** No branch, worktree, commit or code for an issue exists before it has run. If the user asks to implement an issue directly, run this first. Other entry points (`/dw:impl`, `/dw:ship`, ad-hoc branches in the main checkout) are not used for this repository's issues. CI rejects a PR whose issue has no assignee or no `issue-start` marker comment (step 6).
 
 ## Steps
 
@@ -53,20 +53,24 @@ Code for an issue is written only after this skill has run. If the user asks to 
    gh issue view <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors --json labels -q '[.labels[].name]'
    ```
    If `gh issue edit` fails with a missing-scope error (for example `read:org`), use the REST calls in `.claude/rules/pull-requests.md` § Using `gh`, plus `gh api -X POST repos/OSSCA-thorvg/GameJam-Vampire-Survivors/issues/<N>/assignees -f 'assignees[]=<your-login>'` (your login: `gh api user -q .login`).
-4. Create the branch from an up-to-date `main`, named `<prefix>/issue-<N>-<2-4-word-slug>` (`.claude/rules/commits.md`). Once per clone, make `git pull` rebase and refuse merge commits (linear history, ADR 0012); setting them again is harmless:
+4. **Create the issue's own worktree** and work only inside it. The main checkout stays on `main`, so parallel issues and subagents never share files. `.claude/worktrees/` is git-ignored. The branch name is `<prefix>/issue-<N>-<2-4-word-slug>` (`.claude/rules/commits.md`).
    ```sh
-   git config pull.rebase true
-   git config merge.ff only
    git fetch origin main
-   git switch main && git pull --ff-only origin main
-   git switch -c feature/issue-12-wave-spawner
+   git worktree add -b feature/issue-12-wave-spawner .claude/worktrees/issue-12 origin/main
+   cd .claude/worktrees/issue-12
+   git config pull.rebase true && git config merge.ff only   # linear history (ADR 0012)
+   pnpm install --frozen-lockfile
    ```
-   Prefix by label: `type:enhancement` → `feature`, `type:bug` → `fix`, `type:refactor` → `refactor`, and anything else → `update`. Inside a secondary git worktree, branch from `origin/main` instead of checking out `main`.
+   - Prefix by label: `type:enhancement` → `feature`, `type:bug` → `fix`, `type:refactor` → `refactor`, and anything else → `update`.
+   - If `.claude/worktrees/issue-<N>` already exists, reuse it after checking that it is on this issue's branch.
+   - A subagent implementing the issue is briefed with this worktree's absolute path and works only there.
+   - Dev servers started from the worktree use a port nobody else uses (`--strictPort`). Stop only the processes you started, by PID.
 5. Check the scope before writing code: run the `impact-check` skill in **scope** mode (`.claude/rules/verification.md`). It lists what will change, every consumer of it, and the one fact the change is safe because of. If the consumers reach beyond the issue's plan, update the issue body or split the issue before coding (`.claude/rules/issues.md`).
 6. Post the start comment: the planned approach in 2–4 bullets, followed by the scope result from step 5, written to a file and passed with `--body-file`:
    ```sh
    gh issue comment <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors --body-file /tmp/start.md
    ```
+   End the comment with the hidden marker line `<!-- issue-start -->`. CI checks for it, together with an assignee, before a PR for this issue can merge.
 7. Implement against the acceptance criteria and the implementation plan. Run what you write as you go, and keep the evidence for `issue-finish` in `verification/issue-<N>/` (`.claude/rules/verification.md`). When the work reveals a decision that will bind later issues, write an ADR with `adr-new` on the same branch.
 
 To give up an issue: switch the label back to `status:ready`, remove yourself as assignee, and comment what was learned.

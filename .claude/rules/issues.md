@@ -11,7 +11,7 @@ The `issue-create`, `issue-start` and `issue-finish` skills apply these. Label m
 - **Readiness:** an issue is `status:ready` only when it meets the readiness standard below.
 - **Labels:** exactly one each of `status:*`, `type:*`, `priority:*` and `phase:*`, plus at least one `area:*`, from `.github/labels.json` only.
 - **Status flow:**
-  - `ready` → `in-progress` (`issue-start`, with an assignee);
+  - `ready` → `in-progress` (`issue-start`, the only entry point: assignee, worktree, and a start comment with the `<!-- issue-start -->` marker, which CI checks);
   - `in-progress` → `review` (PR opened);
   - `review` → `done` (merged and closed).
 
