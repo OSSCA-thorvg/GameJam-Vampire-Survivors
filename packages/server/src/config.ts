@@ -3,6 +3,12 @@ import { MATCH_TIME_LIMIT_S } from '@vs/shared';
 /** Runtime configuration of the game server, read once from the environment at startup (ADR 0006, ADR 0011). */
 export interface ServerConfig {
   port: number;
+  /**
+   * Address to bind. Never read from the environment: `loadConfig` leaves it unset, so the server binds the
+   * unspecified address (all interfaces), which Docker port publishing needs (ADR 0010). Tests pass `127.0.0.1` so no
+   * other local process bound to the same port on `127.0.0.1` can answer their requests (#99).
+   */
+  host?: string;
   logLevel: 'info' | 'debug';
   /** `Origin` values allowed to open a WebSocket on `/ws` (ADR 0011). */
   allowedOrigins: string[];
