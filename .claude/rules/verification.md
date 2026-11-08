@@ -19,6 +19,7 @@ Once auto-merge is enabled, GitHub merges a PR as soon as the `main` ruleset's r
 
 - **A PR that changes code is verified by running it.** A documentation or config-only PR is verified by running the checks it affects (for example the CI `repo rules` steps) locally, and says so.
   - Unit tests and `pnpm check` are necessary but not sufficient.
+  - While iterating, run `pnpm test:changed`: only the tests affected since `origin/main`, or the whole suite when a file under `assets/`, a package, Vitest or Vite config, a tsconfig or the lockfile changed (`forceRerunTriggers` in the root `vitest.config.ts`). The pre-commit hook runs the tests related to the staged files. Neither replaces the full suite: `pnpm check` runs it before the PR, and CI runs it as the required gate.
   - Each acceptance criterion is shown with evidence from the real app, driven the way a user would through `verify-game`: the browser for the client, the Docker container for the server.
   - `verify-game` has two drivers behind the same feature map: **Claude in Chrome** (the `mcp__claude-in-chrome__*` tools: real Chrome and GPU, preferred in an interactive Claude Code session) and **Playwright** (`pnpm verify:e2e` and the feature files' specs: headless, CI, and the fallback when the extension is not installed or connected). CI's `verify` job runs the Playwright smoke journey on every PR.
 - **Proof levels** (from `blast-radius`); every claim in the PR says which level it reached:

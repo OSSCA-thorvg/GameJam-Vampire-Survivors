@@ -14,6 +14,7 @@
     "build": "pnpm -r build",
     "typecheck": "tsc -b",
     "test": "vitest run",
+    "test:changed": "vitest run --changed origin/main",
     "test:build": "pnpm --filter client test:build",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
@@ -33,15 +34,6 @@
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm exec lint-staged"
-  },
-  "lint-staged": {
-    "*.{ts,js,mjs}": [
-      "prettier --write",
-      "eslint --fix --max-warnings=0"
-    ],
-    "*.{json,md,css,html,yml,yaml}": [
-      "prettier --write"
-    ]
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
