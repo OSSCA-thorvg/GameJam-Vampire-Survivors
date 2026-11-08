@@ -2,12 +2,13 @@
 
 One file per user-facing feature. A PR that adds or changes user-facing behaviour, its entry points or its preconditions updates the feature's file in the same PR (`.claude/rules/docs-sync.md`); a behaviour without an entry here is not verified. The procedure (launch, doctor, drivers, evidence, cleanup) is in `../SKILL.md`.
 
-| File             | Feature                                                                 | Since |
-| ---------------- | ----------------------------------------------------------------------- | ----- |
-| `boot.md`        | page load, worker start, ThorVG `gl`, test scene, unsupported browsers  | #2    |
-| `hidden-tab.md`  | the hidden-tab background policies `'pause'` and `'simulate'`           | #2    |
-| `debug-tools.md` | the dev-only perf overlay and fast-forward, and their absence in builds | #2    |
-| `room-server.md` | the WebSocket room server: rooms, ready, match start, result, limits    | #18   |
+| File             | Feature                                                                    | Since |
+| ---------------- | -------------------------------------------------------------------------- | ----- |
+| `boot.md`        | page load, worker start, ThorVG `gl`, test scene, unsupported browsers     | #2    |
+| `hidden-tab.md`  | the hidden-tab background policies `'pause'` and `'simulate'`              | #2    |
+| `debug-tools.md` | the dev-only perf overlay and fast-forward, and their absence in builds    | #2    |
+| `room-server.md` | the WebSocket room server: rooms, ready, match start, result, limits       | #18   |
+| `gallery.md`     | drawable catalog gallery, anchors, loading, replacements and font fallback | #3    |
 
 ## Baseline preconditions
 

@@ -26,3 +26,12 @@ body {
   max-width: 36rem;
   padding: 1.5rem;
 }
+
+#loading {
+  position: fixed;
+  inset: 1rem auto auto 1rem;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  color: #fff;
+  background: #181c28;
+}

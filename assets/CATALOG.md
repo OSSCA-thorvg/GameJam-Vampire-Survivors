@@ -39,7 +39,7 @@ Elites reuse their base enemy's art at 1.5× scale with a tint applied in code, 
 
 | ID | Size | Format | Original role | Used by | Status |
 |---|---|---|---|---|---|
-| `enemy.bat` | 32×32 | svg, **mass** | Fast, fragile swarm (bats) | C3, G6 | needed |
+| `enemy.bat` | 32×32 | svg, **mass** | Fast, fragile swarm (bats) | C3, G6 | placeholder |
 | `enemy.ghoul` | 36×40 | svg, **mass** | Slow early walker (zombies) | C3, G6 | needed |
 | `enemy.skeleton` | 36×44 | svg, **mass** | Mid-tier walker (skeletons) | G6 | needed |
 | `enemy.wisp` | 32×32 | svg, **mass** | Fast flier (ghosts) | G6 | needed |
@@ -117,7 +117,7 @@ Used by the level-up choice, the character select screen and the HUD inventory. 
 |---|---|---|---|---|---|
 | `fx.hit` | 24×24 | svg | Flash on a damaged enemy | C5 | needed |
 | `fx.enemyDeath` | 32×32 | svg | Puff when an enemy dies | C5 | needed |
-| `fx.levelUp` | 96×96 | lottie | Ring burst on level-up (proves the Lottie path) | F3, C6 | needed |
+| `fx.levelUp` | 96×96 | lottie | Ring burst on level-up (proves the Lottie path) | F3, C6 | placeholder |
 | `fx.chestOpen` | 128×128 | lottie | Chest opening burst | G4 | needed |
 | `fx.freeze` | 64×64 | svg | Frost overlay while Orologion is active | G5 | needed |
 | `fx.warning` | 48×48 | svg | Incoming-interference warning | M4 | needed |
@@ -126,7 +126,7 @@ Used by the level-up choice, the character select screen and the HUD inventory. 
 
 | ID | Size | Format | Original role | Used by | Status |
 |---|---|---|---|---|---|
-| `ui.placeholder` | 64×64 | svg | Magenta "missing asset" reference | F3 | needed |
+| `ui.placeholder` | 64×64 | svg | Magenta "missing asset" reference | F3 | placeholder |
 | `ui.xpBar` | 400×12 | svg | XP bar frame along the top | C6 | needed |
 | `ui.hpBar` | 40×6 | svg | HP bar under the player | C4 | needed |
 | `ui.skull` | 16×16 | svg | Kill counter icon | C4 | needed |
@@ -137,7 +137,7 @@ Licensed, not original: each font keeps its license and source record next to it
 
 | ID | File | Format | Original role | Used by | Status |
 |---|---|---|---|---|---|
-| `font.hud` | `fonts/hud.ttf` | ttf | HUD text: timer `MM:SS`, counters, perf overlay. Noto Sans Mono Regular, `U+0020`–`U+007E`, 9400 bytes, OFL 1.1 (`fonts/LICENSE-NotoSansMono.txt`, ADR 0013). Loaded from the fixed path until the manifest exists (#3) | #9, #17, #20 | final |
+| `font.hud` | `fonts/hud.ttf` | ttf | HUD text: timer `MM:SS`, counters, perf overlay. Noto Sans Mono Regular, `U+0020`–`U+007E`, 9400 bytes, OFL 1.1 (`fonts/LICENSE-NotoSansMono.txt`, ADR 0013). Loaded through manifest asset `font.hud` (#3) | #9, #17, #20 | final |
 
 ## Browser UI — `assets/ui/`
 

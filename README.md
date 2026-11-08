@@ -6,6 +6,8 @@ A browser game in the style of Vampire Survivors, for single player and 2-player
 
 The toolchain is in place: a pnpm workspace with the `@vs/client`, `@vs/server` and `@vs/shared` packages, ESLint, Prettier, Vitest, a pre-commit hook and CI. The client boots ThorVG (WebGL) in a game worker on an `OffscreenCanvas` and runs the fixed-step loop on a test scene; the server runs rooms, match start, status relay, interference routing and the match result over the protocol in `packages/shared/src/protocol.ts`, with no client UI for it yet. No gameplay exists yet. Work is planned as GitHub issues in phases (`docs/roadmap.md`).
 
+The asset manifest loader caches drawable masters and registers the HUD font by ID. `pnpm assets:sync` generates the catalog IDs; `/?gallery` in development shows labelled assets and magenta missing-art placeholders.
+
 ## Development
 
 Prerequisites: Git, nvm (or fnm or volta), Corepack, which ships with Node 24, and Docker (Docker Desktop, OrbStack or Colima, running) for the server. Then, once per clone:
@@ -23,7 +25,7 @@ Everyday commands (the full list, including single-test commands, is in [`CLAUDE
 pnpm server:up      # server in Docker on http://localhost:8787 (ws://localhost:8787/ws), hot-reloading
 pnpm dev            # client only, on http://localhost:5173
 pnpm server:logs / server:down
-pnpm check          # format:check → lint → typecheck → test → build → test:build; CI runs the same
+pnpm check          # format:check → lint → typecheck → test → verify CLI tests → build → test:build; CI runs the same
 pnpm lint / pnpm lint:fix
 pnpm format / pnpm format:check
 pnpm typecheck

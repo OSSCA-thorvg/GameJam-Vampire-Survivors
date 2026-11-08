@@ -54,7 +54,10 @@ async function boot(): Promise<void> {
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   applyCssSize(canvas, viewport);
-  appRoot().replaceChildren(canvas);
+  const loading = document.createElement('p');
+  loading.id = 'loading';
+  loading.textContent = 'Loading 0/0';
+  appRoot().replaceChildren(canvas, loading);
 
   const worker = new Worker(new URL('../worker/index.ts', import.meta.url), { type: 'module' });
   const post = (message: MainToWorker, transfer: Transferable[] = []): void => {
@@ -78,6 +81,12 @@ async function boot(): Promise<void> {
         if (import.meta.env.DEV) console.warn('[vs] worker ready, renderer:', message.renderer);
         if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') testBridge?.onReady();
         break;
+      case 'loadProgress':
+        loading.textContent = `Loading ${String(message.loaded)}/${String(message.total)}`;
+        break;
+      case 'assetsReady':
+        loading.remove();
+        break;
       case 'fatal':
         console.error('[vs] game worker failed:', message.message);
         worker.terminate();
@@ -95,6 +104,10 @@ async function boot(): Promise<void> {
     showMessage('The game could not start.', [event.message || 'The game worker failed to load.']);
   });
 
+  let debug: { gallery: boolean } | undefined;
+  if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
+    debug = { gallery: new URLSearchParams(location.search).has('gallery') };
+  }
   const offscreen = canvas.transferControlToOffscreen();
   post(
     {
@@ -104,6 +117,7 @@ async function boot(): Promise<void> {
       height: viewport.height,
       scale: viewport.scale,
       assetBaseUrl: new URL(import.meta.env.BASE_URL, location.href).href,
+      ...(debug ? { debug } : {}),
     },
     [offscreen],
   );

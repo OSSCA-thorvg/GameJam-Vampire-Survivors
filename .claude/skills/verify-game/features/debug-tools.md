@@ -64,5 +64,5 @@ Production absence: `pnpm build` (its last line is `check-prod-bundle: ok, …`)
 ## Gotchas
 
 - The overlay's first second reads `fps 0` and `steps/s 0`: the numbers come from the once-per-second `stats` window (2026-11-08, #31).
-- The overlay uses `HUD_FONT`, the bundled ASCII subset since #46 (ADR 0013); if `fonts/hud.ttf` fails to load, the worker logs one warning and falls back to the built-in font, which lacks `/`.
+- The overlay uses `HUD_FONT`, the bundled ASCII subset since #46 (ADR 0013); if manifest entry `font.hud` fails to load, the worker logs one warning and falls back to the built-in font, which lacks `/`.
 - Screenshots in headless SwiftShader log a `GPU stall due to ReadPixels` warning; it is harmless.

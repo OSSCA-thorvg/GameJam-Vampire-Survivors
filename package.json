@@ -28,7 +28,8 @@
     "verify:doctor": "node scripts/verify/doctor.mjs",
     "verify:e2e": "node scripts/verify/e2e.mjs",
     "verify:cleanup": "node scripts/verify/cleanup.mjs",
-    "server:image": "docker build -f packages/server/Dockerfile --target runtime --build-arg NODE_VERSION=$(cat .nvmrc) -t vs-server:local ."
+    "server:image": "docker build -f packages/server/Dockerfile --target runtime --build-arg NODE_VERSION=$(cat .nvmrc) -t vs-server:local .",
+    "assets:sync": "tsx scripts/assets-sync.ts"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm exec lint-staged"

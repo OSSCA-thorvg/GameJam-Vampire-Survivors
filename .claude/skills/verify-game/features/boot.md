@@ -1,10 +1,11 @@
 # Boot
 
-Loading the page starts the game worker, which initializes ThorVG with the `gl` renderer on the transferred `OffscreenCanvas` and animates the test scene; browsers without the required features get a DOM message instead (#2).
+Loading the page starts the game worker, which initializes ThorVG with the `gl` renderer on the transferred `OffscreenCanvas` and loads the manifest assets and animates the bat test scene; browsers without the required features get a DOM message instead (#2).
 
 ## Sub-features
 
 - **Worker ready with `gl`:** `__vsTest.snapshot()` reaches `ready: true`, `renderer: 'gl'`, `state: 'running'`; exactly one `canvas` in `#app`; the page log has `[vs] worker ready, renderer: gl` and no errors.
+- **Asset loading:** `#loading` shows `Loading n/total` until `assetsReady`, then disappears; `assets` snapshot reaches `{ ready: true, loaded: 5, total: 5, font: "hud" }`, with 77 drawable placeholders. Loading is covered by the complete gallery journey in `gallery.md`.
 - **Test scene animates:** `steps` keeps rising (60 per second) and `testScene.angleDeg` changes (90 degrees per second). Registered field: `testScene` (`{ angleDeg, dotX, dotY }`, removed by #7).
 - **Keyboard moves the dot:** holding `ArrowRight` raises `testScene.dotX` (200 units per second) and leaves `dotY` unchanged.
 - **Unsupported browser:** `/?forceUnsupported=<name>` (dev and e2e builds only) shows "This game needs a recent Chrome, Edge, Firefox or Safari 17+" with `<name>` in the list, and no canvas.

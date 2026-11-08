@@ -13,7 +13,11 @@ import type {
 import { VIEW_HEIGHT, VIEW_WIDTH } from './constants';
 import { installWorkerDebugTools, dispatchDebug, type WorkerDebugHooks } from './debug';
 import { createLoop, type Loop } from './loop';
-import { initThorVG, type ThorVGContext } from './render/thorvg';
+import { HUD_FONT, initThorVG, type ThorVGContext } from './render/thorvg';
+import { loadManifest } from './assets/manifest';
+import { AssetLibrary, type AssetInstance } from './assets/library';
+import { setTransform } from './render/transform';
+import { buildGallery, type Gallery } from './debug/gallery';
 import { noteFrame, registerSnapshotField, takeSnapshot } from './test-bridge';
 
 declare const self: DedicatedWorkerGlobalScope;
@@ -48,7 +52,16 @@ let simTime = 0;
 let angle = 0;
 let dotX = VIEW_WIDTH / 2;
 let dotY = VIEW_HEIGHT / 2 + 200;
-let square: Shape | null = null;
+let square: AssetInstance | null = null;
+let library: AssetLibrary | null = null;
+let gallery: Gallery | null = null;
+const assetState = {
+  ready: false,
+  loaded: 0,
+  total: 0,
+  placeholders: [] as string[],
+  font: 'default',
+};
 let dot: Shape | null = null;
 
 const describeScene = (): string =>
@@ -56,6 +69,8 @@ const describeScene = (): string =>
 
 function step(dtSec: number): void {
   stepCount++;
+  library?.tick(dtSec);
+  gallery?.step(inputX, inputY, dtSec);
   simTime += dtSec;
   angle = (angle + SPIN_DEG_PER_SEC * dtSec) % 360;
   if (inputX !== 0 || inputY !== 0) {
@@ -73,9 +88,9 @@ function step(dtSec: number): void {
 }
 
 function render(): void {
-  if (!ctx || !square || !dot) return;
-  square.rotate(angle);
-  dot.translate(dotX, dotY);
+  if (!ctx) return;
+  if (square) setTransform(square, VIEW_WIDTH / 2, VIEW_HEIGHT / 2, angle, 4);
+  dot?.translate(dotX, dotY);
   if (import.meta.env.DEV) debugHooks?.onRender();
   if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') noteFrame(performance.now());
   ctx.canvas.update();
@@ -83,15 +98,14 @@ function render(): void {
 }
 
 /** Creates the test scene's Paints once (ADR 0003): a backdrop for the logical view, a rotating square and a dot. */
-function buildTestScene({ TVG, root }: ThorVGContext): void {
+function buildTestScene({ TVG, root }: ThorVGContext, assets: AssetLibrary): void {
   const backdrop = new TVG.Shape();
   backdrop.appendRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT).fill(24, 28, 40, 255);
   root.add(backdrop);
 
-  square = new TVG.Shape();
-  square.appendRect(-90, -90, 180, 180, { rx: 28, ry: 28 }).fill(232, 72, 85, 255);
-  square.translate(VIEW_WIDTH / 2, VIEW_HEIGHT / 2);
-  root.add(square);
+  square = assets.create('enemy.bat');
+  setTransform(square, VIEW_WIDTH / 2, VIEW_HEIGHT / 2, 0, 4);
+  root.add(square.paint);
 
   dot = new TVG.Shape();
   dot.appendCircle(0, 0, DOT_RADIUS).fill(120, 220, 255, 255);
@@ -104,12 +118,19 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
   booting = true;
   size = { width: message.width, height: message.height, scale: message.scale };
   try {
+    const validated = await loadManifest(message.assetBaseUrl);
+    assetState.total = Object.keys(validated.manifest.assets).length;
+    post({ type: 'loadProgress', loaded: 0, total: assetState.total });
+    if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
+      registerSnapshotField('assets', () => ({ ...assetState }));
+    }
     const context = await initThorVG(
       message.canvas,
       message.width,
       message.height,
       message.scale,
       message.assetBaseUrl,
+      validated.manifest,
     );
     const renderer = context.canvas.renderer;
     if (renderer !== 'gl')
@@ -121,7 +142,29 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
       size.scale !== message.scale
     )
       applySize();
-    buildTestScene(context);
+    if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
+      registerSnapshotField('testScene', () => ({ angleDeg: angle, dotX, dotY }));
+    }
+    assetState.font = HUD_FONT;
+    library = await AssetLibrary.load(
+      context.TVG,
+      message.assetBaseUrl,
+      (loaded, total) => {
+        assetState.loaded = loaded;
+        assetState.total = total;
+        post({ type: 'loadProgress', loaded, total });
+      },
+      validated,
+    );
+    if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
+      if (message.debug?.gallery) {
+        gallery = buildGallery(context, library);
+        registerSnapshotField('gallery', () => gallery?.snapshot());
+      }
+    }
+    if (!gallery) buildTestScene(context, library);
+    assetState.placeholders = [...library.placeholders];
+    assetState.ready = true;
     const gameLoop = createLoop({ step, render });
     loop = gameLoop;
     if (import.meta.env.DEV) {
@@ -133,14 +176,11 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         describe: describeScene,
       });
     }
-    if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
-      // Removed with the test scene by #7.
-      registerSnapshotField('testScene', () => ({ angleDeg: angle, dotX, dotY }));
-    }
     gameLoop.setBackgroundPolicy(policy);
     if (paused) gameLoop.pause();
     gameLoop.setVisibility(hidden);
     gameLoop.start();
+    post({ type: 'assetsReady', placeholders: assetState.placeholders });
     post({ type: 'ready', renderer: 'gl' });
   } catch (err) {
     post({ type: 'fatal', message: err instanceof Error ? err.message : String(err) });
