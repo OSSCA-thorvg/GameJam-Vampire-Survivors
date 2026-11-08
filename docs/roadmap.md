@@ -11,12 +11,13 @@ Each row is one GitHub issue, and the issue is the source of truth for scope and
 | V1                                              | #31   | Create the verify-game skill and Playwright harness            | F2             | high     |
 | F3                                              | #3    | Load art through the asset manifest with placeholder assets    | F2, V1         | high     |
 | F4                                              | #4    | Run the server in Docker with docker compose                   | F1             | high     |
+| F5                                              | #46   | Bundle a HUD font subset with the missing ASCII glyphs         | F2             | high     |
 | A1                                              | #5    | Create the starter vector asset pack from the asset catalog    | F3             | high     |
 | **Phase 1: core loop (playable single player)** |       |                                                                |                |          |
 | C1                                              | #6    | Add entity storage, a spatial grid and paint pools             | F3, V1         | high     |
 | C2                                              | #7    | Move the player with keyboard input and a following camera     | C1, V1, A1     | high     |
 | C3                                              | #8    | Spawn enemies from a wave table and chase the player           | C2             | high     |
-| C4                                              | #9    | Add player HP, contact damage, death and the screen flow       | C3             | high     |
+| C4                                              | #9    | Add player HP, contact damage, death and the screen flow       | C3, F5         | high     |
 | C5                                              | #10   | Add the weapon system with Whip and Magic Wand                 | C3, C4         | high     |
 | C6                                              | #11   | Add experience gems, magnet pickup and the level-up choice     | C4, C5         | high     |
 | **Phase 2: content**                            |       |                                                                |                |          |
