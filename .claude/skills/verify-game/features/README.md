@@ -7,12 +7,13 @@ One file per user-facing feature. A PR that adds or changes user-facing behaviou
 | `boot.md`        | page load, worker start, ThorVG `gl`, test scene, unsupported browsers  | #2    |
 | `hidden-tab.md`  | the hidden-tab background policies `'pause'` and `'simulate'`           | #2    |
 | `debug-tools.md` | the dev-only perf overlay and fast-forward, and their absence in builds | #2    |
+| `room-server.md` | the WebSocket room server: rooms, ready, match start, result, limits    | #18   |
 
 ## Baseline preconditions
 
 - `pnpm verify:launch` succeeded and `pnpm verify:doctor` prints only `ok` lines (the served revision is `HEAD`).
 - The page is `client.json`'s `url` (`http://localhost:5180/`), loaded fresh for each journey; `__vsTest.snapshot()` reports `ready: true` and `renderer: 'gl'` before anything is driven.
-- No server unless the feature says so (then `pnpm verify:launch --with-server`; the first server journey arrives with #19).
+- No server unless the feature says so (then `pnpm verify:launch --with-server`; the first server journey is `room-server.md`, #18).
 
 ## Driving conventions
 
