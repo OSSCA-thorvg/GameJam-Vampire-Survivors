@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { indexEnemies, target } from '../combat-test-helpers';
 import { armed, DT, effectiveLevel, withStats } from './arm-test-helpers';
-import { garlic, GARLIC_RADIUS } from './patterns/garlic';
+import { garlic, GARLIC_ART_RING_RATIO, garlicDrawScale, GARLIC_RADIUS } from './patterns/garlic';
 import { weaponSystem } from './system';
 
 describe('garlic', () => {
@@ -32,7 +32,18 @@ describe('garlic', () => {
     }
     // 5 s at a 1.3 s tick: 3 ticks; at area 2 the aura reaches 100 + 12 units.
     expect(ticks).toBe(3);
-    expect(world.weaponVisuals.garlic).toEqual({ shown: true, scale: 2 });
+    expect(world.weaponVisuals.garlic).toEqual({ shown: true, scale: garlicDrawScale(2) });
     expect(GARLIC_RADIUS * 2).toBe(100);
+  });
+
+  it.each([1, 1.5])('draws the visible ring on the hit radius at area %s (#91)', (area) => {
+    const { world } = armed('garlic');
+    withStats(world, [{ stat: 'area', add: area - 1 }]);
+    indexEnemies(world);
+    weaponSystem(world, DT);
+    const { scale } = world.weaponVisuals.garlic;
+    // The 100×100 art is 50 units from centre to edge at scale 1; its ring edge sits at GARLIC_ART_RING_RATIO of that.
+    expect(50 * scale * GARLIC_ART_RING_RATIO).toBeCloseTo(GARLIC_RADIUS * area, 9);
+    expect(scale).toBeGreaterThan(area);
   });
 });
