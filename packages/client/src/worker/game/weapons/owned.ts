@@ -4,6 +4,8 @@ import { PATTERNS } from './patterns/registry';
 /** A weapon the player holds (#10); its index in `world.weapons` is its slot. */
 export interface OwnedWeapon {
   def: WeaponDef;
+  /** Its index in `world.weapons`, fixed when added; indexes `world.enemyHitTimes` (#13). */
+  slot: number;
   /** 1..`def.maxLevel`. */
   level: number;
   /** Seconds until the next burst. */
@@ -16,6 +18,13 @@ export interface OwnedWeapon {
   shot: number;
   /** `player.facingX` when the burst started, so a burst keeps its sides when the player turns mid-burst. */
   burstFacingX: -1 | 1;
+  /**
+   * Seconds a persistent effect stays out (King Bible, #13); 0 for other weapons. While above 0 the cooldown does not
+   * count down.
+   */
+  activeLeft: number;
+  /** Orbit angle in degrees (King Bible, #13). */
+  phase: number;
 }
 
 export interface WeaponsState {
@@ -34,12 +43,15 @@ export function addWeapon(world: WeaponsState, id: WeaponId): boolean {
     throw new Error(`Weapon '${id}' uses pattern '${def.pattern}', which has no module`);
   world.weapons.push({
     def,
+    slot: world.weapons.length,
     level: 1,
     cooldownLeft: def.levels[0]?.cooldownSec ?? 0,
     burstLeft: 0,
     burstTimer: 0,
     shot: 0,
     burstFacingX: 1,
+    activeLeft: 0,
+    phase: 0,
   });
   return true;
 }

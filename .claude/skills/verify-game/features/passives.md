@@ -27,7 +27,7 @@ Open the game URL, press Enter on "Start" and play until the XP bar fills (about
 1. `tabs_context_mcp` `{ createIfEmpty: true }`, use the group's new empty tab; `navigate` to `http://localhost:5180/`; `javascript_tool` `await window.__vsTest.waitFor((s) => s.state === 'title', 30000)`; `computer` `key` `Enter`.
 2. `computer` `key` `l`; `find` "Level up dialog" → cards; repeat `l` and `1` until a card tagged `NEW` with a passive name shows; `screenshot` (icon, name, `NEW`, description); press its digit; `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).passives)` → it is listed at level 1.
 3. Candelabrador: `screenshot` a Whip strike (repeat until the arc shows); press `l` and choose Candelabrador whenever offered (never a Whip upgrade, Empty Tome or Spellbinder) until its level is 3 or more; `screenshot` a strike again → visibly larger arc; `javascript_tool` `(await window.__vsTest.snapshot()).stats.area` → `1 + 0.1 × level`.
-4. Spinach: reload and start; wait a few seconds; `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).damageDealt)` → `total / hits` is 10; press `l` and choose Spinach whenever offered (never the Whip upgrade or the Magic Wand) until it is level 5 (`stats.might` 1.5); read `damageDealt` again after a few strikes → the new hits add 15 each; `screenshot`s.
+4. Spinach: reload and start; wait a few seconds; `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).damageDealt)` → `total / hits` is 10; press `l` and choose Spinach whenever offered (never a weapon card that changes the base damage of 10: only the Magic Wand up to 4, the King Bible up to 3 and the Whip up to 2 are safe, #13) until it is level 5 (`stats.might` 1.5); read `damageDealt` again after a few strikes → the new hits add 15 each; `screenshot`s.
 5. Pummarola: reload and start; choose Pummarola whenever offered; wait until `player.hp < player.maxHp`; hold ArrowRight in bursts away from the crowd; read `player.hp` every second → it rises, then stays at `maxHp`.
 6. Hollow Heart: wait for a hit, press `l` and choose Hollow Heart (or `P`); `player.maxHp` +20 and `player.hp` +20; `zoom` the HP bar → about as full as before.
 7. Slots: reload and start; press `p` six times; `passives` has 6; press `l` several times → no card tagged `NEW` for a passive; `tabs_close_mcp` on the tab.
@@ -99,7 +99,7 @@ const NOTHING: Avoid = () => false;
 
 /**
  * Answers the open dialog: the card named `want` when offered, else the first card `avoid` accepts (other new passives
- * last while `want` is set), else the first that is not a Whip upgrade, else card 1.
+ * last while `want` is set), else the first that is not a new weapon, else card 1.
  * Waits until the dialog closed or showed the next level. Returns what was offered and taken.
  */
 async function answer(page: Page, want: string | null, avoid: Avoid) {
@@ -109,7 +109,8 @@ async function answer(page: Page, want: string | null, avoid: Avoid) {
   // While waiting for `want`, keep passive slots free for it: other new passives come last.
   if (pick < 0 && want) pick = shown.findIndex((c) => !avoid(c) && c.kind !== 'newPassive');
   if (pick < 0) pick = shown.findIndex((c) => !avoid(c));
-  if (pick < 0) pick = shown.findIndex((c) => !whipUpgrade(c));
+  // Since #13 a hand can hold only new weapons: a Whip upgrade (L2 keeps damage 10 and area 1) disturbs less.
+  if (pick < 0) pick = shown.findIndex((c) => c.kind !== 'newWeapon');
   if (pick < 0) pick = 0;
   await page.keyboard.press(String(pick + 1));
   await waitForSnapshot(
@@ -158,9 +159,24 @@ function autoAnswer(page: Page, avoid: Avoid) {
 const whipUpgrade: Avoid = (c) => c.kind === 'upgradeWeapon' && c.name === 'Whip';
 /** Keeps the Whip at level 1 with cooldown, duration and damage at base (only area may change). */
 const areaOnly: Avoid = (c) =>
-  whipUpgrade(c) || ['Empty Tome', 'Spellbinder', 'Spinach', 'Magic Wand'].includes(c.name);
-/** Keeps every hit a level-1 Whip hit (no Magic Wand, no Whip upgrade). */
-const whipL1Only: Avoid = (c) => whipUpgrade(c) || c.name === 'Magic Wand';
+  whipUpgrade(c) ||
+  c.kind === 'newWeapon' ||
+  ['Empty Tome', 'Spellbinder', 'Spinach'].includes(c.name);
+/** Keeps the inventory to the Whip (#13 offers seven new weapons). */
+const noNewWeapon: Avoid = (c) => c.kind === 'newWeapon';
+/**
+ * The weapons whose hits all deal a base 10, and the level each keeps it up to (`weapons.ts`): since #13 a hand often
+ * holds only weapon cards, and taking one of these keeps the damage per hit at 10 × might.
+ */
+const TEN_UP_TO: Record<string, number> = { Whip: 2, 'Magic Wand': 4, 'King Bible': 3 };
+const TEN_IDS: Record<string, number> = { whip: 2, magicWand: 4, kingBible: 3 };
+const keepsTen = (c: Card) =>
+  c.name in TEN_UP_TO &&
+  (c.kind === 'newWeapon' ||
+    (c.kind === 'upgradeWeapon' && Number(c.tag.split('→ ')[1]) <= (TEN_UP_TO[c.name] ?? 0)));
+/** Keeps every hit a base-10 hit: only weapon cards that `keepsTen` (#13 offers seven new weapons). */
+const whipL1Only: Avoid = (c) =>
+  (c.kind === 'newWeapon' || c.kind === 'upgradeWeapon') && !keepsTen(c);
 
 /** Whip L1 strikes every 1.35 s of run time; its arc shows for 0.15 s (`weapons.md`). */
 const WHIP_COOLDOWN = 1.35;
@@ -282,23 +298,36 @@ test('passives 2: Candelabrador enlarges the Whip arc and stats.area is 1 + 0.1 
   }
 });
 
-test('passives 3: Spinach Lv5 raises the damage per level-1 Whip hit from 10 to 15', async ({
+test('passives 3: Spinach Lv5 raises the damage per base-10 hit (level-1 Whip) from 10 to 15', async ({
   page,
 }, testInfo) => {
   test.setTimeout(180_000);
   const ev = startEvidence(page, 'passives-3-spinach');
   noteEvidence(testInfo, ev);
   try {
-    await startRun(page);
-    let stop = autoAnswer(page, whipL1Only);
-    const base = await waitForSnapshot(
-      page,
-      (s) => dealt(s).hits >= 3 || s.state === 'results',
-      30_000,
-    );
-    await stop();
-    const log = await takePassive(page, 'spinach', 5, whipL1Only);
-    const strong = await waitForSnapshot(page, (s) => s.state === 'playing', 3_000);
+    // A hand of only weapon cards that are not base-10 (#13) forces one into the inventory: the precondition is then
+    // rolled again in a fresh run, at most 6 times (`rerolls` in the evidence).
+    const rerolls: Item[][] = [];
+    let base: GameSnapshot | undefined;
+    let strong: GameSnapshot | undefined;
+    let log: Awaited<ReturnType<typeof takePassive>> = [];
+    let stop: () => Promise<void>;
+    for (let attempt = 0; attempt < 6 && !strong; attempt++) {
+      await startRun(page);
+      stop = autoAnswer(page, whipL1Only);
+      base = await waitForSnapshot(
+        page,
+        (s) => dealt(s).hits >= 3 || s.state === 'results',
+        30_000,
+      );
+      await stop();
+      log = await takePassive(page, 'spinach', 5, whipL1Only);
+      const s = await waitForSnapshot(page, (n) => n.state === 'playing', 3_000);
+      if (weapons(s).every((w) => w.level <= (TEN_IDS[w.id] ?? 0))) strong = s;
+      else rerolls.push(weapons(s));
+    }
+    if (!base || !strong)
+      throw new Error(`no base-10 inventory in 6 runs: ${JSON.stringify(rerolls)}`);
     stop = autoAnswer(page, whipL1Only);
     const shots: { timeS: number; damageDealt: unknown }[] = [];
     let later = strong;
@@ -338,13 +367,15 @@ test('passives 3: Spinach Lv5 raises the damage per level-1 Whip hit from 10 to 
       perHitBefore,
       perHitAfter,
       shots,
+      rerolls,
     });
     expect(perHitBefore).toBe(10);
     expect(passiveLevel(strong, 'spinach')).toBe(5);
     expect(stats(strong).might).toBeCloseTo(1.5, 9);
     expect(hits).toBeGreaterThanOrEqual(3);
     expect(perHitAfter).toBeCloseTo(15, 6);
-    expect(weapons(later)).toEqual([{ id: 'whip', level: 1 }]);
+    // Only weapons that still deal a base 10 per hit (`keepsTen`, #13).
+    expect(weapons(later).every((w) => w.level <= (TEN_IDS[w.id] ?? 0))).toBe(true);
     expect(pageErrors(ev)).toEqual([]);
   } finally {
     ev.flush();
@@ -359,8 +390,9 @@ test('passives 4: with Pummarola, HP rises over time after a hit and stops at ma
   noteEvidence(testInfo, ev);
   try {
     await startRun(page);
-    const log = await takePassive(page, 'pummarola', 5, NOTHING);
-    const stop = autoAnswer(page, NOTHING);
+    // No new weapons (#13): six of them kill everything before it reaches the player.
+    const log = await takePassive(page, 'pummarola', 5, noNewWeapon);
+    const stop = autoAnswer(page, noNewWeapon);
     const hit = await waitForSnapshot(page, (s) => player(s).hp < player(s).maxHp, 30_000);
     await ev.shot('hit');
     // Walk away from the crowd (140 units/s, bats 100): HP climbs at stats.recovery per second.
@@ -541,6 +573,7 @@ test('passives 7: with Clover at level 5 (luck 1.5) a 4th card shows up about ha
 - The Whip arc shows for only 0.15 s; journeys 2 screenshots it with the `weapons.md` method (wait in the page for the strike step, then shoot). The arc is the same art scaled by `stats.area`, so area 1.5 draws it 1.5 times as wide (2026-11-08, #12).
 - When no offered card is acceptable for a journey's measurement, `answer` takes the first card that is not a Whip upgrade: journey 2 then may own Spinach or other passives too, which does not change the arc size; Whip levels 1–3 keep area 1 (2026-11-08, #12).
 - Journey 4 takes Pummarola up to level 5 (1 HP/s), so a 5-HP bat hit heals in about 5 s; walking away still meets new spawns now and then, so the samples dip on a hit before they rise again; the journey walks for up to 45 s until two samples in a row are at `maxHp` (2026-11-08, #12).
+- Since #13 seven new weapons share the card pool, so a hand often holds only weapon cards. Journey 3 then takes one that keeps every hit at base 10 (`keepsTen`: Whip to 2, Magic Wand to 4, King Bible to 3); when the hand has none of those it must take another weapon, so it rolls the precondition again in a fresh run (about one run in three needed a reroll, up to 6; `rerolls` in `spinach.json`). Journey 4 avoids new weapons, since six of them kill every bat before it touches the player (2026-11-08, #13).
 - Journeys that take one passive to level 5 by its cards may fill all 6 slots with other passives first (a run where Spinach was never offered before the slots filled failed this way), so while waiting `answer` takes other new passives only when nothing else is acceptable (2026-11-08, #12).
 - Journey 5 takes Hollow Heart from the card when offered and otherwise falls back to `P`, whose first grant is Hollow Heart; `hollow-heart.json` says which (`via`). The card path itself is proven by journey 1 (2026-11-08, #12).
 - The 4th card is random (`min(0.5, luck − 1)`); journey 7 raises Clover to 5 through its cards and sees 4 cards in about half of 16 level-ups. `P` cannot set this up, since it maxes four other passives first and leaves too few candidates for a 4th card (2026-11-08, #12).

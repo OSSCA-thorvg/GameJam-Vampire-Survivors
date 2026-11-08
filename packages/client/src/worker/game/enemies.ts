@@ -25,6 +25,16 @@ export const ENEMY_SCHEMA = {
   flip: 'u8',
   /** The opacity last written to the paint (#10's hit flash); 0 until the first render, so a reused paint is reset. */
   shownOpacity: 'u8',
+  /**
+   * `world.time` at which the weapon in slot k (0..5, `MAX_WEAPON_SLOTS`) last hit this enemy, for persistent hitboxes
+   * (#13's King Bible); `NEVER_HIT` on spawn. Store columns, so they move with the enemy on swap-remove.
+   */
+  hitT0: 'f32',
+  hitT1: 'f32',
+  hitT2: 'f32',
+  hitT3: 'f32',
+  hitT4: 'f32',
+  hitT5: 'f32',
   ...RenderBinding.columns,
 } as const;
 
@@ -51,8 +61,13 @@ export const ENEMY_KNOCKBACK_RESIST = Float32Array.from(
   (id) => ENEMIES[id].knockbackResist,
 );
 
+/** The hit time of an enemy no weapon has hit yet: far enough back that every hit cooldown has passed. */
+export const NEVER_HIT = -1e9;
+
 export interface EnemyState {
   enemies: EnemyStore;
+  /** `[hitT0, …, hitT5]`, built once with the store: index k is the weapon in slot k (#13). */
+  enemyHitTimes: readonly Float32Array[];
   /** Rebuilt from enemy positions once per step by the movement system. */
   enemyGrid: SpatialGrid;
   /** `null` when the world only simulates (unit tests). Pool `i` draws `ENEMY_LIST[i]`. */
@@ -72,8 +87,10 @@ export function createEnemyPools(
 /** A run's enemy store and grid; with `pools` (from `createEnemyPools`), a binding that draws through them. */
 export function createEnemyState(pools?: readonly PaintPool[]): EnemyState {
   const enemies = createStore(ENEMY_SCHEMA, ENEMY_CAP);
+  const { hitT0, hitT1, hitT2, hitT3, hitT4, hitT5 } = enemies.cols;
   return {
     enemies,
+    enemyHitTimes: [hitT0, hitT1, hitT2, hitT3, hitT4, hitT5],
     // Cells of 64 units cover the largest separation query (2 × radius 16) in at most 4 cells.
     enemyGrid: createSpatialGrid({ cellSize: 64, buckets: 1024, maxItems: ENEMY_CAP }),
     enemyBinding: pools ? new RenderBinding(enemies, pools) : null,
@@ -90,6 +107,7 @@ export function spawnEnemy(world: EnemyState, enemyId: EnemyId, x: number, y: nu
   cols.y[slot] = y;
   cols.hp[slot] = ENEMIES[enemyId].maxHp;
   cols.type[slot] = type;
+  for (const hitT of world.enemyHitTimes) hitT[slot] = NEVER_HIT;
   world.enemyBinding?.bind(slot, type);
   return slot;
 }

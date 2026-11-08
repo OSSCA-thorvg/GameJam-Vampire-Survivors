@@ -19,6 +19,7 @@ import { recoverySystem } from './systems/recovery';
 import { spawnerSystem } from './systems/spawner';
 import { createWeaponContext, type WeaponContext } from './weapons/context';
 import { addWeapon, type WeaponsState } from './weapons/owned';
+import { createWeaponVisuals, type WeaponVisuals } from './weapons/visuals';
 import { weaponSystem } from './weapons/system';
 
 export interface WorldOptions {
@@ -65,6 +66,8 @@ export interface World
   readonly weaponRng: Rng;
   /** What the weapon patterns read and call, bound to this world (#10). */
   readonly weaponContext: WeaponContext;
+  /** The King Bible books and the garlic aura this step (#13), drawn by the game view. */
+  readonly weaponVisuals: WeaponVisuals;
   /** This step's events (#9): cleared before the first system, so each event lives for exactly one step. */
   readonly events: EventQueue;
   /** Set to `'dead'` by the contact damage system when HP reaches 0; that step ends early and a dead world no longer steps. */
@@ -151,6 +154,7 @@ export function createWorld({
     get weaponContext() {
       return weaponContext;
     },
+    weaponVisuals: createWeaponVisuals(),
     spawnRng: rng.fork('spawn'),
     spawnTimer: 0,
     spawnQueue: 0,

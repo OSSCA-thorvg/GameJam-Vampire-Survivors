@@ -3,6 +3,7 @@ import {
   LEVELUP_HEAL,
   PASSIVES,
   WEAPONS,
+  WEAPON_LIST,
   type PassiveDef,
   type WeaponDef,
   type WeaponId,
@@ -27,7 +28,11 @@ const at = (
 const NONE: PassiveDef[] = [];
 const itemKey = (o: LevelUpOption): string =>
   o.kind === 'heal' ? 'heal' : `${o.kind}:${'weaponId' in o ? o.weaponId : o.passiveId}`;
-/** Six fake weapon defs (only two real ones exist before #13). */
+/** The two weapons of #11's tests, as a catalog, so their expectations stay small. */
+const TWO: WeaponDef[] = [WEAPONS.whip, WEAPONS.magicWand];
+/** Six real weapons at level 8 (#13): with all slots full and maxed, no weapon card is left. */
+const SIX_MAX = WEAPON_LIST.slice(0, 6).map((id) => owned(WEAPONS[id], 8));
+/** Fake weapon defs, for tests that need more distinct entries than they own. */
 const FAKES: WeaponDef[] = Array.from({ length: 7 }, (_, i) => ({
   ...WEAPONS.whip,
   id: `fake${String(i)}` as WeaponId,
@@ -55,7 +60,7 @@ it('offers at most 3 distinct options, every candidate eventually, and never gol
 });
 
 it('describes a new weapon by its description and an upgrade by the next level text', () => {
-  const options = buildLevelUpOptions(at(1, [owned(WEAPONS.whip, 3)]), undefined, NONE);
+  const options = buildLevelUpOptions(at(1, [owned(WEAPONS.whip, 3)]), TWO, NONE);
   expect(options).toHaveLength(2);
   expect(options).toContainEqual({
     kind: 'upgradeWeapon',
@@ -77,7 +82,7 @@ it('describes a new weapon by its description and an upgrade by the next level t
 it('never upgrades a weapon at its max level', () => {
   const options = buildLevelUpOptions(
     at(1, [owned(WEAPONS.whip, 8), owned(WEAPONS.magicWand, 7)]),
-    undefined,
+    TWO,
     NONE,
   );
   expect(options).toEqual([
@@ -95,11 +100,7 @@ it('offers no new weapon when all 6 slots are full', () => {
 });
 
 it('offers a single heal when nothing is left', () => {
-  const options = buildLevelUpOptions(
-    at(1, [owned(WEAPONS.whip, 8), owned(WEAPONS.magicWand, 8)]),
-    undefined,
-    NONE,
-  );
+  const options = buildLevelUpOptions(at(1, SIX_MAX), undefined, NONE);
   expect(options).toEqual([
     expect.objectContaining({ kind: 'heal', amount: LEVELUP_HEAL, iconId: null }),
   ]);
@@ -125,18 +126,18 @@ it('offers passives: NEW with the description and icon, and upgrades as Lv x →
   for (let seed = 0; seed < 200; seed++)
     for (const o of buildLevelUpOptions(at(seed, [owned(WEAPONS.whip, 8)], [owned(passive(6), 2)])))
       seen.add(itemKey(o));
-  // Spinach's upgrade, the 7 passives not owned and the Magic Wand.
+  // Spinach's upgrade, the 7 passives not owned and the 7 weapons not owned.
   expect(seen).toEqual(
     new Set([
       'upgradePassive:spinach',
       ...PASSIVES.filter((p) => p.id !== 'spinach').map((p) => `newPassive:${p.id}`),
-      'newWeapon:magicWand',
+      ...WEAPON_LIST.filter((id) => id !== 'whip').map((id) => `newWeapon:${id}`),
     ]),
   );
   const spinach = passive(6);
   const options = buildLevelUpOptions(
     at(1, [owned(WEAPONS.whip, 8), owned(WEAPONS.magicWand, 8)], [owned(spinach, 2)]),
-    undefined,
+    TWO,
     [spinach],
   );
   expect(options).toEqual([
@@ -151,7 +152,7 @@ it('offers passives: NEW with the description and icon, and upgrades as Lv x →
   ]);
   const fresh = buildLevelUpOptions(
     at(1, [owned(WEAPONS.whip, 8), owned(WEAPONS.magicWand, 8)]),
-    undefined,
+    TWO,
     [spinach],
   );
   expect(fresh).toEqual([
@@ -172,16 +173,12 @@ it('never offers a 7th weapon or passive, nor an item at its max level', () => {
     for (const o of options) expect(['upgradeWeapon', 'upgradePassive']).toContain(o.kind);
   }
   for (let seed = 0; seed < 100; seed++) {
-    const options = buildLevelUpOptions(
-      at(seed, [owned(WEAPONS.whip, 8), owned(WEAPONS.magicWand, 8)], allPassivesAt(5), 1.5),
-    );
+    const options = buildLevelUpOptions(at(seed, SIX_MAX, allPassivesAt(5), 1.5));
     expect(options.map((o) => o.kind)).toEqual(['heal']);
   }
   const oneLeft = allPassivesAt(5);
   oneLeft[2] = owned(passive(2), 4);
-  const last = buildLevelUpOptions(
-    at(1, [owned(WEAPONS.whip, 8), owned(WEAPONS.magicWand, 8)], oneLeft),
-  );
+  const last = buildLevelUpOptions(at(1, SIX_MAX, oneLeft));
   expect(last).toEqual([
     expect.objectContaining({ kind: 'upgradePassive', passiveId: 'bracer', toLevel: 5 }),
   ]);

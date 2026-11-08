@@ -16,7 +16,7 @@ The level-up choice (#11, ADRs 0004, 0008, 0009): when the XP bar fills, the wor
 
 ## How to get to it (user POV)
 
-Open the game URL, press Enter on "Start" and play: the first level-up comes after about 5 bats (7–8 s standing still at minute 0). Reaching the heal card needs both weapons at level 8 and 6 passives at level 5 (about 45 level-ups since #12): use the dev key `L` repeatedly as a precondition, answering each dialog with `1`. No server is needed.
+Open the game URL, press Enter on "Start" and play: the first level-up comes after about 5 bats (7–8 s standing still at minute 0). Reaching the heal card needs six weapons at level 8 and 6 passives at level 5 (about 77 level-ups since #13): use the dev key `L` repeatedly as a precondition, answering each dialog with `1`. No server is needed.
 
 ## Driving it
 
@@ -26,7 +26,7 @@ Open the game URL, press Enter on "Start" and play: the first level-up comes aft
 2. `javascript_tool` `JSON.stringify(await window.__vsTest.waitFor((s) => s.state === 'levelUp', 60000))` → `paused: true`; `find` "Level up dialog" → heading "Level n", up to 3 cards, the first focused; `screenshot`.
 3. `javascript_tool` `(await window.__vsTest.snapshot()).timeS` twice, 2 s apart (`computer` `wait` 2) → equal; `computer` `key` `Escape`; `screenshot` → the same dialog, no "Paused".
 4. `computer` `key` `2` (or `1` with one card); `javascript_tool` the snapshot → `state: 'playing'`, `timeS` within 0.5 s of step 3's value, `weapons` changed as the card said; `screenshot` a few times (a new Magic Wand fires).
-5. Precondition: repeat `computer` `key` `l` then `computer` `key` `1` until `JSON.stringify((await window.__vsTest.snapshot()))` shows both weapons at level 8 and 6 passives at level 5; `computer` `key` `l` → the dialog's only card is "Heal +30 HP"; `screenshot`; `computer` `key` `1`.
+5. Precondition: repeat `computer` `key` `l` then `computer` `key` `1` until `JSON.stringify((await window.__vsTest.snapshot()))` shows six weapons at level 8 and 6 passives at level 5; `computer` `key` `l` → the dialog's only card is "Heal +30 HP"; `screenshot`; `computer` `key` `1`.
 6. `javascript_tool` `JSON.stringify(await window.__vsTest.waitFor((s) => s.state !== 'playing', 90000))` and press `1` on each further dialog until `state` is `'results'`; `get_page_text` → Level equals `player.level`; `screenshot`; `tabs_close_mcp` on the tab.
 
 ### Playwright
@@ -164,7 +164,7 @@ test('level-up 1: a full bar pauses the game behind the dialog, Escape does noth
 test('level-up 2: never more than 6 weapons or passives, level 8 or 5; with everything maxed the only card is the heal (L as precondition)', async ({
   page,
 }, testInfo) => {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
   const ev = startEvidence(page, 'level-up-2-max');
   noteEvidence(testInfo, ev);
   try {
@@ -176,7 +176,7 @@ test('level-up 2: never more than 6 weapons or passives, level 8 or 5; with ever
       passives: Weapon[];
     }[] = [];
     let s = await snapshot(page);
-    for (let i = 0; i < 120; i++) {
+    for (let i = 0; i < 240; i++) {
       if (s.state === 'results') throw new Error('the player died before everything was maxed');
       if (s.state === 'playing') {
         await page.keyboard.press('l'); // precondition only: the `L` debug key grants the missing XP
@@ -222,10 +222,10 @@ test('level-up 2: never more than 6 weapons or passives, level 8 or 5; with ever
         true,
       );
     }
-    expect(heal?.weapons).toEqual([
-      { id: 'whip', level: 8 },
-      { id: 'magicWand', level: 8 },
-    ]);
+    // Six of the eight weapons (#13), all at level 8.
+    expect(heal?.weapons).toHaveLength(6);
+    expect(heal?.weapons[0]).toEqual({ id: 'whip', level: 8 });
+    expect(heal?.weapons.every((w) => w.level === 8)).toBe(true);
     expect(heal?.passives).toHaveLength(6);
     expect(heal?.passives.every((p) => p.level === 5)).toBe(true);
     expect(heal?.cards).toEqual([
@@ -279,5 +279,5 @@ test('level-up 3: the results screen shows the level reached', async ({ page }, 
 - Several level-ups at once need XP worth several levels in one step (the merge gem, or a boss from #15); a live run at minute 0 gives one level at a time, and `L` grants exactly one. "Offered one after another" is proven at level 4 (`level-system.test.ts`: 100 XP at level 1 queues 4 dialogs titled 2–5; `app.test.ts`: the next `levelUp` remounts the dialog) until such XP is reachable (2026-11-08, #11).
 - Hiding the tab while the dialog is open leaves it in place (the app ignores `hidden` in `levelUp`, `app.test.ts`); not driven here, since the headless smoke project cannot hide the tab natively (`hidden-tab.md`) (2026-11-08, #11).
 - The `fx.levelUp` ring starts at the player when the level rises but stays on its first frame while the dialog is open (the loop is paused), and plays for 1 s after the choice (2026-11-08, #11).
-- Journey 2 reaches level 17 in about 2 s of run time, so the player survives it; it chooses card 1 every time, which is enough because every card brings both weapons closer to level 8 (2026-11-08, #11). Since #12 the heal also needs 6 passives at level 5, so the journey stops when the only card is the heal (about 47 level-ups) instead of when both weapons are at 8 (2026-11-08, #12).
+- Journey 2 reaches level 17 in about 2 s of run time, so the player survives it; it chooses card 1 every time, which is enough because every card brings both weapons closer to level 8 (2026-11-08, #11). Since #12 the heal also needs 6 passives at level 5, so the journey stops when the only card is the heal (about 47 level-ups) instead of when both weapons are at 8 (2026-11-08, #12). Since #13 it also fills all six weapon slots first (about 77 level-ups) (2026-11-08, #13).
 - The XP curve, 3 choices and the 30 HP heal are initial values; the curve keeps its **[unverified]** tag (`docs/reference/gameplay.md` § Level-up and evolution rules) (2026-11-08, #11).

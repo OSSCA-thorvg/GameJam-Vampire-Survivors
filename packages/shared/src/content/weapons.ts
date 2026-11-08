@@ -1,7 +1,8 @@
 import type { DrawableAssetId } from '../assets.js';
 
-/** The base weapons of this phase. #13 adds the other six (ADR 0008). */
-export type WeaponId = 'whip' | 'magicWand';
+/** The 8 base weapons (ADR 0008); #15 adds their evolutions. */
+export type WeaponId =
+  'whip' | 'magicWand' | 'knife' | 'axe' | 'cross' | 'kingBible' | 'fireWand' | 'garlic';
 
 /** Selects the behaviour code for a weapon (ADR 0008): one module per pattern in the worker's `weapons/patterns/`. */
 export type WeaponPattern =
@@ -23,6 +24,16 @@ export interface WeaponLevel {
   pierce: number;
   /** Knockback impulse in world units per second. */
   knockback: number;
+  /** Seconds between hits of this weapon on the same enemy (King Bible, #13). */
+  hitCooldown?: number;
+  /** Downward acceleration in units/s² (Axe, #13). */
+  gravity?: number;
+  /** Seconds until the projectile turns back (Cross, #13). */
+  returnAfter?: number;
+  /** Orbit radius in world units before `area` (King Bible, #13). */
+  orbitRadius?: number;
+  /** Seconds between the shots of one burst; the weapon system's `BURST_GAP_SEC` (0.1) when absent (#13). */
+  burstIntervalSec?: number;
 }
 
 export interface WeaponDef {
@@ -66,9 +77,48 @@ function levels(
 
 const eight = (value: number): number[] => Array.from({ length: 8 }, () => value);
 
+type LevelStat = keyof WeaponLevel;
+/**
+ * One level's change from the previous level: `add` is flat, `pct` is a fraction of the L1 value (0.25 is +25% of
+ * L1), so two +25% steps give 1.5× L1.
+ */
+interface LevelStep {
+  add?: Partial<Record<LevelStat, number>>;
+  pct?: Partial<Record<LevelStat, number>>;
+}
+
+/** The fields a level row has when the issue table does not list them. */
+const UNLISTED: Pick<
+  WeaponLevel,
+  'area' | 'speed' | 'amount' | 'pierce' | 'durationSec' | 'knockback'
+> = { area: 1, speed: 0, amount: 1, pierce: 1, durationSec: 0, knockback: 0 };
+
+/** Rounds away float drift from summing steps (1.3 - 0.1 - 0.1 is 1.1, not 1.1000000000000003). */
+const tidy = (value: number): number => Math.round(value * 1e6) / 1e6;
+
+/** Expands L1 plus one `LevelStep` per level 2..8 into the full level rows (#13). */
+function steps(
+  l1: Partial<WeaponLevel> & Pick<WeaponLevel, 'damage' | 'cooldownSec'>,
+  changes: readonly LevelStep[],
+): WeaponLevel[] {
+  const first: WeaponLevel = { ...UNLISTED, ...l1 };
+  const rows = [first];
+  let current = first;
+  for (const { add = {}, pct = {} } of changes) {
+    const next: WeaponLevel = { ...current };
+    for (const [stat, value] of Object.entries(add) as [LevelStat, number][])
+      next[stat] = tidy((current[stat] ?? 0) + value);
+    for (const [stat, value] of Object.entries(pct) as [LevelStat, number][])
+      next[stat] = tidy((current[stat] ?? 0) + (first[stat] ?? 0) * value);
+    rows.push(next);
+    current = next;
+  }
+  return rows;
+}
+
 /**
  * Initial values, untuned against footage (docs/reference/gameplay.md § Weapons): the owner deferred tuning, so these
- * are the issue's (#10) tables.
+ * are the issue tables of #10 (Whip, Magic Wand) and #13 (the other six).
  */
 export const WEAPONS: Readonly<Record<WeaponId, WeaponDef>> = {
   whip: {
@@ -129,7 +179,220 @@ export const WEAPONS: Readonly<Record<WeaponId, WeaponDef>> = {
       'Base damage up by 10.',
     ],
   },
+  knife: {
+    id: 'knife',
+    name: 'Knife',
+    description: 'Fires quickly in the faced direction.',
+    pattern: 'knife',
+    assetId: 'weapon.knife',
+    iconId: 'icon.weapon.knife',
+    maxLevel: 8,
+    levels: steps(
+      {
+        damage: 6.5,
+        cooldownSec: 1,
+        amount: 1,
+        speed: 500,
+        pierce: 1,
+        durationSec: 2,
+        knockback: 50,
+        burstIntervalSec: 0.05,
+      },
+      [
+        { add: { amount: 1 } },
+        { add: { damage: 5 } },
+        { add: { amount: 1 } },
+        { add: { amount: 1, pierce: 1 } },
+        { add: { amount: 1 } },
+        { add: { damage: 5 } },
+        { add: { amount: 1, pierce: 1 } },
+      ],
+    ),
+    levelText: [
+      'Fires one more projectile.',
+      'Base damage up by 5.',
+      'Fires one more projectile.',
+      'Fires one more projectile. Passes through one more enemy.',
+      'Fires one more projectile.',
+      'Base damage up by 5.',
+      'Fires one more projectile. Passes through one more enemy.',
+    ],
+  },
+  axe: {
+    id: 'axe',
+    name: 'Axe',
+    description: 'High damage, high area scaling.',
+    pattern: 'axe',
+    assetId: 'weapon.axe',
+    iconId: 'icon.weapon.axe',
+    maxLevel: 8,
+    levels: steps(
+      { damage: 20, cooldownSec: 4, amount: 1, pierce: 3, durationSec: 3, gravity: 900 },
+      [
+        { add: { amount: 1 } },
+        { add: { damage: 20 } },
+        { add: { pierce: 2 } },
+        { add: { amount: 1 } },
+        { add: { damage: 20 } },
+        { add: { pierce: 2 } },
+        { add: { damage: 20 } },
+      ],
+    ),
+    levelText: [
+      'Fires one more projectile.',
+      'Base damage up by 20.',
+      'Passes through 2 more enemies.',
+      'Fires one more projectile.',
+      'Base damage up by 20.',
+      'Passes through 2 more enemies.',
+      'Base damage up by 20.',
+    ],
+  },
+  cross: {
+    id: 'cross',
+    name: 'Cross',
+    description: 'Aims at the nearest enemy, has a boomerang effect.',
+    pattern: 'cross',
+    assetId: 'weapon.cross',
+    iconId: 'icon.weapon.cross',
+    maxLevel: 8,
+    levels: steps(
+      {
+        damage: 50,
+        cooldownSec: 2,
+        amount: 1,
+        speed: 400,
+        pierce: Infinity,
+        returnAfter: 0.6,
+        durationSec: 4,
+        knockback: 50,
+      },
+      [
+        { add: { damage: 10 } },
+        { pct: { area: 0.1 } },
+        { pct: { speed: 0.25 } },
+        { add: { amount: 1 } },
+        { add: { damage: 10 } },
+        { pct: { area: 0.1 } },
+        { pct: { speed: 0.25 } },
+      ],
+    ),
+    levelText: [
+      'Base damage up by 10.',
+      'Base area up by 10%.',
+      'Base speed up by 25%.',
+      'Fires one more projectile.',
+      'Base damage up by 10.',
+      'Base area up by 10%.',
+      'Base speed up by 25%.',
+    ],
+  },
+  kingBible: {
+    id: 'kingBible',
+    name: 'King Bible',
+    description: 'Orbits around the character.',
+    pattern: 'kingBible',
+    assetId: 'weapon.kingBible',
+    iconId: 'icon.weapon.kingBible',
+    maxLevel: 8,
+    levels: steps(
+      {
+        damage: 10,
+        cooldownSec: 3,
+        durationSec: 3,
+        amount: 1,
+        speed: 180,
+        orbitRadius: 75,
+        hitCooldown: 0.5,
+        knockback: 100,
+      },
+      [
+        { add: { amount: 1 } },
+        { pct: { speed: 0.25, area: 0.25 } },
+        { add: { durationSec: 0.5, damage: 10 } },
+        { add: { amount: 1 } },
+        { pct: { speed: 0.25, area: 0.25 } },
+        { add: { durationSec: 0.5, damage: 10 } },
+        { add: { amount: 1 } },
+      ],
+    ),
+    levelText: [
+      'Fires one more projectile.',
+      'Base speed up by 25%. Base area up by 25%.',
+      'Effect lasts 0.5 seconds longer. Base damage up by 10.',
+      'Fires one more projectile.',
+      'Base speed up by 25%. Base area up by 25%.',
+      'Effect lasts 0.5 seconds longer. Base damage up by 10.',
+      'Fires one more projectile.',
+    ],
+  },
+  fireWand: {
+    id: 'fireWand',
+    name: 'Fire Wand',
+    description: 'Fires at a random enemy, deals heavy damage.',
+    pattern: 'fireWand',
+    assetId: 'weapon.fireWand',
+    iconId: 'icon.weapon.fireWand',
+    maxLevel: 8,
+    levels: steps(
+      { damage: 20, cooldownSec: 3, amount: 3, speed: 375, pierce: 1, durationSec: 2 },
+      [
+        { add: { damage: 10 } },
+        { add: { damage: 10 }, pct: { speed: 0.2 } },
+        { add: { damage: 10 } },
+        { add: { damage: 10 }, pct: { speed: 0.2 } },
+        { add: { damage: 10 } },
+        { add: { damage: 10 }, pct: { speed: 0.2 } },
+        { add: { damage: 10 } },
+      ],
+    ),
+    levelText: [
+      'Base damage up by 10.',
+      'Base damage up by 10. Base speed up by 20%.',
+      'Base damage up by 10.',
+      'Base damage up by 10. Base speed up by 20%.',
+      'Base damage up by 10.',
+      'Base damage up by 10. Base speed up by 20%.',
+      'Base damage up by 10.',
+    ],
+  },
+  garlic: {
+    id: 'garlic',
+    name: 'Garlic',
+    description: 'Damages nearby enemies.',
+    pattern: 'garlic',
+    assetId: 'weapon.garlic',
+    iconId: 'icon.weapon.garlic',
+    maxLevel: 8,
+    levels: steps({ damage: 5, cooldownSec: 1.3, area: 1, amount: 1, knockback: 100 }, [
+      { pct: { area: 0.4 } },
+      { add: { damage: 2 } },
+      { add: { cooldownSec: -0.1 } },
+      { pct: { area: 0.2 } },
+      { add: { damage: 2 } },
+      { add: { cooldownSec: -0.1 } },
+      { pct: { area: 0.2 } },
+    ]),
+    levelText: [
+      'Base area up by 40%.',
+      'Base damage up by 2.',
+      'Cooldown reduced by 0.1 seconds.',
+      'Base area up by 20%.',
+      'Base damage up by 2.',
+      'Cooldown reduced by 0.1 seconds.',
+      'Base area up by 20%.',
+    ],
+  },
 };
 
 /** Fixed order of the base weapons, used by the `G` debug key and #11's choices. */
-export const WEAPON_LIST: readonly WeaponId[] = ['whip', 'magicWand'];
+export const WEAPON_LIST: readonly WeaponId[] = [
+  'whip',
+  'magicWand',
+  'knife',
+  'axe',
+  'cross',
+  'kingBible',
+  'fireWand',
+  'garlic',
+];

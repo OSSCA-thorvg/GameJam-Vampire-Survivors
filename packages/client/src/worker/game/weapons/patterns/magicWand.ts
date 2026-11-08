@@ -1,4 +1,5 @@
 import type { ProjectileOptions } from '../../projectiles';
+import { aimAt } from './aim';
 import type { WeaponPatternModule } from './types';
 
 /** Targets are looked for within this distance of the player (initial value, tune against footage). */
@@ -20,23 +21,12 @@ const opts: ProjectileOptions = {
  */
 export const magicWand: WeaponPatternModule = {
   fire(ctx, _w, lv) {
-    const { x, y, lastDirX, lastDirY } = ctx.player;
-    let dirX = lastDirX;
-    let dirY = lastDirY;
-    const target = ctx.nearest(x, y, WAND_RANGE);
-    if (target >= 0) {
-      const dx = (ctx.enemies.cols.x[target] ?? 0) - x;
-      const dy = (ctx.enemies.cols.y[target] ?? 0) - y;
-      const d = Math.hypot(dx, dy);
-      if (d > 0) {
-        dirX = dx / d;
-        dirY = dy / d;
-      }
-    }
+    const { x, y } = ctx.player;
+    const dir = aimAt(ctx, ctx.nearest(x, y, WAND_RANGE));
     opts.damage = lv.damage;
     opts.knockback = lv.knockback;
     opts.pierce = lv.pierce;
     opts.ttl = lv.durationSec;
-    ctx.spawnProjectile('weapon.magicWand', x, y, dirX * lv.speed, dirY * lv.speed, opts);
+    ctx.spawnProjectile('weapon.magicWand', x, y, dir.x * lv.speed, dir.y * lv.speed, opts);
   },
 };

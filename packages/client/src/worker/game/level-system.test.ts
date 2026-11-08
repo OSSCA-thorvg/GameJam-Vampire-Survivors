@@ -4,7 +4,7 @@ import type { WorkerToMain } from '../../protocol/worker-messages';
 import { FX_ASSETS } from './fx';
 import { applyLevelUpOption, createLevelUpFlow, levelSystem, xpForNextLevel } from './level';
 import { grantNextPassive } from './passives';
-import { addWeapon } from './weapons/owned';
+import { grantNextWeapon } from './weapons/owned';
 import { createWorld } from './world';
 
 function setup() {
@@ -83,8 +83,8 @@ it('ignores an out-of-range choice and keeps the screen open', () => {
 
 it('heals by LEVELUP_HEAL, capped at maxHp, when the heal is the only option', () => {
   const { world, posted, flow } = setup();
-  addWeapon(world, 'whip');
-  addWeapon(world, 'magicWand');
+  // Six weapons at their max level (#13).
+  while (grantNextWeapon(world));
   for (const w of world.weapons) w.level = w.def.maxLevel;
   // Six passives at their max level (#12): nothing is left to offer.
   while (grantNextPassive(world));

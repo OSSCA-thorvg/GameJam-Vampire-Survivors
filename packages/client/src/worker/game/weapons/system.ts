@@ -11,7 +11,7 @@ import {
 import type { World } from '../world';
 import { PATTERNS } from './patterns/registry';
 
-/** Seconds between the shots of one burst (`amount` shots per cooldown). */
+/** Seconds between the shots of one burst (`amount` shots per cooldown) when the level has no `burstIntervalSec`. */
 export const BURST_GAP_SEC = 0.1;
 /** Timers below this count as expired, so float drift never adds a step to a cooldown. */
 const EPSILON = 1e-6;
@@ -30,7 +30,7 @@ const effective: WeaponLevel = {
 
 /**
  * Writes `lv` after the player's stats (#12) into `out`: damage by `might`, area, cooldown, amount, projectile speed
- * and duration (also the projectile lifetime) by their helpers; pierce and knockback unchanged. With `BASE_STATS`
+ * and duration (also the projectile lifetime) by their helpers; pierce, knockback and the pattern fields unchanged. With `BASE_STATS`
  * every value equals `lv`'s.
  */
 export function applyStats(lv: WeaponLevel, s: Readonly<StatBlock>, out: WeaponLevel): WeaponLevel {
@@ -42,13 +42,20 @@ export function applyStats(lv: WeaponLevel, s: Readonly<StatBlock>, out: WeaponL
   out.durationSec = effDuration(lv.durationSec, s);
   out.pierce = lv.pierce;
   out.knockback = lv.knockback;
+  // The pattern-specific fields (#13) are not stats; `area` scales the King Bible's orbit in its pattern.
+  out.hitCooldown = lv.hitCooldown;
+  out.gravity = lv.gravity;
+  out.returnAfter = lv.returnAfter;
+  out.orbitRadius = lv.orbitRadius;
+  out.burstIntervalSec = lv.burstIntervalSec;
   return out;
 }
 
 /**
  * Fires every owned weapon on its own cooldown (#10): when `cooldownLeft` runs out it resets to the level's
- * `cooldownSec` and starts a burst of `amount` shots `BURST_GAP_SEC` apart, the first in the same step. Each shot calls
- * the weapon's pattern module; its optional `update` runs every step. Patterns get the level after `player.stats`
+ * `cooldownSec` and starts a burst of `amount` shots `burstIntervalSec` (default `BURST_GAP_SEC`) apart, the first in
+ * the same step. Each shot calls the weapon's pattern module; its optional `update` runs every step, and while
+ * `activeLeft > 0` (a persistent effect is out, #13) the cooldown holds. Patterns get the level after `player.stats`
  * (`applyStats`, #12).
  */
 export function weaponSystem(world: World, dt: number): void {
@@ -60,7 +67,7 @@ export function weaponSystem(world: World, dt: number): void {
     const lv = applyStats(base, world.player.stats, effective);
     pattern.update?.(ctx, w, lv, dt);
     if (w.burstLeft > 0) w.burstTimer -= dt;
-    w.cooldownLeft -= dt;
+    if (w.activeLeft <= 0) w.cooldownLeft -= dt;
     if (w.cooldownLeft <= EPSILON) {
       w.cooldownLeft = lv.cooldownSec;
       w.burstLeft = lv.amount;
@@ -72,7 +79,7 @@ export function weaponSystem(world: World, dt: number): void {
       pattern.fire(ctx, w, lv, w.shot);
       w.shot++;
       w.burstLeft--;
-      w.burstTimer += BURST_GAP_SEC;
+      w.burstTimer += lv.burstIntervalSec ?? BURST_GAP_SEC;
     }
   }
 }
