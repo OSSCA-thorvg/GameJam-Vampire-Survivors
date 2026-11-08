@@ -29,6 +29,24 @@ function copyThorvgWasm(): Plugin {
   };
 }
 
+/** The worker's `locateFile` loads WASM_FILE, so Vite's URL-generated copy is unused. */
+function removeDuplicateThorvgWasm(): Plugin {
+  return {
+    name: 'remove-duplicate-thorvg-wasm',
+    apply: 'build',
+    generateBundle: {
+      order: 'post',
+      handler(_options, bundle) {
+        for (const fileName of Object.keys(bundle)) {
+          if (/^assets\/thorvg-[^/]+\.wasm$/.test(fileName)) {
+            Reflect.deleteProperty(bundle, fileName);
+          }
+        }
+      },
+    },
+  };
+}
+
 /**
  * ADR 0011's production CSP, applied by `vite preview` so the build is checked under it. `worker-src` adds `blob:`
  * for the support check's module-worker probe (`main/support.ts`); `connect-src` names the local server.
@@ -54,7 +72,7 @@ export default defineConfig({
   resolve: {
     alias: { '@vs/shared': fileURLToPath(new URL('../shared/src/index.ts', import.meta.url)) },
   },
-  plugins: [copyThorvgWasm()],
+  plugins: [copyThorvgWasm(), removeDuplicateThorvgWasm()],
   worker: { format: 'es' },
   server: { port: 5173, strictPort: true },
   preview: { headers: { 'Content-Security-Policy': PREVIEW_CSP } },
