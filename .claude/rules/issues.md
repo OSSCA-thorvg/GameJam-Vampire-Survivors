@@ -50,7 +50,7 @@ Every contributor develops with Claude Code, with their own GitHub account, poss
 2. **A "Before you start" section** comes right after Goal and lists:
    - the setup commands to run once: `nvm use`, `corepack enable`, `pnpm install`, plus `pnpm server:up` if the server is needed;
    - what to read: ADRs, `docs/reference/gameplay.md` sections, `assets/CATALOG.md`, verification map files;
-   - which skills to use: `issue-start`, `impact-check`, `verify-game` (once #31 has merged), `issue-finish`, and `security-check` when it applies.
+   - which skills to use: `issue-start`, `impact-check`, `verify-game`, `issue-finish`, and `security-check` when it applies.
 3. **Dependency artifacts are named exactly:** paths, exported symbols, message types and field names from earlier issues, matching what those issues' plans say they create. When they do not match, fix the later issue.
 4. **No undecided choices remain.** The implementation plan contains no "or", "e.g.", "TBD", "consider" or "could": one option is picked, consistent with the ADRs. Gameplay numbers are concrete and labelled "initial value, tune against footage".
 5. **The plan is in build order,** so each step can be compiled and tested before the next.

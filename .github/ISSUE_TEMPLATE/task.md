@@ -16,7 +16,7 @@ One or two sentences: what exists after this issue that did not before.
 
 - Setup, once per clone: `nvm use`, `corepack enable`, `pnpm install` (plus `pnpm server:up` when the server is needed).
 - Read: `CLAUDE.md`, the ADRs below, the `docs/reference/gameplay.md` section, `assets/CATALOG.md`, the verification map files.
-- Skills: `issue-start`, `impact-check`, `verify-game` (once #31 has merged), `issue-finish`, `security-check` (when it applies).
+- Skills: `issue-start`, `impact-check`, `verify-game`, `issue-finish`, `security-check` (when it applies).
 
 ## Context
 

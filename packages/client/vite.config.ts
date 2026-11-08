@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -65,7 +66,17 @@ const PREVIEW_CSP = [
   "frame-ancestors 'none'",
 ].join('; ');
 
+/** `git rev-parse HEAD` when Vite starts, exposed as `__VS_BUILD_REV__` (the test bridge's `buildRev`, for Doctor). */
+function gitRev(): string {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  } catch {
+    return 'unknown';
+  }
+}
+
 export default defineConfig({
+  define: { __VS_BUILD_REV__: JSON.stringify(gitRev()) },
   // Art and assets/manifest.json are served from the repository's assets/ folder (ADR 0007).
   publicDir: '../../assets',
   // Bundle @vs/shared from source in dev and build, so the client never needs packages/shared/dist (#4).
