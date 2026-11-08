@@ -2,6 +2,7 @@
 // the module has no top-level side effects, so production builds drop it (checked by grepping the bundle for
 // `togglePerfOverlay`). Later issues add commands with `registerDebugHandler` and overlay lines with
 // `registerPerfStat`; they never edit a switch. Keys are bound on the main thread (`main/debug.ts`).
+import { registerSnapshotField } from './test-bridge';
 import type { Scene, Text, ThorVGNamespace } from '@thorvg/webcanvas';
 import type { DebugCommand, WorkerToMain } from '../protocol/worker-messages';
 import type { Loop } from './loop';
@@ -83,6 +84,7 @@ export function installWorkerDebugTools(opts: WorkerDebugOptions): WorkerDebugHo
   let steps = 0;
   let totalSteps = 0;
   let totalRenders = 0;
+  registerSnapshotField('renders', () => totalRenders);
   let windowStart = now();
   let fps = 0;
   let stepsPerSecond = 0;

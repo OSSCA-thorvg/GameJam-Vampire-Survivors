@@ -1,7 +1,8 @@
 // Playwright configuration for verify-game (#31, .claude/skills/verify-game/SKILL.md). Run through `pnpm verify:e2e`,
 // which launches the client and sets VERIFY_URL; when VERIFY_URL is unset, the URL recorded by `pnpm verify:launch`
 // is used. `VERIFY_JOURNEYS=<dir>` runs the journey specs in that folder instead of e2e/ (feature-map journeys
-// saved under verification/issue-<N>/journeys/).
+// saved under verification/issue-<N>/journeys/). The native hidden-tab project owns a fresh headed browser;
+// Linux runs need Xvfb. Select chromium for ordinary headless-only smoke.
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
@@ -42,6 +43,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: '**/hidden-tab.spec.ts',
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1280, height: 720 },
@@ -49,6 +51,22 @@ export default defineConfig({
         launchOptions: {
           // WebGL 2 without a GPU in headless and CI runs; headed runs use the real GPU.
           args: headed ? [] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+        },
+      },
+    },
+    {
+      name: 'hidden-tab',
+      testMatch: '**/hidden-tab.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        headless: false,
+        launchOptions: {
+          ignoreDefaultArgs: [
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding',
+          ],
+          args: process.env.CI ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : [],
         },
       },
     },
