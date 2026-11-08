@@ -198,7 +198,8 @@ test('enemies 4: running right for 20 s strands no enemies; relocated ones reapp
       [];
     const counts: number[] = [];
     await page.keyboard.down('ArrowRight');
-    const result = await watchSpawns(page, 20_000, 250, async (s, i) => {
+    // Every 100 ms: an enemy moves less than the 64-unit spawn margin between samples (Gotchas).
+    const result = await watchSpawns(page, 20_000, 100, async (s, i) => {
       counts.push(s.enemies as number);
       for (const [uid, , x, y] of enemyRows(s)) {
         const prev = last.get(uid);
@@ -206,7 +207,7 @@ test('enemies 4: running right for 20 s strands no enemies; relocated ones reapp
           relocations.push({ uid, from: prev, to: [x, y], px: player(s).x });
         last.set(uid, [x, y]);
       }
-      if (i % 20 === 0) await ev.shot(`run-${String(i / 4).padStart(2, '0')}s`);
+      if (i % 50 === 0) await ev.shot(`run-${String(i / 10).padStart(2, '0')}s`);
     });
     await page.keyboard.up('ArrowRight');
     await page.waitForTimeout(3000);
@@ -263,6 +264,6 @@ test('enemies 6: fps at minute 14 with about 300 enemies', async ({ page }, test
 - Since #9 enemies hurt the player, and a standing player dies in 15–30 s: journeys 2 (60 s standing), 3 and 6 (`]` fast-forwards past the death) end on the results screen and cannot pass until an invulnerability precondition exists (`KeyI`, `toggleInvulnerable`, #17). Journeys 1 and 4 still fit inside a life. Do not weaken them; report them as skipped until #17 (2026-11-08, #9).
 - The extension's `key` presses are instant down and up, so it cannot hold `ArrowRight` for 20 s; relocation needs the Playwright hold (2026-11-08, #8).
 - Before #10 nothing killed enemies, so the count kept growing past `minAlive` with each batch, and `]` × 5 fills the cap with minute 0–2 bats; at minute 5 and 14 the field held 400 enemies, almost all bats, instead of the wave's mix, so the fps journey measured 400 enemies, a harder case than the issue's "about 300" (2026-11-08, #8). Since #10 the Whip thins the crowd on the facing side, so the counts read lower; journeys 2, 3 and 6 still need #17's invulnerability (2026-11-08, #10).
-- Journey 4 samples every 250 ms while the player runs toward new spawns (closing speed about 240 units/s plus separation), so a bat spawned ahead can first be seen up to about 60 units inside the 64-unit margin; since #10 kills cause more top-up spawns ahead, and 1 of 3 runs failed with two first sightings 0.3 units inside the view edge (2026-11-08, #10). Not weakened here; tracked as a follow-up to sample journey 4 at 100 ms.
+- Journey 4 samples every 100 ms, like journey 1. The player runs toward new spawns (closing speed about 240 units/s plus separation), so at the 250 ms it used before, a bat spawned ahead could drift up to about 60 units before its first sample, nearly the whole 64-unit margin; since #10 kills cause more top-up spawns ahead, and 1 of 3 runs failed with two first sightings 0.3 units inside the view edge (2026-11-08, #10). At 100 ms the drift is at most about 30 units, so each UID's first sighting, compared with the view of that same sample, stays outside the view (5 of 5 runs passed, 2026-11-08, #86).
 - Pop-in is checked per UID between samples 100 ms apart; an enemy moves at most about 30 units (speed plus separation push) between its spawn and the sample, inside the 64-unit spawn margin (2026-11-08, #8).
 - `camera.viewRect` returns one shared object: copy a result before calling it again (unit tests, 2026-11-08, #8).
