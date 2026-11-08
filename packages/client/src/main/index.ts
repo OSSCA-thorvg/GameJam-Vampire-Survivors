@@ -87,6 +87,8 @@ async function boot(): Promise<void> {
     if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
       registerMainSnapshotField('state', () => started.state.name);
       // #20: the dialog over a running versus world, and whether its socket was lost.
+      // #21: the incoming-interference banners shown now.
+      registerMainSnapshotField('banners', () => started.banners());
       registerMainSnapshotField('versus', () => {
         const s = started.state;
         return s.name === 'versusPlaying' || s.name === 'versusResult'
@@ -142,6 +144,9 @@ async function boot(): Promise<void> {
         break;
       case 'status':
         app?.status(message);
+        break;
+      case 'interferenceCollected':
+        app?.interferenceCollected(message.kind);
         break;
       default:
         assertNever(message);
@@ -209,6 +214,7 @@ async function boot(): Promise<void> {
     registerDebugKey('KeyE', { kind: 'forceEvolution' });
     registerDebugKey('KeyB', { kind: 'spawnBoss' });
     registerDebugKey('KeyI', { kind: 'toggleInvulnerable' });
+    registerDebugKey('KeyJ', { kind: 'spawnInterference' });
     installDebugTools(worker);
   }
 }

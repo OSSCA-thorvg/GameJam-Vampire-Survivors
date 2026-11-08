@@ -293,3 +293,44 @@ describe('versusController (#20)', () => {
     expect(t.results[0]?.kind).toBe('unofficial');
   });
 });
+
+describe('interference (#21)', () => {
+  it('sends a collected interference to the server and lets the server pick the target', () => {
+    const t = setup();
+    t.controller.interferenceCollected('swarm');
+    expect(t.sent).toEqual([{ type: 'interference', kind: 'swarm' }]);
+  });
+
+  it('applies an incoming interference in the worker and names the sender on a banner, without the nickname', () => {
+    const t = setup();
+    t.posted.length = 0;
+    t.emit({
+      type: 'interferenceIncoming',
+      kind: 'gemThief',
+      fromPlayerId: 'b',
+      fromNickname: '<b>밥</b>',
+    });
+    expect(t.posted).toEqual([{ type: 'applyInterference', kind: 'gemThief' }]);
+    expect(t.controller.banners()).toEqual(['<b>밥</b> sent Gem Thief!']);
+    const banner = t.root.querySelector('.interference-banner');
+    expect(banner?.textContent).toBe('<b>밥</b> sent Gem Thief!');
+    expect(banner?.querySelector('b')).toBeNull();
+    t.advance(3_000);
+    expect(t.controller.banners()).toEqual([]);
+    expect(t.root.querySelector('.interference-banner')).toBeNull();
+  });
+
+  it('stops sending and applying once this player is out, and removes the banners on dispose', () => {
+    const t = setup();
+    t.emit({ type: 'interferenceIncoming', kind: 'swarm', fromPlayerId: 'b', fromNickname: 'Bob' });
+    t.controller.dispose();
+    expect(t.root.querySelector('.interference-banners')).toBeNull();
+    const u = setup();
+    u.emit({ type: 'playerEliminated', playerId: 'a', reason: 'died' });
+    u.posted.length = 0;
+    u.controller.interferenceCollected('swarm');
+    u.emit({ type: 'interferenceIncoming', kind: 'swarm', fromPlayerId: 'b', fromNickname: 'Bob' });
+    expect(u.sent.filter((m) => m.type === 'interference')).toEqual([]);
+    expect(u.posted).toEqual([]);
+  });
+});

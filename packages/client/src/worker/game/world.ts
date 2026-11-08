@@ -22,6 +22,13 @@ import { contactDamageSystem } from './systems/contact-damage';
 import { enemyMovementSystem } from './systems/enemy-movement';
 import { enemyRelocateSystem } from './systems/enemy-relocate';
 import { finaleSystem } from './systems/finale';
+import {
+  createInterferenceState,
+  interferenceApplySystem,
+  interferenceCollectSystem,
+  interferenceDropSystem,
+  type InterferenceState,
+} from './systems/interference';
 import type { FreezeState } from './systems/freeze';
 import { lightSourceSystem } from './systems/light-sources';
 import { pickupSystem } from './systems/pickups';
@@ -76,7 +83,8 @@ export interface World
     PickupState,
     FreezeState,
     ChestState,
-    RunStatsState {
+    RunStatsState,
+    InterferenceState {
   readonly seed: number;
   /** The character played (#14), always a known id: `startRun`'s id, or `CHARACTERS[0]` when that was unknown. */
   readonly characterId: CharacterId;
@@ -170,6 +178,7 @@ export const inputSystem: System = (world) => {
  */
 export const SYSTEMS: readonly System[] = [
   inputSystem,
+  interferenceApplySystem,
   playerMovementSystem,
   cameraSystem,
   lightSourceSystem,
@@ -184,9 +193,11 @@ export const SYSTEMS: readonly System[] = [
   weaponSystem,
   projectileSystem,
   pickupSystem,
+  interferenceCollectSystem,
   fxSystem,
   cleanupSystem,
   chestDropSystem,
+  interferenceDropSystem,
   gemDropSystem,
   gemSystem,
   levelSystem,
@@ -227,6 +238,7 @@ export function createWorld({
     ...createGemState(gemPools),
     ...createLightState(rng, lightPools),
     ...createPickupState(rng, pickupPools),
+    ...createInterferenceState(rng),
     freezeUntil: 0,
     ...createChestState(chestPool),
     ...createRunStatsState(),

@@ -1,6 +1,7 @@
 import {
   AFK_FORFEIT_MS,
   DISCONNECT_GRACE_MS,
+  INTERFERENCE_SEND_LIMIT,
   MATCH_DEADLINE_GRACE_S,
   MATCH_TIME_LIMIT_S,
   MAX_PLAYERS_DEFAULT,
@@ -18,6 +19,7 @@ import {
   type ServerMessage,
 } from '@vs/shared';
 import { cryptoRandom, generateRoomCode, type RandomInt } from './code.js';
+import { TokenBucket } from './limits.js';
 
 /** After `matchResult`, the room returns to `lobby` (ready flags cleared) this much later, for a rematch. */
 export const REMATCH_DELAY_MS = 5_000;
@@ -72,6 +74,8 @@ interface Player {
   survived: boolean;
   kills: number;
   lastStatusAt: number | null;
+  /** `interference` messages routed this match (#21): `INTERFERENCE_SEND_LIMIT`, refilled from the match start. */
+  interferenceBucket: TokenBucket;
   away: boolean;
   afkTimer: TimerHandle | null;
   graceTimer: TimerHandle | null;
@@ -287,13 +291,20 @@ export class RoomRegistry {
     return null;
   }
 
-  /** Routes interference to one living, connected opponent chosen at random; only during `playing`. */
+  /**
+   * Routes interference to one living, connected opponent chosen at random; only during `playing`. Beyond the sender's
+   * `INTERFERENCE_SEND_LIMIT` for the match (#21) it is dropped, like a late in-match message.
+   */
   interference(playerId: string, kind: InterferenceKind): Outcome {
     const found = this.inMatch(playerId);
     if (found === 'violation') return violation('wrongPhase');
     if (found === null) return null;
     const { room, player } = found;
     if (room.phase !== 'playing') return null;
+    if (!player.interferenceBucket.take()) {
+      this.onEvent('interference_capped', { code: room.code });
+      return null;
+    }
     const targets = room.players.filter((p) => p.id !== playerId && !p.eliminated && p.connected);
     if (targets.length === 0) return null;
     const target = targets.length === 1 ? targets[0] : targets[this.randomInt(targets.length)];
@@ -373,6 +384,7 @@ export class RoomRegistry {
       survived: false,
       kills: 0,
       lastStatusAt: null,
+      interferenceBucket: this.interferenceBucket(),
       away: false,
       afkTimer: null,
       graceTimer: null,
@@ -455,6 +467,14 @@ export class RoomRegistry {
     this.onEvent('room_deleted', { code: room.code });
   }
 
+  private interferenceBucket(): TokenBucket {
+    return new TokenBucket(
+      this.now,
+      INTERFERENCE_SEND_LIMIT.perSecond,
+      INTERFERENCE_SEND_LIMIT.burst,
+    );
+  }
+
   private resetMatchState(p: Player): void {
     this.clearPlayerTimers(p);
     p.eliminated = false;
@@ -462,6 +482,7 @@ export class RoomRegistry {
     p.survived = false;
     p.kills = 0;
     p.lastStatusAt = null;
+    p.interferenceBucket = this.interferenceBucket();
     p.away = false;
   }
 

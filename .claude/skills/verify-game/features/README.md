@@ -24,6 +24,7 @@ One file per user-facing feature. A PR that adds or changes user-facing behaviou
 | `lobby.md`                     | Multiplayer: nickname, create or join by code, errors, ready, host Start, countdown, connection loss  | #19   |
 | `stage-and-finale.md`          | the wave table, timed events, the 15:00 clear, Death, the results with weapon damage, `I`             | #17   |
 | `versus-match.md`              | versus play: same seed, opponent panel, status rate, death, disconnect, AFK, 15:00, Rematch           | #20   |
+| `interference.md`              | versus interference pickups: drop rules, Swarm, Gem Thief, Elite Call, banners, the server cap, `J`   | #21   |
 
 ## Baseline preconditions
 

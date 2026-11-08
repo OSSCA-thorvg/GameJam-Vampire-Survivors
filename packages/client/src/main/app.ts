@@ -1,6 +1,6 @@
 // The app state machine (ADR 0009): the only code that mounts screens. Each transition unmounts the old screen,
 // mounts the new one and tells the worker. The DOM never reads game state; what it shows arrives as messages (ADR 0004).
-import { CHARACTERS, type CharacterId, type ChestReward } from '@vs/shared';
+import { CHARACTERS, type CharacterId, type ChestReward, type InterferenceKind } from '@vs/shared';
 import { assertNever } from '../protocol/assert-never';
 import type {
   LevelUpOption,
@@ -346,6 +346,10 @@ export interface App {
   startVersus(start: VersusStart): void;
   /** A worker `status` (#20): relayed by the running versus match; ignored otherwise. */
   status(message: WorkerStatus): void;
+  /** A worker `interferenceCollected` (#21): sent by the running versus match; ignored otherwise. */
+  interferenceCollected(kind: InterferenceKind): void;
+  /** The interference banners shown now (#21); empty outside a versus match. */
+  banners(): string[];
 }
 
 /** Creates the controller of one versus match; tests pass a fake. */
@@ -665,6 +669,7 @@ export function createApp(
         post,
         root,
         start,
+        iconUrl,
         onResult: (result) => {
           app.dispatch({ type: 'versusOver', result });
         },
@@ -676,6 +681,12 @@ export function createApp(
     },
     status(message) {
       versus?.status(message);
+    },
+    interferenceCollected(kind) {
+      versus?.interferenceCollected(kind);
+    },
+    banners() {
+      return versus?.banners() ?? [];
     },
   };
 

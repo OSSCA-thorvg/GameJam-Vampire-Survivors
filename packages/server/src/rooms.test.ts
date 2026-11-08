@@ -1,6 +1,8 @@
 import {
   AFK_FORFEIT_MS,
   DISCONNECT_GRACE_MS,
+  INTERFERENCE_RULES,
+  INTERFERENCE_SEND_LIMIT,
   MATCH_DEADLINE_GRACE_S,
   MATCH_TIME_LIMIT_S,
   START_DELAY_MS,
@@ -347,6 +349,33 @@ describe('interference', () => {
     registry.interference('a', 'swarm'); // dead sender
     expect(ofType('b', 'interferenceIncoming')).toHaveLength(0);
     expect(ofType('c', 'interferenceIncoming')).toHaveLength(0);
+  });
+
+  it('caps each sender per match by the drop rules and refills one per drop interval (#21)', () => {
+    startedRoom(['a', 'b']);
+    for (let i = 0; i < 50; i++) registry.interference('a', 'swarm');
+    expect(ofType('b', 'interferenceIncoming')).toHaveLength(INTERFERENCE_SEND_LIMIT.burst);
+    // The capped messages are dropped silently, not violations.
+    expect(registry.interference('a', 'swarm')).toBeNull();
+    timers.advance(INTERFERENCE_RULES.minIntervalS * 1000 - 100);
+    registry.interference('a', 'gemThief');
+    expect(ofType('b', 'interferenceIncoming')).toHaveLength(INTERFERENCE_SEND_LIMIT.burst);
+    timers.advance(100);
+    registry.interference('a', 'gemThief');
+    expect(ofType('b', 'interferenceIncoming')).toHaveLength(INTERFERENCE_SEND_LIMIT.burst + 1);
+    // The other player's budget is its own.
+    registry.interference('b', 'eliteCall');
+    expect(ofType('a', 'interferenceIncoming')).toHaveLength(1);
+  });
+
+  it('admits honest play: two lying pickups collected together, then one per drop interval', () => {
+    startedRoom(['a', 'b']);
+    for (let n = 0; n < 40; n++) {
+      registry.interference('a', 'swarm');
+      if (n < 2) registry.interference('a', 'swarm');
+      timers.advance(INTERFERENCE_RULES.minIntervalS * 1000);
+    }
+    expect(ofType('b', 'interferenceIncoming')).toHaveLength(42);
   });
 });
 

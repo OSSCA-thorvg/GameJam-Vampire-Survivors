@@ -1,7 +1,7 @@
 // The only message contract between the main thread and the game worker (ADR 0004). Types only: compiled by both
 // tsconfig.main.json and tsconfig.worker.json. Later issues extend these unions; every `switch` on `type` or `kind`
 // is exhaustive and ends in `assertNever` (./assert-never.ts).
-import type { AssetId, ChestReward, PassiveId, WeaponId } from '@vs/shared';
+import type { AssetId, ChestReward, InterferenceKind, PassiveId, WeaponId } from '@vs/shared';
 
 /** Hidden-tab behaviour: `'pause'` for single player, `'simulate'` for versus play (ADRs 0004, 0005). */
 export type BackgroundPolicy = 'pause' | 'simulate';
@@ -112,6 +112,11 @@ export type MainToWorker =
   | { type: 'levelUpChoice'; index: number }
   /** #15: the chest overlay closed (Enter or its timer); the worker resumes the run. */
   | { type: 'chestClosed' }
+  /**
+   * #21: an opponent's interference reached this player (the server's `interferenceIncoming`; the nickname stays on
+   * the main thread). Applied at the start of the next step; a `kind` outside `INTERFERENCE_KINDS` is ignored.
+   */
+  | { type: 'applyInterference'; kind: InterferenceKind }
   | { type: 'debug'; command: DebugCommand }
   | TestSnapshotRequest;
 
@@ -130,6 +135,8 @@ export type WorkerToMain =
   | { type: 'levelUp'; level: number; options: LevelUpOption[] }
   /** #15: a chest opened and its rewards are already applied; the worker has paused the run until `chestClosed`. */
   | { type: 'chestOpened'; rewards: ChestReward[] }
+  /** #21: the player walked into an interference pickup; the main thread sends it to the server. */
+  | { type: 'interferenceCollected'; kind: InterferenceKind }
   | WorkerStatus
   | TestSnapshotReply;
 
@@ -173,7 +180,9 @@ export type DebugCommand =
   /** #15: spawns `reaper5` on the spawn ring (`KeyB`). */
   | { kind: 'spawnBoss' }
   /** #17: toggles `world.debugInvulnerable`, so long fast-forwarded runs survive (`KeyI`). */
-  | { kind: 'toggleInvulnerable' };
+  | { kind: 'toggleInvulnerable' }
+  /** #21: drops the next interference pickup (cycling, ignoring the drop rules) 48 units right of the player (`KeyJ`, versus only). */
+  | { kind: 'spawnInterference' };
 
 /**
  * Read-only worker state for verification (`window.__vsTest`, dev and e2e builds only). One flat object: fields

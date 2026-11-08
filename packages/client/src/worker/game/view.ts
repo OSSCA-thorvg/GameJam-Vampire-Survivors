@@ -5,6 +5,7 @@ import { VIEW_HEIGHT, VIEW_WIDTH } from '../constants';
 import { createGround } from '../render/ground';
 import { createHud } from '../render/hud';
 import { PaintPool } from '../render/pool';
+import { createSentToast } from '../render/sent-toast';
 import { setTransform } from '../render/transform';
 import { snapToPixel } from './camera';
 import { createChestPool } from './chests';
@@ -75,7 +76,7 @@ export interface GameView {
   clear(): void;
   /** Shows the ground, `characterId`'s player sprite (#14) and the HUD for a new run, from the existing paints. */
   begin(characterId: CharacterId): void;
-  /** Syncs the camera, ground, garlic aura, lights, gems, pickups, chests, elite markers, enemies (with their hit flash and scale), projectiles, books, player, effects, the frost overlay and HUD from `world`. No `canvas.update()`/`render()`. */
+  /** Syncs the camera, ground, garlic aura, lights, gems, pickups, chests, elite markers, enemies (with their hit flash and scale), projectiles, books, player, effects, the frost overlay, HUD and the sender's interference toast (#21) from `world`. No `canvas.update()`/`render()`. */
   render(world: World): void;
 }
 
@@ -111,6 +112,7 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
   const freezePool = new PaintPool(library, 'fx.freeze', layers.hud, 1);
   // Created after the player pool, so the HP bar draws above the sprite in the same layer.
   const hud = createHud(TVG, library, layers);
+  const sentToast = createSentToast(TVG, layers.hud);
   const pools: readonly PaintPool[] = [
     ground.pool,
     garlicPool,
@@ -176,6 +178,7 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
       for (const marker of markers) marker.visible(false);
       shownMarkers = 0;
       hud.setVisible(false);
+      sentToast.sync(-1);
     },
     begin(characterId) {
       view.clear();
@@ -228,6 +231,7 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
         opacity = blink;
         player.paint.opacity(blink);
       }
+      sentToast.sync(world.time < world.sentToastUntil ? world.sentToast : -1);
       hud.sync({
         x: p.x,
         y: p.y,

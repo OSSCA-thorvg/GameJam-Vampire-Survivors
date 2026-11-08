@@ -1,5 +1,5 @@
 import { ENEMY_LIST, type PassiveId, type WeaponId } from '@vs/shared';
-import { ENEMY_FLAG_BOSS } from './enemies';
+import { ENEMY_FLAG_BOSS, ENEMY_FLAG_ELITE } from './enemies';
 import type { World } from './world';
 
 /** The `player` snapshot field (test bridge): position, facing and HP (#9), level and XP toward the next level (#11). */
@@ -87,4 +87,12 @@ export function readChestPositions(world: World): [number, number][] {
   for (let i = 0; i < count; i++)
     out.push([Math.round(cols.x[i] ?? 0), Math.round(cols.y[i] ?? 0)]);
   return out;
+}
+
+/** The `elites` snapshot field (test bridge, #21): live elite-flagged enemies. */
+export function countElites(world: World): number {
+  const { count, cols } = world.enemies;
+  let n = 0;
+  for (let i = 0; i < count; i++) if (((cols.flags[i] ?? 0) & ENEMY_FLAG_ELITE) !== 0) n++;
+  return n;
 }

@@ -4,7 +4,7 @@ import { cleanupSystem, damageEnemy } from './combat';
 import { addChest } from './chests';
 import { spawnEnemy } from './enemies';
 import { addLight, hitLightsInCircle } from './light-sources';
-import { PICKUP_FAMILY_LIGHT, spawnPickup } from './pickups';
+import { PICKUP_FAMILY_INTERFERENCE, PICKUP_FAMILY_LIGHT, spawnPickup } from './pickups';
 import { freezeEnemies } from './systems/freeze';
 import { spawnElite } from './systems/elites';
 import { createGameView, ELITE_MARKERS } from './view';
@@ -65,14 +65,25 @@ it('creates every paint once: ground, garlic, gem, chest, elite marker, enemy, p
   for (const id of ['stage.brazier', 'stage.brazierBroken']) expect(byId(id), id).toHaveLength(16);
   for (const id of ['floorChicken', 'rosary', 'orologion', 'vacuum', 'littleClover'])
     expect(byId(`pickup.${id}`), id).toHaveLength(32);
+  // The interference pickups (#21), two of each (`INTERFERENCE_RULES.maxOnGround`).
+  for (const id of ['swarm', 'gemThief', 'eliteCall'])
+    expect(byId(`pickup.interference.${id}`), id).toHaveLength(2);
   expect(byId('fx.freeze')).toHaveLength(1);
   expect(byId('ui.hpBar')).toHaveLength(1);
   expect(byId('ui.skull')).toHaveLength(1);
-  // The 16 elite markers (#15), the HP fill and the XP fill; the level, the timer and the kill counter.
+  // The 16 elite markers (#15), the HP fill and the XP fill; the level, the timer, the kill counter and the three
+  // "Sent <label>" toasts (#21).
   expect(byId('Shape')).toHaveLength(18);
-  expect(byId('Text')).toHaveLength(3);
-  expect(view.countPaints()).toBe(2757);
-  expect(paints).toHaveLength(2778);
+  expect(byId('Text').map((t) => t.text)).toEqual([
+    'Lv 1',
+    '00:00',
+    '0',
+    'Sent Swarm',
+    'Sent Gem Thief',
+    'Sent Elite Call',
+  ]);
+  expect(view.countPaints()).toBe(2763);
+  expect(paints).toHaveLength(2787);
 });
 
 it('follows the camera, snapped to device pixels', () => {
@@ -160,7 +171,11 @@ it('hides everything on clear and shows the HUD again on begin', () => {
   expect(shown('ui.xpBar')).toBe(1);
   expect(shown('Shape')).toBe(2);
   expect(shown('Text')).toBe(3);
-  expect(byId('Text').map((t) => t.text)).toEqual(['Lv 1', '00:00', '0']);
+  expect(
+    byId('Text')
+      .filter((t) => t.visible)
+      .map((t) => t.text),
+  ).toEqual(['Lv 1', '00:00', '0']);
 });
 
 it("shows only the chosen character's sprite on begin (#14)", () => {
@@ -312,6 +327,34 @@ it('draws lights and pickups from their pools and stretches the frost overlay ov
   world.time = 10;
   view.render(world);
   expect(shown('fx.freeze')).toHaveLength(0);
+});
+
+it('draws interference pickups from their own pools and the sender toast while it lasts (#21)', () => {
+  const fake = fakeGameView();
+  const view = createGameView(fake.options);
+  view.begin('warden');
+  const world = createBaseWorld({ seed: 1, pickupPools: view.pickupPools, mode: 'versus' });
+  const shown = (id: string) => fake.paints.filter((p) => p.id === id && p.visible);
+  const created = fake.paints.length;
+  spawnPickup(world, PICKUP_FAMILY_INTERFERENCE, 1, 200, 0);
+  spawnPickup(world, PICKUP_FAMILY_LIGHT, 1, 300, 0);
+  view.render(world);
+  expect(shown('pickup.interference.gemThief')).toHaveLength(1);
+  expect(shown('pickup.rosary')).toHaveLength(1);
+  expect(shown('pickup.interference.swarm')).toHaveLength(0);
+  const toast = () =>
+    shown('Text')
+      .map((t) => t.text)
+      .filter((t) => t?.startsWith('Sent'));
+  expect(toast()).toEqual([]);
+  world.sentToast = 2;
+  world.sentToastUntil = world.time + 2;
+  view.render(world);
+  expect(toast()).toEqual(['Sent Elite Call']);
+  world.time += 2;
+  view.render(world);
+  expect(toast()).toEqual([]);
+  expect(fake.paints).toHaveLength(created);
 });
 
 it('draws an elite at 1.5× over a pooled red marker sized to its radius, and chests on the chest pool (#15)', () => {

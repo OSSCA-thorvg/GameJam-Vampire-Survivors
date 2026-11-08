@@ -11,6 +11,7 @@ import {
 } from './pickups';
 import { readEnemyPositions } from './snapshot';
 import { isFrozen } from './systems/freeze';
+import { pickupSystem } from './systems/pickups';
 import type { World } from './world';
 
 const DT = 1 / 60;
@@ -36,13 +37,19 @@ describe('collection', () => {
     expect(readPickups(world)).toEqual([{ id: 'vacuum', x: 0, y: reach + 1 }]);
   });
 
-  it('is not pulled by the gem magnet, and leaves family 1 (#21) alone', () => {
+  it('is not pulled by the gem magnet', () => {
     const world = quietWorld();
     spawnPickup(world, PICKUP_FAMILY_LIGHT, def('floorChicken'), 50, 0);
-    spawnPickup(world, PICKUP_FAMILY_INTERFERENCE, 0, 0, 0);
     steps(world, 60);
     expect(readPickups(world)).toEqual([{ id: 'floorChicken', x: 50, y: 0 }]);
-    expect(world.pickups.count).toBe(2);
+  });
+
+  it('leaves family 1 to the interference collection (#21)', () => {
+    const world = quietWorld();
+    spawnPickup(world, PICKUP_FAMILY_INTERFERENCE, 0, 0, 0);
+    pickupSystem(world);
+    expect(world.pickups.count).toBe(1);
+    expect(readPickups(world)).toEqual([]);
   });
 });
 

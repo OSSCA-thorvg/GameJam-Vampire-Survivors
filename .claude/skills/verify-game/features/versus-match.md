@@ -17,6 +17,7 @@ A 2-player versus match (#20, ADRs 0004, 0005, 0006, 0009, 0011): after the lobb
 - **Rematch and Leave:** Rematch returns both to the same room's lobby (`state: 'lobby'`, same `.room-code`), showing "Waiting for the room to reset" until the server's reset 5 s after the result, then every row `data-ready="false"` and Ready enabled. Leave sends `leaveRoom` and returns to the title.
 - **Dialogs:** level-ups and chests still open over the versus world and pause only it (`versus.overlay` is `'levelUp'` or `'chest'`; `state` stays `'versusPlaying'`); while one is open no `status` is sent.
 - **Single player** is unchanged: `mode: 'single'`, no game WebSocket, no panel, #17's results screen on death.
+- **Interference (#21):** enemy kills drop Swarm, Gem Thief and Elite Call pickups from 1:00; collecting one sends it to the opponent's world, whose banner names the sender. Journeys in `interference.md`.
 - Snapshot fields: `spawnLog`, `mode`, `defeated` (worker), `versus` (`{ overlay, offline }` or `null`, main) and `state` (`'versusPlaying'`, `'versusResult'`).
 
 ## How to get to it (user POV)

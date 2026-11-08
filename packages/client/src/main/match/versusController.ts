@@ -2,18 +2,23 @@
 // socket. The worker simulates this player's own world from the match seed; nothing here synchronizes worlds. What
 // the player sees of the others is the opponent panel, fed only by the server's relayed messages.
 import {
+  INTERFERENCE,
+  interferenceIndex,
   MATCH_DEADLINE_GRACE_S,
   MATCH_TIME_LIMIT_S,
   STATUS_MIN_INTERVAL_MS,
   type ClientMessage,
   type EliminationReason,
+  type InterferenceKind,
   type PlayerInfo,
   type PlayerStatus,
   type ServerMessage,
 } from '@vs/shared';
 import type { MainToWorker, RunSummary, WorkerStatus } from '../../protocol/worker-messages';
 import type { NetClient } from '../net/client';
+import type { AssetUrl } from '../ui/asset-url';
 import { h } from '../ui/dom';
+import { mount as mountBanners, type InterferenceBanner } from '../ui/interference-banner';
 import type { RoomState } from '../ui/lobby';
 import { mount as mountPanel, type OpponentPanel } from '../ui/opponent-panel';
 import type { VersusResult } from '../ui/versus-result';
@@ -54,6 +59,8 @@ export interface VersusControllerOptions {
   onResult: (result: VersusResult) => void;
   /** The socket left `open` during the match; nothing more is sent. Called once. */
   onOffline: () => void;
+  /** Resolves the interference banner's `fx.warning` icon (#21); no icon when omitted. */
+  iconUrl?: AssetUrl;
   /** Wall clock, `Date.now` unless a test passes another. */
   now?: () => number;
   setTimer?: (cb: () => void, ms: number) => ReturnType<typeof setTimeout>;
@@ -67,6 +74,10 @@ export interface VersusController {
   status(message: WorkerStatus): void;
   /** The worker's `gameOver`: `died` or `survived`, or the unofficial result when offline. */
   gameOver(stats: RunSummary): void;
+  /** The worker's `interferenceCollected` (#21): sent as `ClientMessage.interference`; the server picks the target. */
+  interferenceCollected(kind: InterferenceKind): void;
+  /** The interference banners shown now (#21, the `banners` snapshot field). */
+  banners(): string[];
   /** Removes the panel, banner, listeners and timers; restores the `'pause'` background policy. Idempotent. */
   dispose(): void;
 }
@@ -120,6 +131,11 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
   });
   const banner = h('p', { class: 'versus-banner', role: 'status' });
   root.append(banner);
+  const incoming: InterferenceBanner = mountBanners(root, {
+    iconUrl: opts.iconUrl ?? (() => null),
+    setTimer,
+    clearTimer,
+  });
 
   const send = (message: ClientMessage): void => {
     if (!finished && !offline) net.send(message);
@@ -174,6 +190,14 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
         selfOut = true;
         cancelPending();
       } else panel.eliminated(m.playerId, m.reason);
+    }),
+    // #21: an opponent's interference; only the effect crosses to the worker, the nickname stays here.
+    net.on('interferenceIncoming', (m) => {
+      if (finished || selfOut || localOver) return;
+      const def = INTERFERENCE[interferenceIndex(m.kind)];
+      if (!def) return;
+      post({ type: 'applyInterference', kind: def.kind });
+      incoming.show(m.fromNickname, def.label);
     }),
     net.on('matchResult', (m) => {
       if (offline) return;
@@ -244,6 +268,13 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
         send({ type: 'died', kills: stats.kills, elapsedMs: Math.round(stats.timeSec * 1000) });
       }
     },
+    interferenceCollected(kind) {
+      if (selfOut || localOver) return;
+      send({ type: 'interference', kind });
+    },
+    banners() {
+      return incoming.texts();
+    },
     dispose() {
       if (disposed) return;
       disposed = true;
@@ -255,6 +286,7 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
       for (const unsubscribe of off) unsubscribe();
       doc.removeEventListener('visibilitychange', onVisibility);
       panel.unmount();
+      incoming.unmount();
       banner.remove();
     },
   };
