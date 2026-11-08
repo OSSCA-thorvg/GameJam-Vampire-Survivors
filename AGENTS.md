@@ -8,7 +8,8 @@ Use Node 24: `nvm use`, `corepack enable`, `pnpm install`.
 
 - `pnpm assets:sync`: regenerate shared asset IDs/sizes after catalog edits.
 - `pnpm dev`: client on :5173. `pnpm server:up`: Docker server on :8787.
-- `pnpm check`: format, lint, typecheck, Vitest, verification harness tests, build, then `test:build`.
+- `pnpm check`: format, lint, typecheck, Vitest, verification harness and ruleset tests, build, then `test:build`.
+- `node scripts/github/check-ruleset.mjs`: the ruleset's required checks equal the CI job names. `sh scripts/github/apply-ruleset.sh`: maintainers only (repo admin), applies the ruleset.
 - `pnpm format`, `pnpm lint:fix`: fixes. `pnpm test`: unit suites. `pnpm test:build`: requires built artifacts.
 - `pnpm verify:e2e --issue <N>`: browser smoke/native hidden-tab tests and cleanup (`--project chromium` selects headless smoke).
 
@@ -49,7 +50,7 @@ Read named Codex skills from the session catalog. They supplement the shared pro
 
 ## Commit and delivery
 
-Use issue branches such as `update/issue-54-codex-workflow-guidance`. English imperative subjects use a permitted prefix, such as `docs:`, within 72 characters. Keep one rebased commit; pass hooks. Use the PR template, evidence sections, and one closing line. Merge only through auto-merge; verify completion labels and main CI.
+Use issue branches such as `update/issue-54-codex-workflow-guidance`. English imperative subjects use a permitted prefix, such as `docs:`, within 72 characters. Keep one rebased commit; pass hooks. Use the PR template, evidence sections, and one closing line. Merge only through GitHub's native auto-merge under the `main` ruleset (ADR 0015): `issue-finish` runs `gh pr merge <PR> --auto --squash` (never without `--auto`, never the web UI button), re-checks `autoMergeRequest` after force-pushes, and holds a PR by leaving auto-merge off; verify completion labels (`post-merge.yml`) and main CI.
 
 ## User constraints
 

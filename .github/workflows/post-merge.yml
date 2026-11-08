@@ -1,0 +1,90 @@
+# Post-merge bookkeeping (ADR 0015). GitHub's native auto-merge merges as the user who enabled it, so the
+# pull_request closed event fires and the push to main runs CI on its own. This workflow labels the PR's closed
+# issues status:done and moves blocked dependents whose "## Depends on" issues are all closed to status:ready.
+#
+# Security (ADR 0011): it never checks out or executes PR code, uses no third-party actions, and reads event data
+# only through env (never interpolated into the script).
+name: Post-merge
+
+on:
+  pull_request:
+    types: [closed]
+
+concurrency:
+  group: post-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  labels:
+    name: label closed issues and unblock dependents
+    # Only merged PRs from this repository (forks are ignored).
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read # read the PR's closing issue references
+      issues: write # set status labels on the closed issues and on unblocked dependents
+    steps:
+      - name: Set status:done and unblock dependents
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          # Removes a label from an issue; a label that is not on the issue is not an error.
+          remove_label() {
+            gh api -X DELETE "repos/$REPO/issues/$1/labels/$2" > /dev/null 2>&1 || true
+          }
+
+          # A failure is reported, but does not stop the remaining steps.
+          failed=0
+
+          # 1. Closed issues move to status:done.
+          issues=$(gh pr view "$PR" -R "$REPO" --json closingIssuesReferences --jq '.closingIssuesReferences[].number') \
+            || { echo "::error::Could not read the closing issues of PR #$PR"; issues=""; failed=1; }
+          for issue in $issues; do
+            remove_label "$issue" "status:review"
+            remove_label "$issue" "status:in-progress"
+            if gh api -X POST "repos/$REPO/issues/$issue/labels" -f "labels[]=status:done" > /dev/null; then
+              echo "Issue #$issue: status:done."
+            else
+              echo "::error::Could not label issue #$issue status:done"
+              failed=1
+            fi
+          done
+
+          # 2. Unblock dependents: an open status:blocked issue whose "## Depends on" numbers are all closed
+          #    becomes status:ready. A blocked issue without numbers there waits on something else; leave it.
+          blocked=$(gh api --paginate "repos/$REPO/issues?state=open&labels=status:blocked&per_page=100" \
+            --jq '.[] | select(.pull_request | not) | .number') || { echo "::error::Could not list blocked issues"; blocked=""; failed=1; }
+          for dependent in $blocked; do
+            deps=$(gh api "repos/$REPO/issues/$dependent" --jq '.body // ""' \
+              | tr -d '\r' \
+              | awk '/^##[[:space:]]+Depends on/ { section = 1; next } /^##[[:space:]]/ { section = 0 } section' \
+              | grep -oE '#[0-9]+' | tr -d '#' | sort -un || true)
+            [ -n "$deps" ] || continue
+            all_closed=1
+            for dep in $deps; do
+              state=$(gh api "repos/$REPO/issues/$dep" --jq '.state' 2> /dev/null || echo unknown)
+              [ "$state" = "closed" ] || { all_closed=0; break; }
+            done
+            if [ "$all_closed" = 1 ]; then
+              remove_label "$dependent" "status:blocked"
+              if gh api -X POST "repos/$REPO/issues/$dependent/labels" -f "labels[]=status:ready" > /dev/null; then
+                echo "Issue #$dependent unblocked: status:ready."
+              else
+                echo "::error::Could not label issue #$dependent status:ready"
+                failed=1
+              fi
+            fi
+          done
+
+          exit $failed

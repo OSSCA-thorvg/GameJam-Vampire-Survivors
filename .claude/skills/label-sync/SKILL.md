@@ -39,13 +39,13 @@ Every issue carries exactly one each of `status:*`, `type:*`, `priority:*` and `
 
 The `status:*` lifecycle:
 
-| Transition                             | When                                                                                  | Skill                                                                    |
-| -------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| → `status:ready`                       | Issue created and its dependencies are merged                                         | `issue-create`                                                           |
-| → `status:blocked`                     | Issue created while a dependency is open, or waiting on a decision; comment why       | `issue-create` / manual                                                  |
-| `status:blocked` → `status:ready`      | Every issue under its "Depends on" is closed                                          | auto-merge workflow after a merge (ADR 0012); verified by `issue-finish` |
-| `status:ready` → `status:in-progress`  | Someone starts implementing                                                           | `issue-start`                                                            |
-| `status:in-progress` → `status:review` | PR about to be opened                                                                 | `issue-finish`                                                           |
-| `status:review` → `status:done`        | PR squash-merged by the auto-merge workflow on green CI; `Closes #N` closes the issue | auto-merge workflow (ADR 0012); verified by `issue-finish`               |
-| `status:backlog`                       | Agreed idea, not planned yet                                                          | manual                                                                   |
-| `status:wontfix`                       | Dropped; close with a comment                                                         | manual                                                                   |
+| Transition                             | When                                                                            | Skill                                                                 |
+| -------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| → `status:ready`                       | Issue created and its dependencies are merged                                   | `issue-create`                                                        |
+| → `status:blocked`                     | Issue created while a dependency is open, or waiting on a decision; comment why | `issue-create` / manual                                               |
+| `status:blocked` → `status:ready`      | Every issue under its "Depends on" is closed                                    | `post-merge.yml` after a merge (ADR 0015); verified by `issue-finish` |
+| `status:ready` → `status:in-progress`  | Someone starts implementing                                                     | `issue-start`                                                         |
+| `status:in-progress` → `status:review` | PR about to be opened                                                           | `issue-finish`                                                        |
+| `status:review` → `status:done`        | PR squash-merged by native auto-merge on green CI; `Closes #N` closes the issue | `post-merge.yml` (ADR 0015); verified by `issue-finish`               |
+| `status:backlog`                       | Agreed idea, not planned yet                                                    | manual                                                                |
+| `status:wontfix`                       | Dropped; close with a comment                                                   | manual                                                                |

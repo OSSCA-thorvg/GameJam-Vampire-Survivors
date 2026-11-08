@@ -25,7 +25,7 @@ Everyday commands (the full list, including single-test commands, is in [`CLAUDE
 pnpm server:up      # server in Docker on http://localhost:8787 (ws://localhost:8787/ws), hot-reloading
 pnpm dev            # client only, on http://localhost:5173
 pnpm server:logs / server:down
-pnpm check          # format:check → lint → typecheck → test → verify CLI tests → build → test:build; CI runs the same
+pnpm check          # format:check → lint → typecheck → test → verify CLI and ruleset tests → build → test:build; CI runs the same
 pnpm lint / pnpm lint:fix
 pnpm format / pnpm format:check
 pnpm typecheck
@@ -34,7 +34,7 @@ pnpm build
 pnpm test:build     # check client build artifacts; run pnpm build first
 ```
 
-The pre-commit hook runs Prettier and ESLint on staged files; never bypass it with `--no-verify`. The server always runs in Docker (ADR 0010); the `dev-server` skill in `.claude/skills/` covers rebuilding, the runtime image and troubleshooting. `.env.example` lists the environment variables (`VITE_SERVER_URL`, `PORT`, `LOG_LEVEL`, `ALLOWED_ORIGINS`, `TRUST_PROXY`) with their defaults.
+The pre-commit hook runs Prettier and ESLint on staged files; never bypass it with `--no-verify`. `main` is protected by a GitHub ruleset that nobody can bypass ([ADR 0015](docs/adr/0015-protect-main-with-a-ruleset-and-native-auto-merge.md), `.github/rulesets/main.json`): every change lands as one squash-merged PR, and GitHub's native auto-merge, enabled by the `issue-finish` skill, merges it once the five CI checks pass on a branch that is up to date with `main`. The server always runs in Docker (ADR 0010); the `dev-server` skill in `.claude/skills/` covers rebuilding, the runtime image and troubleshooting. `.env.example` lists the environment variables (`VITE_SERVER_URL`, `PORT`, `LOG_LEVEL`, `ALLOWED_ORIGINS`, `TRUST_PROXY`) with their defaults.
 
 ## Where to look
 

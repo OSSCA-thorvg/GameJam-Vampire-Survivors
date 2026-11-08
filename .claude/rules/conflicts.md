@@ -1,11 +1,11 @@
 # Conflict resolution rules
 
-Adapted from the dw plugin's `merge-resolver` agent (the plugin is not needed), and adapted to this repository's linear history (ADR 0012): a PR branch is exactly one commit rebased onto the current `origin/main`, and it lands with a squash merge. The `resolve-conflicts` skill applies these rules.
+Adapted from the dw plugin's `merge-resolver` agent (the plugin is not needed), and adapted to this repository's linear history (ADR 0015, unchanged from ADR 0012): a PR branch is exactly one commit rebased onto the current `origin/main`, and it lands with a squash merge. The `resolve-conflicts` skill applies these rules.
 
 ## When
 
 - Before opening a PR, when `main` moved since the branch was created (`issue-finish`). A rebase that applies cleanly still needs the functional check below.
-- When the auto-merge workflow comments that a PR conflicts with `main` or is behind it, or the `PR rules` check "Branch is one rebased commit" fails. Every merge makes the other open PRs stale, so this is routine.
+- When the PR feedback workflow (`pr-feedback.yml`) comments that a PR is behind `main`, when GitHub reports the PR conflicts with `main`, or the `PR rules` check "Branch is one rebased commit" fails. Every merge makes the other open PRs stale, so this is routine.
 - When parallel subagents work on issues that touch the same files. Each branch rebases right before its PR, and the one that merges later resolves.
 
 ## How
@@ -33,6 +33,7 @@ Adapted from the dw plugin's `merge-resolver` agent (the plugin is not needed), 
 | Generated files (`packages/shared/src/generated/asset-ids.ts` via `pnpm assets:sync`, `assets/fonts/hud.ttf` and similar) | Never hand-merge. Regenerate them with their script.                                                                                                                                                                                                                                                                                        |
 | `docs/adr/NNNN-*.md` number collision                                                                                     | The branch that has not merged yet renumbers its ADR to the next free number, and updates `docs/adr/README.md` and every reference to it (grep for `ADR NNNN` and the file name).                                                                                                                                                           |
 | `docs/adr/README.md`, `docs/roadmap.md`, `.github/labels.json`, `.env.example`, `compose.yaml`, `.dockerignore`           | Union of rows and entries, in numeric or table order.                                                                                                                                                                                                                                                                                       |
+| `.github/rulesets/main.json`                                                                                              | Union of the required status checks (a check renamed on one side replaces its old name), then run `node scripts/github/check-ruleset.mjs`: every required context must be a `ci.yml` job name. A maintainer re-runs `sh scripts/github/apply-ruleset.sh` after the merge.                                                                   |
 | `CLAUDE.md`, `.claude/rules/*.md`, skills                                                                                 | Keep both sides' rules. If they contradict, the newer user decision wins; ask when unsure. Then re-check `docs-sync.md`.                                                                                                                                                                                                                    |
 | `packages/shared/src/protocol.ts`, content data                                                                           | Keep both. Then fix every type error in client and server, because the type checker shows the functional conflicts.                                                                                                                                                                                                                         |
 

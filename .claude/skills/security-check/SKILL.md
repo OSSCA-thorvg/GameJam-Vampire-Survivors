@@ -5,7 +5,7 @@ description: Security pass for a branch before its PR — vet dependencies, run 
 
 # security-check
 
-Policy: `docs/adr/0011-security-baseline.md`. Checklist: `.claude/rules/security.md`. This skill reports findings; any **high** finding blocks the merge until it is fixed or accepted in an issue by the user. Because the auto-merge workflow merges a PR as soon as CI is green (ADR 0012), CI passing is not a hold: an open PR with a high finding must carry the `status:blocked` label until the finding is resolved.
+Policy: `docs/adr/0011-security-baseline.md`. Checklist: `.claude/rules/security.md`. This skill reports findings; any **high** finding blocks the merge until it is fixed or accepted in an issue by the user. Because native auto-merge merges a PR as soon as the ruleset's required checks are green (ADR 0015), CI passing is not a hold: an open PR with a high finding must have auto-merge turned off (and carry the `status:blocked` marker) until the finding is resolved.
 
 Prefer running it in a subagent briefed with the branch name, the issue and this file. The main session reads the report.
 
@@ -80,5 +80,5 @@ Prefer running it in a subagent briefed with the branch name, the issue and this
    - **Codex:** follow [AGENTS.md's Codex equivalents](../../../AGENTS.md#codex-equivalents). Use the available `interrogate` skill with an explicit security scope covering ADR 0011 and `.claude/rules/security.md`. If the skill or its review tooling is unavailable, perform an independent checklist review and report the unavailable tools and checks actually run. Keep findings from steps 1–8 even if the additional review cannot reproduce them. The high-severity hold below still applies.
 10. Report a table of severity (high / medium / low), location, finding and fix. Post it as a PR comment with `--body-file` when the PR exists. Never merge by hand; instead:
     - If the PR is not open yet, do not open it while any **high** finding is open.
-    - If the PR is open and any **high** finding is open, hold it at once: `gh issue edit <PR> -R OSSCA-thorvg/GameJam-Vampire-Survivors --add-label status:blocked`. The workflow never merges a PR with that label.
-    - Once every high finding is fixed (squashed into the branch's one commit and pushed with `--force-with-lease`) or accepted in an issue by the user, release the hold: remove the label and re-run the PR's latest CI run (`gh run rerun <run-id>`, the id from `gh run list --workflow ci.yml --branch <branch> --limit 1`), or push a commit.
+    - If the PR is open and any **high** finding is open, hold it at once by turning auto-merge off, `gh pr merge <PR> -R OSSCA-thorvg/GameJam-Vampire-Survivors --disable-auto`, and mark it with `gh issue edit <PR> -R OSSCA-thorvg/GameJam-Vampire-Survivors --add-label status:blocked` (the label alone does not stop a merge, ADR 0015).
+    - Once every high finding is fixed (squashed into the branch's one commit and pushed with `--force-with-lease`) or accepted in an issue by the user, release the hold: remove the label and enable auto-merge again with `gh pr merge <PR> -R OSSCA-thorvg/GameJam-Vampire-Survivors --auto --squash`.

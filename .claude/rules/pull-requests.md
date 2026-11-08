@@ -15,7 +15,7 @@ The `issue-finish` skill applies these. Writing conventions are those of `commit
 
   Do not narrate the diff file by file, and do not add AI attribution.
 
-- **One rebased commit:** the PR branch is exactly one commit on top of the current `origin/main`, with no merge commits. Its subject is the PR title and its body the PR summary (`.claude/rules/commits.md`). After every fix or every move of `main`, rebase (`resolve-conflicts` when it conflicts), squash again and `git push --force-with-lease`. CI (`PR rules`) and the auto-merge workflow both refuse a branch that is behind `main`.
+- **One rebased commit:** the PR branch is exactly one commit on top of the current `origin/main`, with no merge commits. Its subject is the PR title and its body the PR summary (`.claude/rules/commits.md`). After every fix or every move of `main`, rebase (`resolve-conflicts` when it conflicts), squash again and `git push --force-with-lease`. CI (`PR rules`) and the `main` ruleset (strict up-to-date checks, linear history) both refuse a branch that is behind `main`.
 - **Using `gh`:** run it with your own account (`gh auth status`). Always pass `--json <fields>` to `gh issue view` and `gh pr view`, and pass bodies with `--body-file`. If `gh pr edit` or `gh issue edit` fails with a missing-scope error (for example `read:org`), make the same change with the REST API, which needs no extra scope:
   ```sh
   gh api -X PATCH repos/OSSCA-thorvg/GameJam-Vampire-Survivors/pulls/<PR> -F body=@/tmp/pr-body.md       # PR title (-f title=...) or body
@@ -25,22 +25,26 @@ The `issue-finish` skill applies these. Writing conventions are those of `commit
 - **Labels:** the same `type:*`, `priority:*`, `area:*` and `phase:*` as the issue, applied when the PR is created (`gh pr create --label`), or later with `gh issue edit <PR>`.
 - **One closing keyword:** the only closing keyword in the body is the final `Closes #N` line. GitHub links `Closes|Fixes|Resolves #N` anywhere in the body, even inside backticks, and closes that issue on merge (PR #38 closed #2 this way). Never write a closing keyword followed by another issue number; rephrase, for example "the closing line for issue 2". CI fails a body that closes more than one issue.
 - **CI enforces the evidence sections:** the `PR rules` job fails unless the body has non-empty `## Impact` and `## Verification` sections. The template's HTML-comment placeholders do not count, so an unfilled template fails.
-- **Gate before merge**, all done before the PR is opened (or before its hold is released), because green CI merges it immediately:
+- **Gate before merge**, all done before auto-merge is enabled (or before a hold is released), because with auto-merge on, green CI merges the PR immediately:
   - every acceptance criterion in the issue is demonstrably met, at the proof level `.claude/rules/verification.md` requires (user-visible criteria run in the real app);
   - the `impact-check` safety fact reached proof level 4, and the PR body carries the **Impact** and **Verification** evidence;
   - the branch is up to date with `origin/main`, with any conflicts resolved per `.claude/rules/conflicts.md` (`resolve-conflicts`);
   - `pnpm check` passes locally;
   - documentation is in sync per `.claude/rules/docs-sync.md`, including `CLAUDE.md`;
-  - the `security-check` skill reports no open **high** finding, when the PR touches dependencies, the lockfile, the server, the protocol, Docker, CI or DOM rendering of user data (`.claude/rules/security.md`); a PR that is already open while a high finding is open carries `status:blocked`;
+  - the `security-check` skill reports no open **high** finding, when the PR touches dependencies, the lockfile, the server, the protocol, Docker, CI or DOM rendering of user data (`.claude/rules/security.md`); a PR that is already open while a high finding is open has auto-merge off and carries `status:blocked`;
   - CI is green.
-- **Merge only through the auto-merge workflow** (`.github/workflows/auto-merge.yml`, ADR 0012). It squash-merges a PR as soon as CI succeeds on the PR's latest commit, and comments on the PR instead when CI fails. This project does not wait for human review.
-  - Never run `gh pr merge` and never use the web UI merge button, even with green checks. Branch protection is unavailable on this plan, so this rule is the only thing that stops a manual merge.
-  - To hold a PR, label it `status:blocked` (`gh pr create --label status:blocked`, or `gh issue edit <PR> --add-label status:blocked`). To release it, remove the label and re-run the PR's latest CI run (`gh run rerun <run-id>`, the id from `gh run list --workflow ci.yml --branch <branch> --limit 1`), or push a commit. The workflow also never merges drafts, but draft PRs need a paid plan for private repositories.
-  - Fork and Dependabot PRs are never merged by the workflow; they are reviewed by hand.
-- **After merge**, done by the workflow and verified by `issue-finish`:
+- **Merge only through native auto-merge, under the `main` ruleset** (ADR 0015). The ruleset (`.github/rulesets/main.json`) requires a PR, the CI checks `pnpm check`, `verify`, `repo rules`, `server image` and `PR rules` green on a branch that is up to date with `main`, linear history and squash merges; it forbids force-pushes to and deletion of `main`, and has no bypass actors, so nobody, admins included, can get around it. This project does not wait for human review.
+  - `issue-finish` enables auto-merge with `gh pr merge <PR> -R OSSCA-thorvg/GameJam-Vampire-Survivors --auto --squash` once every gate above is met; GitHub then squash-merges the PR as soon as the ruleset is satisfied. That is the only merge command anyone runs. If `gh` fails with a missing-scope error, use the `enablePullRequestAutoMerge` GraphQL mutation shown in `issue-finish`.
+  - Never merge immediately (`gh pr merge` without `--auto`) and never use the web UI merge button, even with green checks. The ruleset refuses a red or stale PR anyway.
+  - **Hold** = auto-merge off. A PR without auto-merge never merges; turn it off on an open PR with `gh pr merge <PR> -R OSSCA-thorvg/GameJam-Vampire-Survivors --disable-auto`, and release the hold by enabling it again. The `status:blocked` label on a PR stays as a visible marker of the hold, but does not stop a merge by itself.
+  - A force-push can disable auto-merge: after each one, check `gh pr view <PR> --json autoMergeRequest` and enable it again if it is `null` and the PR is not held.
+  - `.github/workflows/pr-feedback.yml` comments once per commit when CI fails on a PR, or passes on a branch that is behind `main`. It never merges.
+  - Fork and Dependabot PRs never get auto-merge; they are reviewed and merged by hand, through the same ruleset.
+  - Renaming or removing a CI job changes a required check: update `.github/rulesets/main.json` in the same PR (`scripts/github/check-ruleset.mjs` in `repo rules` fails otherwise), and a maintainer re-runs `sh scripts/github/apply-ruleset.sh` after it merges.
+- **After merge**, done by `.github/workflows/post-merge.yml` and verified by `issue-finish`:
   - the closed issue is labelled `status:done`, without `status:review` or `status:in-progress`;
   - dependents whose `## Depends on` issues are now all closed move from `status:blocked` to `status:ready`;
-  - CI is dispatched on `main`.
+  - the push to `main` runs CI there (native auto-merge merges as a user, so no dispatch is needed).
 
   `issue-finish` then fast-forwards local `main`.
 

@@ -24,7 +24,7 @@ Check each of these that the change touches:
 - **Server in Docker (ADR 0010):** env vars, ports, `.env.example`, `compose.yaml` and the `Dockerfile`; the `@vs/shared` `exports` conditions (`development` source for dev and tests, `default` compiled `dist` in the runtime image); and the CI `server image` job, which builds the `runtime` image and checks `/healthz`, health and the `node` user whenever the server, `shared`, Docker files, the lockfile or `.nvmrc` change.
 - **Security (ADR 0011):** user data reaching the DOM, new dependencies, CI permissions.
 - **Docs that go stale (`docs-sync.md`):** `CLAUDE.md` commands and architecture, and the verification map.
-- **Workflow and CI (ADR 0012):** rules, skills and `CLAUDE.md` that reference each other by name or step number, the CI `repo rules` and `PR rules` steps that grep them, and `.github/workflows/auto-merge.yml`, which merges on green CI.
+- **Workflow and CI (ADR 0015):** rules, skills and `CLAUDE.md` that reference each other by name or step number, and the CI `repo rules` and `PR rules` steps that grep them. The CI job `name:` values in `.github/workflows/ci.yml` are the required status checks of the `main` ruleset (`.github/rulesets/main.json`), matched as strings: renaming or removing a CI job makes every PR unmergeable. Update the ruleset JSON in the same PR, keep `scripts/github/check-ruleset.mjs` (run in `repo rules`) green, and have a maintainer re-run `scripts/github/apply-ruleset.sh` after the merge. `.github/workflows/pr-feedback.yml` (comments on red or stale PRs, runs from the default branch) and `.github/workflows/post-merge.yml` (`status:done`, unblocking) never merge; GitHub's native auto-merge does.
 
 ## Scope mode (before coding, from issue-start)
 
