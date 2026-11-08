@@ -100,7 +100,7 @@ pnpm server:image       # build the runtime image vs-server:local (non-root, pro
 pnpm --filter server test                   # server unit tests on the host (allowed by .claude/rules/docker.md)
 pnpm --filter server exec node scripts/ws-hello.mjs http://localhost:5173   # WebSocket check against :8787/ws
 pnpm --filter client build && pnpm --filter client exec vite preview   # production build on :4173 under the ADR 0011 CSP
-pnpm check              # format:check → lint → typecheck → test → build; must pass before merge
+pnpm check              # format:check → lint → typecheck → test → build → test:build; must pass before merge
 pnpm lint / pnpm lint:fix
 pnpm format / pnpm format:check
 pnpm typecheck
@@ -110,6 +110,8 @@ pnpm --filter client exec vitest run -t "spawns enemies"   # single test by name
 pnpm --filter client exec vitest run src/worker/loop.test.ts   # one client test file
 pnpm build
 sh scripts/make-hud-font.sh   # rebuild assets/fonts/hud.ttf (ADR 0013); needs fonttools 4.68.0 (pipx install fonttools==4.68.0), not a project dependency
+pnpm test:build         # check the client dist after building: only the worker's canonical WASM ships
+pnpm --filter client test:build   # run only src/build.test.ts; requires a current client build
 ```
 
 ## Architecture
@@ -131,6 +133,7 @@ Read the ADR for the full reasoning.
   - Do not use the `/thread` build.
   - `worker/render/thorvg.ts` `initThorVG` returns `{ TVG, canvas, root }`; later layers go under the scaled `root` scene. `thorvg.wasm` is served from `/thorvg/thorvg.wasm` by the `copyThorvgWasm` plugin in `vite.config.ts`.
   - Every ThorVG `Text` uses `text.font(HUD_FONT)`, read after `initThorVG` resolves (ADR 0013). `initThorVG` fetches `fonts/hud.ttf` (`assets/fonts/hud.ttf`, asset ID `font.hud`: Noto Sans Mono Regular subset to printable ASCII `U+0020`–`U+007E`, OFL, under 15 KB) and registers it as `'hud'`; if that fails it logs one warning and `HUD_FONT` stays `'default'`, the built-in font, which lacks `:`, `/`, `%` and most punctuation. ThorVG text stays printable ASCII (numbers, English labels); Korean text and every nickname are DOM text set with `textContent` (ADR 0009). Rebuild the subset only with `scripts/make-hud-font.sh`.
+  - Production builds remove only the unused `assets/thorvg-*.wasm` copy through `removeDuplicateThorvgWasm`. `src/build.test.ts` checks the real output with `vitest.build.config.ts` after `pnpm build`; ordinary unit tests exclude it through `vitest.config.ts`.
 - **Simulation (ADR 0004):**
   - Fixed 60 Hz step with an accumulator, at most 5 steps per frame.
   - In a hidden tab, a `setTimeout` loop keeps simulating without rendering (cap of 120 steps per tick). In single player, hiding the tab pauses the game instead.

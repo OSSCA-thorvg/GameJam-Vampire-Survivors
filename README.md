@@ -23,12 +23,13 @@ Everyday commands (the full list, including single-test commands, is in [`CLAUDE
 pnpm server:up      # server in Docker on http://localhost:8787 (ws://localhost:8787/ws), hot-reloading
 pnpm dev            # client only, on http://localhost:5173
 pnpm server:logs / server:down
-pnpm check          # format:check → lint → typecheck → test → build; CI runs the same
+pnpm check          # format:check → lint → typecheck → test → build → test:build; CI runs the same
 pnpm lint / pnpm lint:fix
 pnpm format / pnpm format:check
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm test:build     # check client build artifacts; run pnpm build first
 ```
 
 The pre-commit hook runs Prettier and ESLint on staged files; never bypass it with `--no-verify`. The server always runs in Docker (ADR 0010); the `dev-server` skill in `.claude/skills/` covers rebuilding, the runtime image and troubleshooting. `.env.example` lists the environment variables (`VITE_SERVER_URL`, `PORT`, `LOG_LEVEL`, `ALLOWED_ORIGINS`) with their defaults.
