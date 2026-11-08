@@ -56,7 +56,7 @@ Current state: the toolchain exists (pnpm workspace with `@vs/client`, `@vs/serv
 - A decision that binds later work gets an ADR through `adr-new` in the same PR. Do not contradict an accepted ADR. Supersede it.
 - The project's rules and skills are complete on their own; the `dw` plugin is not needed. Its label, branch, commit and `gh` conventions are restated in `.claude/rules/labels.md`, `commits.md` and `pull-requests.md`. Even if the dw plugin is installed, do not use its workflow skills (`/dw:impl`, `/dw:ship`, `/dw:epic-impl` and similar) for this repository's issues: issue work starts only with `issue-start` and merges only through native auto-merge enabled by `issue-finish`.
 - Commit, PR and issue text is written in English with a `feat:`/`fix:`/`update:`/`refactor:`/`test:`/`docs:`/`chore:` subject. PR titles carry no `(#N)` suffix: GitHub appends the PR number to the squash commit, and the issue link is `Closes #N` in the body. Paragraphs are not hard-wrapped, and bodies are passed with `--body-file`. Do not add AI attribution or `Co-Authored-By` trailers.
-- The pre-commit hook (ADR 0002) runs Prettier and ESLint on staged files, and must pass. Never commit with `--no-verify`. If the hook fails, fix the code and commit again.
+- The pre-commit hook (ADR 0002, `lint-staged.config.js`) runs Prettier and ESLint on staged files, then the Vitest tests related to the staged code files (`vitest related`), and the whole `@vs/shared` project when a file under `assets/` is staged; it must pass. Locally only related tests run (`pnpm test:changed` while iterating); `pnpm check` and CI keep running the full suite (user decision, 2026-11-08). Never commit with `--no-verify`. If the hook fails, fix the code and commit again.
 - **Security (ADR 0011):**
   - Follow `.claude/rules/security.md`.
   - Packages install only versions at least 7 days old (`minimumReleaseAge`), and dependency build scripts are blocked unless listed in `allowBuilds`.
@@ -88,7 +88,7 @@ The project skills in `.claude/skills/`:
 
 ## Commands
 
-Created by #1 (roadmap F1), #4 (the server in Docker), #46, #47, #31 (`verify:*`) and #74 (`scripts/github/`). Every command below is real. `pnpm assets:sync` (#3) regenerates the catalog ID contract; do not invent other commands. `npm install` and `yarn` are rejected by the `preinstall` check, and Node or pnpm versions outside `engines` fail the install (`engineStrict` in `pnpm-workspace.yaml`).
+Created by #1 (roadmap F1), #4 (the server in Docker), #46, #47, #31 (`verify:*`), #74 (`scripts/github/`) and #82 (`test:changed`). Every command below is real. `pnpm assets:sync` (#3) regenerates the catalog ID contract; do not invent other commands. `npm install` and `yarn` are rejected by the `preinstall` check, and Node or pnpm versions outside `engines` fail the install (`engineStrict` in `pnpm-workspace.yaml`).
 
 ```sh
 nvm use                 # Node version from .nvmrc (24)
@@ -110,6 +110,7 @@ pnpm format / pnpm format:check
 pnpm typecheck
 pnpm assets:sync                            # regenerate shared asset IDs/sizes from assets/CATALOG.md
 pnpm test                                   # all packages (Vitest)
+pnpm test:changed                           # only tests affected since origin/main; the whole suite when assets/, a package/Vitest/Vite config, a tsconfig or the lockfile changed
 pnpm --filter shared test -- src/content    # one package, one path
 pnpm --filter shared test -- src/assets-catalog   # catalog == manifest, naming, mass budget, inert assets
 pnpm --filter client exec vitest run -t "spawns enemies"   # single test by name
@@ -142,7 +143,7 @@ Read the ADR for the full reasoning.
   - `packages/client` (`@vs/client`) is the Vite app with no UI framework (ADR 0009); its only runtime dependency is `@thorvg/webcanvas` (ADR 0011). `src/main` and `src/worker` are type-checked against DOM and WebWorker libs by separate tsconfigs (`tsconfig.main.json`, `tsconfig.worker.json`);
   - `packages/server` (`@vs/server`) is the Node + `ws` relay, run in Docker (ADR 0010: `packages/server/Dockerfile`, `compose.yaml`); `GET /healthz` answers `ok`, WebSocket upgrades on `/ws` are accepted only from `ALLOWED_ORIGINS`, and `src/config.ts` reads `PORT` (8787), `LOG_LEVEL`, `ALLOWED_ORIGINS`, `TRUST_PROXY` and the test-only `MATCH_TIME_LIMIT_S_OVERRIDE`, honoured only when `NODE_ENV=test` (`.env.example`); `src/log.ts` writes JSON lines, never message bodies, nicknames or IPs; the modules are listed under Multiplayer below;
   - `packages/shared` (`@vs/shared`) holds protocol types and content data, with no DOM, worker or Node APIs; TypeScript, Vitest, the server's dev container (`development` condition) and the client (a Vite alias) read `src/index.ts`, while the runtime image runs the compiled `dist` (`default` condition);
-  - the root `tsconfig.json` references every package, so `tsc -b` checks them all; `eslint.config.js`, `.prettierrc.json` and `vitest.config.ts` (projects `packages/*`) live at the root;
+  - the root `tsconfig.json` references every package, so `tsc -b` checks them all; `eslint.config.js`, `.prettierrc.json`, `lint-staged.config.js` (the pre-commit tasks) and `vitest.config.ts` (projects `packages/*`, plus the root-anchored `forceRerunTriggers` for `--changed` and `related`) live at the root;
   - `assets/` holds the art and `manifest.json`.
   - The browser favicon is `assets/ui/favicon.svg` (`ui.favicon`, cataloged as a placeholder), linked from `client/index.html` and served through Vite's `publicDir` in dev and production.
 - **Threads (ADR 0004):** the main thread (`client/src/main/`) owns the DOM UI, keyboard capture and the WebSocket. A dedicated module worker (`client/src/worker/`) owns the simulation and all ThorVG rendering, including the HUD, on an `OffscreenCanvas` transferred at startup. The two talk only through the typed messages in `client/src/protocol/worker-messages.ts`. Nothing in the worker may touch the DOM; nothing on the main thread may touch the canvas.

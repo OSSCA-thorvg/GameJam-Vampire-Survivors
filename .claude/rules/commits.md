@@ -39,7 +39,7 @@ These rules are complete on their own; they match the dw plugin's `commit-conven
   ```
 - Stage files by path. Never use `git add -A`, `git add .`, `git stash` or `git clean`.
 - Never commit secrets, `.env` files or build output. `.gitignore` covers the usual ones; check `git status` before committing.
-- The pre-commit hook runs Prettier and ESLint (ADR 0002) and must pass. Never use `--no-verify`.
+- The pre-commit hook (ADR 0002, `lint-staged.config.js`) runs Prettier and ESLint on the staged files, then the Vitest tests related to the staged code files, and the whole `@vs/shared` project (the asset catalog tests) when a file under `assets/` is staged. It must pass; a failing test blocks the commit. Never use `--no-verify`. CI and `pnpm check` still run the full suite.
 
 ## Where commits go
 

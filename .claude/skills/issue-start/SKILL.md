@@ -71,6 +71,6 @@ description: The only way to begin implementing a GitHub issue — verify it is 
    gh issue comment <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors --body-file /tmp/start.md
    ```
    End the comment with the hidden marker line `<!-- issue-start -->`. CI checks for it, together with an assignee, before a PR for this issue can merge.
-7. Implement against the acceptance criteria and the implementation plan. Run what you write as you go, and keep the evidence for `issue-finish` in `verification/issue-<N>/` (`.claude/rules/verification.md`). When the work reveals a decision that will bind later issues, write an ADR with `adr-new` on the same branch.
+7. Implement against the acceptance criteria and the implementation plan. Run what you write as you go: iterate with `pnpm test:changed`, which runs only the tests affected since `origin/main` (the whole suite when a file under `assets/`, a package, Vitest or Vite config, a tsconfig or the lockfile changed); the full suite still runs in `pnpm check` before the PR (`issue-finish`) and in CI. Keep the evidence for `issue-finish` in `verification/issue-<N>/` (`.claude/rules/verification.md`). When the work reveals a decision that will bind later issues, write an ADR with `adr-new` on the same branch.
 
 To give up an issue: switch the label back to `status:ready`, remove yourself as assignee, and comment what was learned.
