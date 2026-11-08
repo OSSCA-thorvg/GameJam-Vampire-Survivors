@@ -1,0 +1,51 @@
+import { WEAPONS } from '@vs/shared';
+import { describe, expect, it } from 'vitest';
+import { indexEnemies, quietWorld, target } from '../combat-test-helpers';
+import { addWeapon } from './owned';
+import { magicWand, WAND_BOLT_RADIUS } from './patterns/magicWand';
+
+const L1 = WEAPONS.magicWand.levels[0];
+if (!L1) throw new Error('no wand L1');
+
+function armed() {
+  const world = quietWorld();
+  addWeapon(world, 'magicWand');
+  const w = world.weapons[0];
+  if (!w) throw new Error('no wand');
+  world.player.x = 100;
+  world.player.y = 100;
+  return { world, w };
+}
+
+describe('magic wand', () => {
+  it('fires at the nearest of three enemies at its speed, with its pierce, lifetime and radius', () => {
+    const { world, w } = armed();
+    target(world, 'bat', 100 + 300, 100);
+    target(world, 'bat', 100, 100 - 200);
+    target(world, 'bat', 100 - 250, 100 + 250);
+    indexEnemies(world);
+    magicWand.fire(world.weaponContext, w, L1, 0);
+    const p = world.projectiles.cols;
+    expect(world.projectiles.count).toBe(1);
+    expect([p.x[0], p.y[0]]).toEqual([100, 100]);
+    expect(p.vx[0]).toBeCloseTo(0, 4);
+    expect(p.vy[0]).toBeCloseTo(-L1.speed, 4);
+    expect(p.rot[0]).toBeCloseTo(-90, 4);
+    expect(p.pierceLeft[0]).toBe(L1.pierce);
+    expect(p.ttl[0]).toBe(L1.durationSec);
+    expect(p.radius[0]).toBe(WAND_BOLT_RADIUS);
+    expect(p.damage[0]).toBe(L1.damage);
+  });
+
+  it('fires along the last movement direction when no enemy is in range', () => {
+    const { world, w } = armed();
+    world.player.lastDirX = -Math.SQRT1_2;
+    world.player.lastDirY = Math.SQRT1_2;
+    target(world, 'bat', 100 + 2000, 100);
+    indexEnemies(world);
+    magicWand.fire(world.weaponContext, w, L1, 0);
+    const p = world.projectiles.cols;
+    expect(p.vx[0]).toBeCloseTo(-L1.speed * Math.SQRT1_2, 3);
+    expect(p.vy[0]).toBeCloseTo(L1.speed * Math.SQRT1_2, 3);
+  });
+});

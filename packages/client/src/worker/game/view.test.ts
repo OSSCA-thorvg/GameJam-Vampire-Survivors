@@ -1,5 +1,7 @@
 import { HIT_INVULN_SEC } from '@vs/shared';
 import { expect, it } from 'vitest';
+import { cleanupSystem, damageEnemy } from './combat';
+import { spawnEnemy } from './enemies';
 import { createGameView } from './view';
 import { fakeGameView } from './view-test-helpers';
 import { createWorld } from './world';
@@ -13,18 +15,21 @@ function setup() {
   return { ...fake, view, world, byId };
 }
 
-it('creates every paint once: ground, enemy pools, player, HP bar, skull, fill and two texts', () => {
+it('creates every paint once: ground, enemy, projectile and effect pools, player, HP bar, skull, fill and two texts', () => {
   const { view, byId, paints } = setup();
   expect(byId('stage.ground')).toHaveLength(96);
   expect(byId('enemy.bat')).toHaveLength(200);
   expect(byId('enemy.ghoul')).toHaveLength(200);
+  expect(byId('weapon.magicWand')).toHaveLength(300);
+  for (const id of ['weapon.whip', 'fx.hit', 'fx.enemyDeath'])
+    expect(byId(id), id).toHaveLength(64);
   expect(byId('player.warden')).toHaveLength(1);
   expect(byId('ui.hpBar')).toHaveLength(1);
   expect(byId('ui.skull')).toHaveLength(1);
   expect(byId('Shape')).toHaveLength(1);
   expect(byId('Text')).toHaveLength(2);
-  expect(view.countPaints()).toBe(499);
-  expect(paints).toHaveLength(502);
+  expect(view.countPaints()).toBe(991);
+  expect(paints).toHaveLength(994);
 });
 
 it('follows the camera, snapped to device pixels', () => {
@@ -103,4 +108,53 @@ it('hides everything on clear and shows the HUD again on begin', () => {
   expect(shown('player.warden')).toBe(1);
   expect(shown('Text')).toBe(2);
   expect(byId('Text').map((t) => t.text)).toEqual(['00:00', '0']);
+});
+
+it('dims a hit enemy to 140 while it flashes, writing opacity only on change, and draws bolts and effects', () => {
+  const fake = fakeGameView();
+  const view = createGameView(fake.options);
+  view.begin();
+  const world = createWorld({
+    seed: 1,
+    enemyPools: view.enemyPools,
+    projectilePools: view.projectilePools,
+    fxPools: view.fxPools,
+  });
+  world.weapons.length = 0;
+  const bat = spawnEnemy(world, 'bat', 50, 0);
+  world.enemies.cols.hp[bat] = 1000;
+  const sprite = fake.paints.find((p) => p.id === 'enemy.bat' && p.visible);
+  if (!sprite) throw new Error('no bat paint');
+  const seen: [number, number][] = [];
+  const record = () => seen.push([sprite.opacity, sprite.opacityWrites]);
+  const base = sprite.opacityWrites;
+  view.render(world);
+  record();
+  damageEnemy(world, bat, 1, 1, 0, 0);
+  world.weaponContext.spawnProjectile('weapon.magicWand', 10, 20, 0, 300, {
+    damage: 1,
+    knockback: 0,
+    radius: 6,
+    pierce: 1,
+    ttl: 1,
+  });
+  for (let i = 0; i < 3; i++) view.render(world);
+  record();
+  for (let i = 0; i < 6; i++) cleanupSystem(world, 1 / 60);
+  view.render(world);
+  view.render(world);
+  record();
+  // A fresh slot writes 255 once (the pooled paint may be dimmed from an earlier enemy), then once per change.
+  expect(seen).toEqual([
+    [255, base + 1],
+    [140, base + 2],
+    [255, base + 3],
+  ]);
+  const shown = (id: string) => fake.paints.filter((p) => p.id === id && p.visible);
+  const [boltPaint] = shown('weapon.magicWand');
+  // The bolt points along its velocity (straight down: 90°) at its position.
+  expect(boltPaint?.matrix?.e13).toBeCloseTo(10, 4);
+  expect(boltPaint?.matrix?.e23).toBeCloseTo(20, 4);
+  expect(boltPaint?.matrix?.e21).toBeCloseTo(1, 4);
+  expect(shown('fx.hit')).toHaveLength(1);
 });

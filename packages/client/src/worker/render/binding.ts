@@ -52,6 +52,7 @@ export class RenderBinding<S extends BindingSchema> {
     ys: Float32Array,
     rotations?: Float32Array,
     flips?: Uint8Array,
+    scales?: Float32Array,
   ): void {
     if (store !== this.store) throw new Error('A binding can only sync its own store');
     for (let i = 0; i < store.count; i++) {
@@ -59,7 +60,14 @@ export class RenderBinding<S extends BindingSchema> {
       const idIndex = uid & 0xfff;
       if (!this.bound[idIndex] || this.boundUid[idIndex] !== uid) continue;
       const instance = this.pool(store.cols.poolId[i] ?? 0).get(store.cols.paintHandle[i] ?? 0);
-      setTransform(instance, xs[i] ?? 0, ys[i] ?? 0, rotations?.[i] ?? 0, 1, flips?.[i] === 1);
+      setTransform(
+        instance,
+        xs[i] ?? 0,
+        ys[i] ?? 0,
+        rotations?.[i] ?? 0,
+        scales?.[i] ?? 1,
+        flips?.[i] === 1,
+      );
     }
   }
 }

@@ -7,12 +7,16 @@ import { PaintPool } from '../render/pool';
 import { setTransform } from '../render/transform';
 import { snapToPixel } from './camera';
 import { createEnemyPools } from './enemies';
+import { createFxPools } from './fx';
+import { createProjectilePools } from './projectiles';
 import type { World } from './world';
 
 /** Damage feedback: while invulnerable, the player sprite alternates between these opacities every `BLINK_SEC`. */
 const BLINK_SEC = 0.08;
 const BLINK_DIM = 100;
 const OPAQUE = 255;
+/** An enemy's opacity while its hit flash lasts (#10). */
+const HIT_FLASH_OPACITY = 140;
 
 export interface GameViewOptions {
   TVG: Pick<ThorVGNamespace, 'Shape' | 'Text'>;
@@ -21,7 +25,9 @@ export interface GameViewOptions {
     world: Pick<Scene, 'translate'>;
     ground: Pick<Scene, 'add'>;
     enemies: Pick<Scene, 'add'>;
+    projectiles: Pick<Scene, 'add'>;
     player: Pick<Scene, 'add'>;
+    fx: Pick<Scene, 'add'>;
     hud: Pick<Scene, 'add'>;
   };
   /** Device pixels per logical unit (#2's `init`/`resize` scale), read every frame. */
@@ -35,6 +41,9 @@ export interface GameViewOptions {
 export interface GameView {
   /** Pool `i` draws `ENEMY_LIST[i]`; a run's `RenderBinding` borrows them (`createWorld({ enemyPools })`). */
   readonly enemyPools: readonly PaintPool[];
+  /** Pool `i` draws `PROJECTILE_ASSETS[i]` and `FX_ASSETS[i]` (#10); borrowed the same way. */
+  readonly projectilePools: readonly PaintPool[];
+  readonly fxPools: readonly PaintPool[];
   /** Every pool the view owns, for the `paintsCreated` count. */
   readonly pools: readonly PaintPool[];
   /** `created` summed over every pool. */
@@ -43,22 +52,33 @@ export interface GameView {
   clear(): void;
   /** Shows the ground, the player and the HUD for a new run, from the existing paints. */
   begin(): void;
-  /** Syncs the camera, ground, enemies, player and HUD from `world`. No `canvas.update()`/`render()`. */
+  /** Syncs the camera, ground, enemies (with their hit flash), projectiles, player, effects and HUD from `world`. No `canvas.update()`/`render()`. */
   render(world: World): void;
 }
 
 export function createGameView({ TVG, library, layers, scale }: GameViewOptions): GameView {
   const ground = createGround(library, layers.ground);
   const enemyPools = createEnemyPools(library, layers.enemies);
+  const projectilePools = createProjectilePools(library, layers.projectiles);
+  const fxPools = createFxPools(library, layers.fx);
   const playerPool = new PaintPool(library, 'player.warden', layers.player, 1);
   // Created after the player pool, so the HP bar draws above the sprite in the same layer.
   const hud = createHud(TVG, library, layers);
-  const pools: readonly PaintPool[] = [ground.pool, ...enemyPools, playerPool, ...hud.pools];
+  const pools: readonly PaintPool[] = [
+    ground.pool,
+    ...enemyPools,
+    ...projectilePools,
+    playerPool,
+    ...fxPools,
+    ...hud.pools,
+  ];
   let player = playerPool.get(0);
   let opacity = OPAQUE;
 
   const view: GameView = {
     enemyPools,
+    projectilePools,
+    fxPools,
     pools,
     countPaints() {
       let total = 0;
@@ -79,7 +99,7 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
     },
     render(world) {
       const s = scale();
-      const { camera, player: p, enemies } = world;
+      const { camera, player: p, enemies, projectiles, fx } = world;
       layers.world.translate(
         snapToPixel(VIEW_WIDTH / 2 - camera.x, s),
         snapToPixel(VIEW_HEIGHT / 2 - camera.y, s),
@@ -92,6 +112,14 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
         undefined,
         enemies.cols.flip,
       );
+      if (world.enemyBinding) syncHitFlash(world);
+      world.projectileBinding?.sync(
+        projectiles,
+        projectiles.cols.x,
+        projectiles.cols.y,
+        projectiles.cols.rot,
+      );
+      world.fxBinding?.sync(fx, fx.cols.x, fx.cols.y, fx.cols.rot, fx.cols.flip, fx.cols.scale);
       setTransform(player, p.x, p.y, 0, 1, p.facingX < 0);
       const blink =
         p.invulnTime > 0 && Math.floor(p.invulnTime / BLINK_SEC) % 2 === 0 ? BLINK_DIM : OPAQUE;
@@ -109,6 +137,18 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
       });
     },
   };
+  /** Dims each flashing enemy, writing opacity only when it changes; a fresh slot's `shownOpacity` 0 forces a write. */
+  function syncHitFlash(world: World): void {
+    const { count, cols } = world.enemies;
+    const { flash, shownOpacity, poolId, paintHandle } = cols;
+    for (let i = 0; i < count; i++) {
+      const target = (flash[i] ?? 0) > 0 ? HIT_FLASH_OPACITY : OPAQUE;
+      if (shownOpacity[i] === target) continue;
+      shownOpacity[i] = target;
+      enemyPools[poolId[i] ?? 0]?.get(paintHandle[i] ?? 0).paint.opacity(target);
+    }
+  }
+
   view.clear();
   return view;
 }

@@ -8,7 +8,7 @@ Contact damage, invulnerability, death and the in-game HUD (#9): enemies touchin
 - **Invulnerability:** consecutive drops are at least 0.5 s of simulated time apart (`HIT_INVULN_SEC`; by sampling, at least 0.5 s minus one sampling interval), and `player.invulnerable` is `true` right after a hit.
 - **Damage feedback:** while invulnerable, the player sprite blinks (opacity 255 and 100, alternating every 0.08 s): screenshots during the window show it dimmed.
 - **HP bar:** a 40×6 bar 6 units under the player's feet, in world space; its red fill shrinks to `hp / maxHp` (screenshots: full at 100, about two thirds at 65).
-- **Timer and kills:** `mm:ss` at the top centre (from `timeS`, updated once per second) and a skull with the kill count at the top right (0 until #10).
+- **Timer and kills:** `mm:ss` at the top centre (from `timeS`, updated once per second) and a skull with the kill count at the top right (`kills`, rising as weapons kill enemies since #10; `weapons.md`).
 - **Not DOM:** while playing, `#app` holds only `canvas` and the empty `#screens` container; no DOM text matches `\d\d:\d\d`, and no element carries an HP, timer or kill class or id.
 - **Death:** at 0 HP the run stops (`state: 'results'`, `paused: true`, `timeS` frozen) and the results screen shows the survived time matching `timeS`, kills and level (`run-flow.md`).
 - Snapshot fields: `player` (`{ x, y, facingX, hp, maxHp, invulnerable }`, `worker/game/snapshot.ts`), `timeS`, `kills` (`world.stats.kills`), `state` and `paused`.
@@ -162,7 +162,8 @@ test('player-health 3: at 0 HP the run stops and the results show the survived t
     expect(player(dead).hp).toBe(0);
     expect(dead.paused).toBe(true);
     expect(later.timeS).toBe(dead.timeS);
-    expect(shown).toEqual({ time: expected, kills: '0', level: '1' });
+    // Since #10 the Whip kills bats, so the results show the run's final kill count.
+    expect(shown).toEqual({ time: expected, kills: String(dead.kills), level: '1' });
     await expect(page.getByRole('button', { name: 'Retry' })).toBeFocused();
     expect(pageErrors(ev)).toEqual([]);
   } finally {
@@ -172,6 +173,8 @@ test('player-health 3: at 0 HP the run stops and the results show the survived t
 ```
 
 ## Gotchas
+
+- Since #10 the starting Whip kills bats on the facing side, so `kills` is no longer 0 at death; a standing player still dies in about 15 s at minute 0 (measured 15.5 s, 2026-11-08, #10).
 
 - The first hit's timing depends on the random seed (spawn points); wait on `hp < 100` rather than a fixed time (2026-11-08, #9).
 - A drop is seen at the first sample after the hit, so sampled gaps can be shorter than 0.5 s by up to one sampling interval (about 0.1–0.2 s of `timeS` with snapshot latency); the journey allows exactly that slack and also caps the number of drops at one per 0.5 s of the sampled span (2026-11-08, #9).

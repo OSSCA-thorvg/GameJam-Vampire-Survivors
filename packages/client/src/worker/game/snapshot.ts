@@ -1,3 +1,4 @@
+import type { WeaponId } from '@vs/shared';
 import type { World } from './world';
 
 /** The `player` snapshot field (test bridge): position, facing and HP (#9). #11 adds `level`, `xp` here. */
@@ -28,4 +29,9 @@ export function readEnemyPositions(world: World): [number, number, number, numbe
       Math.round(cols.y[i] ?? 0),
     ]);
   return out;
+}
+
+/** The `weapons` snapshot field (test bridge, #10): each owned weapon's ID and level, in slot order. */
+export function readWeapons(world: World): { id: WeaponId; level: number }[] {
+  return world.weapons.map((w) => ({ id: w.def.id, level: w.level }));
 }

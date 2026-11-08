@@ -23,7 +23,8 @@ import { AssetLibrary } from './assets/library';
 import { createLayers } from './render/layers';
 import { createGameView } from './game/view';
 import { createSession, type Session } from './game/session';
-import { readEnemyPositions, readPlayerSnapshot } from './game/snapshot';
+import { readEnemyPositions, readPlayerSnapshot, readWeapons } from './game/snapshot';
+import { grantNextWeapon } from './game/weapons/owned';
 import { buildGallery, type Gallery } from './debug/gallery';
 import { noteFrame, registerSnapshotField, takeSnapshot } from './test-bridge';
 import type { StressScene } from './debug/stress';
@@ -185,8 +186,15 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
           runs.world ? readEnemyPositions(runs.world) : [],
         );
         registerSnapshotField('kills', () => runs.world?.stats.kills ?? 0);
+        registerSnapshotField('projectiles', () => runs.world?.projectiles.count ?? 0);
+        registerSnapshotField('weapons', () => (runs.world ? readWeapons(runs.world) : []));
         registerSnapshotField('debug', () => ({ paintsCreated: gameView.countPaints() }));
       }
+      if (import.meta.env.DEV)
+        registerDebugHandler('grantWeapon', () => {
+          const granted = runs.world ? grantNextWeapon(runs.world) : null;
+          console.warn(`[debug] grantWeapon: ${granted ?? 'nothing to grant'}`);
+        });
     }
     assetState.placeholders = [...library.placeholders];
     assetState.ready = true;

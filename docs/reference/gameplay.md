@@ -50,6 +50,15 @@ Things to measure from footage and write down here: player move speed (screen wi
 - **This game, untuned initial values** (`packages/shared/src/content/stage.ts`, #8): `minAlive` is 15 at minute 0, 25 at minute 1, 100 at minute 5, 240 at minute 10 and 300 at minute 14, with a batch of 3 to 20 every 2.0 to 0.5 s; bats only until minute 3, then bats and ghouls 3:1, then 1:1 from minute 6. Enemies spawn on the view's perimeter expanded by 64 units and are relocated ahead of the player beyond 1360 units.
 - **Observed in this game** (source: `verify-game` `features/enemies.md`, issue #8 verification, 2026-11-08): with nothing killing enemies yet, standing still for 60 s gathers about 100 bats in a disc of about 150 units around the player, and the count reaches the 400 cap by minute 5 of fast-forwarded time. Compare with footage once #10 kills enemies, because the live count then depends on the kill rate.
 
+## Weapons
+
+- **Not yet checked against footage.** The issue (#10) asks for the Whip's alternating sides and the Magic Wand's targeting from footage with a source and timestamp. The session that implemented #10 could not watch video, and the project owner decided not to tune against footage for now, so both are **[unverified]**: in a long unedited run (Video references), step through the first minute with Antonio (Whip) and Imelda (Magic Wand), and record source, timestamp and what you see here; adjust `packages/shared/src/content/weapons.ts` if it differs.
+  - Whip: whether the first strike goes to the facing side and the second (from level 2, about 0.1 s later) to the other side, whether it strikes behind when the character turns, and the strike's length and height relative to the screen. **[unverified]**
+  - Magic Wand: whether each bolt flies at the nearest enemy (and what it does when none is on screen), how many bolts per volley at each level, and the bolt speed in screen widths per second. **[unverified]**
+  - Hit feedback: the original shows damage numbers (out of scope here) and a short flash and knockback on hit. **[unverified]**
+- **This game, untuned initial values** (`weapons.ts`, #10): Whip damage 10 → 40 over levels 1–8, cooldown 1.35 s, box 160 × 40 units (× area 1 → 1.2) from the player toward `facingX`, a second strike on the opposite side 0.1 s later from level 2, knockback 200 units/s for 0.12 s; Magic Wand damage 10 → 30, cooldown 1.2 → 1.0 s, 1 → 4 bolts 0.1 s apart at 400 units/s for 2 s, pierce 1 → 2, aimed at the nearest enemy within 900 units or along the last movement direction. Enemies flash (opacity 140) for 0.1 s per hit.
+- **Observed in this game** (source: `verify-game` `features/weapons.md`, issue #10 verification, 2026-11-08): standing still at minute 0 the L1 Whip kills every bat in its box per strike (28 kills by death at 15.5 s); with L1 damage set to 1, bats in the box are pushed about 23 units back per strike and die on the fifth; Magic Wand bolts reach a bat about 100 units away in about 0.25 s and kill it.
+
 ## Experience gems
 
 - Gems come in blue (1 XP), green (5 XP) and red (10+ XP); stronger enemies drop higher tiers. **[Namu Wiki §7.1]**

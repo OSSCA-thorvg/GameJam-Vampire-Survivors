@@ -5,7 +5,10 @@ import { createSpatialGrid, type SpatialGrid } from '../ecs/spatial-grid';
 import { createStore, type Store } from '../ecs/store';
 import { PaintPool, RenderBinding } from '../render/pool';
 
-/** Enemy columns (#8). #10 writes the knockback and flash columns; `flags` bit 0 marks a boss (#15). */
+/**
+ * Enemy columns (#8). #10 writes the knockback and flash columns and `shownOpacity`; `flags` bit 0 marks a boss (#15),
+ * bit 1 a dead enemy waiting for `cleanupSystem` (#10).
+ */
 export const ENEMY_SCHEMA = {
   x: 'f32',
   y: 'f32',
@@ -20,13 +23,17 @@ export const ENEMY_SCHEMA = {
   flash: 'f32',
   flags: 'u8',
   flip: 'u8',
+  /** The opacity last written to the paint (#10's hit flash); 0 until the first render, so a reused paint is reset. */
+  shownOpacity: 'u8',
   ...RenderBinding.columns,
 } as const;
 
 export type EnemyStore = Store<typeof ENEMY_SCHEMA>;
 
-/** `flags` bit 0: a boss, never relocated (#15 tethers it). Bit 1 is reserved for #10's dead mark. */
+/** `flags` bit 0: a boss, never relocated (#15 tethers it). */
 export const ENEMY_FLAG_BOSS = 1;
+/** `flags` bit 1: HP reached 0 this step; `cleanupSystem` removes the enemy at the end of the step (#10). */
+export const ENEMY_FLAG_DEAD = 2;
 
 /** Paints prewarmed per enemy asset (initial value; #22 retunes). */
 export const ENEMY_POOL_PREWARM = 200;
@@ -37,6 +44,11 @@ export const ENEMY_RADIUS = Float32Array.from(ENEMY_LIST, (id) => ENEMIES[id].ra
 export const ENEMY_CONTACT_DAMAGE = Float32Array.from(
   ENEMY_LIST,
   (id) => ENEMIES[id].contactDamage,
+);
+
+export const ENEMY_KNOCKBACK_RESIST = Float32Array.from(
+  ENEMY_LIST,
+  (id) => ENEMIES[id].knockbackResist,
 );
 
 export interface EnemyState {

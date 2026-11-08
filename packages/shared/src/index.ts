@@ -16,6 +16,7 @@ export {
   PLAYER_RADIUS,
   HIT_INVULN_SEC,
   MAX_ENEMY_RADIUS,
+  MAX_WEAPON_SLOTS,
 } from './content/constants.js';
 export { ENEMIES, ENEMY_LIST } from './content/enemies.js';
 export type { EnemyDef, EnemyId } from './content/enemies.js';
@@ -29,3 +30,5 @@ export {
 } from './png.js';
 export { validateLottie, MAX_LOTTIE_IMAGES, MAX_LOTTIE_DECODED_BYTES } from './lottie.js';
 export type { LottieImage, ValidatedLottie } from './lottie.js';
+export { WEAPONS, WEAPON_LIST } from './content/weapons.js';
+export type { WeaponDef, WeaponId, WeaponLevel, WeaponPattern } from './content/weapons.js';
