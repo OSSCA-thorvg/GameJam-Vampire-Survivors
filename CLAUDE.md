@@ -122,6 +122,7 @@ Read the ADR for the full reasoning.
   - `packages/shared` (`@vs/shared`) holds protocol types and content data, with no DOM, worker or Node APIs; TypeScript, Vitest, the server's dev container (`development` condition) and the client (a Vite alias) read `src/index.ts`, while the runtime image runs the compiled `dist` (`default` condition);
   - the root `tsconfig.json` references every package, so `tsc -b` checks them all; `eslint.config.js`, `.prettierrc.json` and `vitest.config.ts` (projects `packages/*`) live at the root;
   - `assets/` holds the art and `manifest.json`.
+  - The browser favicon is `assets/ui/favicon.svg` (`ui.favicon`, cataloged as a placeholder), linked from `client/index.html` and served through Vite's `publicDir` in dev and production.
 - **Threads (ADR 0004):** the main thread (`client/src/main/`) owns the DOM UI, keyboard capture and the WebSocket. A dedicated module worker (`client/src/worker/`) owns the simulation and all ThorVG rendering, including the HUD, on an `OffscreenCanvas` transferred at startup. The two talk only through the typed messages in `client/src/protocol/worker-messages.ts`. Nothing in the worker may touch the DOM; nothing on the main thread may touch the canvas.
 - **Rendering (ADR 0003):**
   - Initialize ThorVG once with `renderer: 'gl'`.

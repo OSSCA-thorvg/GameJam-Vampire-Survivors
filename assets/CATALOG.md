@@ -138,3 +138,9 @@ Licensed, not original: each font keeps its license and source record next to it
 | ID | File | Format | Original role | Used by | Status |
 |---|---|---|---|---|---|
 | `font.hud` | `fonts/hud.ttf` | ttf | HUD text: timer `MM:SS`, counters, perf overlay. Noto Sans Mono Regular, `U+0020`–`U+007E`, 9400 bytes, OFL 1.1 (`fonts/LICENSE-NotoSansMono.txt`, ADR 0013). Loaded from the fixed path until the manifest exists (#3) | #9, #17, #20 | final |
+
+## Browser UI — `assets/ui/`
+
+| ID | Size | Format | Original role | Used by | Status |
+|---|---|---|---|---|---|
+| `ui.favicon` | 32×32 | svg | Original red gem browser-tab icon (`ui/favicon.svg`) | Client HTML | placeholder |
