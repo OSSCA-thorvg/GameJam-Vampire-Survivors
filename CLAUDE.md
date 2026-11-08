@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+The rules and project skills in `.claude/` are shared with Codex. Codex starts with [`AGENTS.md`](AGENTS.md), which maps work stages to these files and supplies equivalents for Claude Code-only commands and tools. Those adapters preserve the shared checks and merge gates.
+
 Keep this file current: any PR that changes commands, architecture, workflow, rules or skills updates it in the same PR (`.claude/rules/docs-sync.md`). CI fails if a rule or skill is not mentioned here.
 
 ## Getting started
