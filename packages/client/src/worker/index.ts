@@ -222,7 +222,9 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         registerSnapshotField('gemPositions', () =>
           runs.world ? readGemPositions(runs.world) : [],
         );
-        registerSnapshotField('debug', () => ({ paintsCreated: gameView.countPaints() }));
+        // An unsupported `?stress` value falls back to this view, but it is still a stress boot: no `debug` field (#92).
+        if (!message.debug?.stress)
+          registerSnapshotField('debug', () => ({ paintsCreated: gameView.countPaints() }));
       }
       if (import.meta.env.DEV)
         registerDebugHandler('grantWeapon', () => {
