@@ -1,6 +1,6 @@
 # Debug tools
 
-Dev-only tools from #2: `` ` `` (`Backquote`) toggles the perf overlay and `]` (`BracketRight`) fast-forwards 60 s of simulation; later issues add gameplay precondition keys such as `G` (`KeyG`, #10) and `L` (`KeyL`, #11); production builds contain neither them nor the test bridge.
+Dev-only tools from #2: `` ` `` (`Backquote`) toggles the perf overlay and `]` (`BracketRight`) fast-forwards 60 s of simulation; later issues add gameplay precondition keys such as `G` (`KeyG`, #10), `L` (`KeyL`, #11) and `P` (`KeyP`, #12); production builds contain neither them nor the test bridge.
 
 ## Sub-features
 
@@ -9,6 +9,7 @@ Dev-only tools from #2: `` ` `` (`Backquote`) toggles the perf overlay and `]` (
 - **Stress scene (#6):** `/?stress=3000` in dev or `perf` mode creates 3000 pooled `enemy.bat` instances, moves/separates them and replaces 1000 every 2 simulated seconds. In dev/e2e, `snapshot().debug` reports actual `entities`, `paintsCreated`, `visiblePaints`, `churnCycles` and `stepMs`. The overlay adds `entities`, `paints created` and `step ms`. Counts stay constant as churn advances. Numeric values clamp to 4096, zero is valid, invalid names warn and fall back to normal boot, and gallery takes precedence when both flags are present.
 - **Grant weapon (#10):** `G` (`KeyG`) during a run adds the first weapon of `WEAPON_LIST` the player does not own, at level 1: `snapshot().weapons` goes from `[{ id: 'whip', level: 1 }]` to also list `{ id: 'magicWand', level: 1 }`; once every weapon is owned it adds nothing. Worker log: `[debug] grantWeapon: magicWand` (or `nothing to grant`). Driven in `weapons.md` journey 3.
 - **Level up (#11):** `L` (`KeyL`) during a run grants exactly the XP missing for the next level: on the next step `player.level` rises by one and the level-up dialog opens (`level-up.md`). Worker log: `[debug] levelUp: +<n> XP`. Ignored while the dialog is open. Driven in `level-up.md` journey 2.
+- **Grant passive (#12):** `P` (`KeyP`) during a run adds the first passive of `PASSIVES` the player does not own, at level 1 (Hollow Heart, Empty Tome, Bracer, Candelabrador, Clover, Spellbinder, in that order), and recomputes `snapshot().stats`; with 6 owned it adds a level to the first owned passive below level 5, and once all six are at 5 it adds nothing. `snapshot().passives` lists them. Worker log: `[debug] grantPassive: <id>` (or `nothing to grant`). Driven in `passives.md` journey 5.
 - **Absent from production:** `pnpm build` passes `check-prod-bundle.mjs` (no `__vsTest`, `__vsDebug`, `testSnapshot`, `togglePerfOverlay` in `packages/client/dist`); in `vite preview`, `typeof __vsDebug` and `typeof __vsTest` are `undefined` and the two keys change nothing.
 
 ## How to get to it (user POV)

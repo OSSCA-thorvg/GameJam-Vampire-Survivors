@@ -187,6 +187,7 @@ async function boot(): Promise<void> {
     if (debug?.gallery) registerDebugKey('KeyV', { kind: 'galleryPreview' });
     registerDebugKey('KeyG', { kind: 'grantWeapon' });
     registerDebugKey('KeyL', { kind: 'levelUp' });
+    registerDebugKey('KeyP', { kind: 'grantPassive' });
     installDebugTools(worker);
   }
 }

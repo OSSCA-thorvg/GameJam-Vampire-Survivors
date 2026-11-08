@@ -1,4 +1,4 @@
-import type { WeaponId } from '@vs/shared';
+import type { PassiveId, WeaponId } from '@vs/shared';
 import type { World } from './world';
 
 /** The `player` snapshot field (test bridge): position, facing and HP (#9), level and XP toward the next level (#11). */
@@ -36,6 +36,11 @@ export function readEnemyPositions(world: World): [number, number, number, numbe
 /** The `weapons` snapshot field (test bridge, #10): each owned weapon's ID and level, in slot order. */
 export function readWeapons(world: World): { id: WeaponId; level: number }[] {
   return world.weapons.map((w) => ({ id: w.def.id, level: w.level }));
+}
+
+/** The `passives` snapshot field (test bridge, #12): each owned passive's ID and level, in slot order. */
+export function readPassives(world: World): { id: PassiveId; level: number }[] {
+  return world.passives.map((p) => ({ id: p.def.id, level: p.level }));
 }
 
 /**

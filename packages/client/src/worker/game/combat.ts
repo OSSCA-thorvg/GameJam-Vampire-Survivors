@@ -23,7 +23,8 @@ export function isDead(world: Pick<World, 'enemies'>, slot: number): boolean {
  * Damages the live enemy in `slot` (#10): HP down by `amount`, a hit flash and `fx.hit`, and, with `knockback > 0`, a
  * push along the unit direction (`dirX`, `dirY`) scaled by `1 - knockbackResist` for `KNOCKBACK_SEC`. At 0 HP it only
  * marks the enemy dead (flag bit 1); `cleanupSystem` removes it at the end of the step, so slots never shift while
- * systems iterate, and further hits on a dead enemy in the same step do nothing.
+ * systems iterate, and further hits on a dead enemy in the same step do nothing. Counts the hit in `world.damageDealt`
+ * (#12).
  */
 export function damageEnemy(
   world: World,
@@ -34,6 +35,8 @@ export function damageEnemy(
   knockback: number,
 ): void {
   if (isDead(world, slot)) return;
+  world.damageDealt.hits++;
+  world.damageDealt.total += amount;
   const { cols } = world.enemies;
   const hp = (cols.hp[slot] ?? 0) - amount;
   cols.hp[slot] = hp;

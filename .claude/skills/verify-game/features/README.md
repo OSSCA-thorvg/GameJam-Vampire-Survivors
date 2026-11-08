@@ -16,6 +16,7 @@ One file per user-facing feature. A PR that adds or changes user-facing behaviou
 | `weapons.md`       | the Whip, the Magic Wand (`G`), hits, flash, knockback, kills, the cap       | #10   |
 | `xp-gems.md`       | gem drops and tiers, the magnet, collection, the XP bar, the merge gem       | #11   |
 | `level-up.md`      | the level-up dialog, frozen run, choices, the heal card, the `L` key         | #11   |
+| `passives.md`      | passive cards, the stat block, Candelabrador, Spinach, Pummarola, slots, `P` | #12   |
 
 ## Baseline preconditions
 

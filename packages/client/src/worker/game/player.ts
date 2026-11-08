@@ -1,4 +1,10 @@
-import { BASE_MAX_HP, BASE_MOVE_SPEED } from '@vs/shared';
+import {
+  BASE_MAX_HP,
+  BASE_MOVE_SPEED,
+  BASE_STATS,
+  type StatBlock,
+  type StatModifier,
+} from '@vs/shared';
 import type { Axis } from '../../protocol/worker-messages';
 
 export interface PlayerState {
@@ -13,21 +19,27 @@ export interface PlayerState {
   /** Last non-zero normalized direction, for directional weapons (#10); starts (1, 0). */
   lastDirX: number;
   lastDirY: number;
-  /** World units per second. */
+  /** World units per second: `BASE_MOVE_SPEED * stats.moveSpeed`, set by `recomputeStats` (#12). */
   moveSpeed: number;
-  /** Current and maximum HP (#9); both start at `BASE_MAX_HP`. */
+  /** Current and maximum HP (#9); both start at `BASE_MAX_HP`. `maxHp` mirrors `stats.maxHp` (#12). */
   hp: number;
   maxHp: number;
   /** Seconds of invulnerability left after a hit; 0 when the player can be hit. */
   invulnTime: number;
-  /** Flat damage reduction per hit; 0 until #12's passive sets it. */
+  /** Flat damage reduction per hit: `stats.armor`, set by `recomputeStats` (#12). */
   armor: number;
   /** XP toward the next level and the current level (#11); `levelSystem` moves XP into levels. */
   xp: number;
   level: number;
-  /** Multipliers on the magnet radius and on collected XP; 1 until #12's stats replace them. */
-  magnetMul: number;
-  growthMul: number;
+  /**
+   * The aggregated stats every system reads (#12). Preallocated and mutated in place by `recomputeStats` when the
+   * inventory changes, never re-created and never touched per frame.
+   */
+  readonly stats: StatBlock;
+  /** The character's modifiers; empty until #14 fills it. */
+  readonly characterModifiers: StatModifier[];
+  /** Modifiers gained during the run (#16 pushes Little Clover here). */
+  readonly runModifiers: StatModifier[];
 }
 
 /** A player at the origin facing right with full HP, moving at `BASE_MOVE_SPEED` (#14 scales it per character). */
@@ -47,8 +59,9 @@ export function createPlayer(): PlayerState {
     armor: 0,
     xp: 0,
     level: 1,
-    magnetMul: 1,
-    growthMul: 1,
+    stats: { ...BASE_STATS },
+    characterModifiers: [],
+    runModifiers: [],
   };
 }
 
