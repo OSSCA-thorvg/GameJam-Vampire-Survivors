@@ -58,7 +58,7 @@ description: The only way to begin implementing a GitHub issue — verify it is 
    git fetch origin main
    git worktree add -b feature/issue-12-wave-spawner .claude/worktrees/issue-12 origin/main
    cd .claude/worktrees/issue-12
-   git config pull.rebase true && git config merge.ff only   # linear history (ADR 0012)
+   git config pull.rebase true && git config merge.ff only   # linear history (ADR 0015)
    pnpm install --frozen-lockfile
    ```
    - Prefix by label: `type:enhancement` → `feature`, `type:bug` → `fix`, `type:refactor` → `refactor`, and anything else → `update`.

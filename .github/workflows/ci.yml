@@ -2,11 +2,12 @@ name: CI
 
 on:
   pull_request:
-    # ready_for_review re-runs CI when a draft is released, so the auto-merge workflow (ADR 0012) re-evaluates it.
+    # ready_for_review re-runs CI when a draft is released; the jobs below are the ruleset's required checks
+    # (.github/rulesets/main.json, ADR 0015), so a renamed job must be renamed there too (check-ruleset.mjs).
     types: [opened, edited, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
-  # The auto-merge workflow dispatches CI on main after each merge: merges made with GITHUB_TOKEN do not trigger push.
+  # Manual runs. Native auto-merge (ADR 0015) merges as a user, so the push to main runs CI on its own.
   workflow_dispatch:
 
 concurrency:
@@ -137,6 +138,8 @@ jobs:
         run: |
           grep -Eq '^minimumReleaseAge: *10080 *$' pnpm-workspace.yaml || { echo "::error file=pnpm-workspace.yaml::minimumReleaseAge must stay 10080"; exit 1; }
           grep -Eq '^allowBuilds:' pnpm-workspace.yaml || { echo "::error file=pnpm-workspace.yaml::allowBuilds policy is missing"; exit 1; }
+      - name: Ruleset matches CI job names (ADR 0015)
+        run: node scripts/github/check-ruleset.mjs
       - name: Every action is pinned to a commit SHA (ADR 0011)
         run: |
           unpinned=$(grep -nE '^\s*-?\s*uses:' .github/workflows/*.yml | grep -vE '@[0-9a-f]{40}( |$)' || true)
@@ -323,7 +326,7 @@ jobs:
             echo "::error::Commit messages must not contain AI attribution"; bad=1
           fi
           exit $bad
-      - name: Branch is one rebased commit (linear history, ADR 0012)
+      - name: Branch is one rebased commit (linear history, ADR 0015)
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}

@@ -1,0 +1,116 @@
+# PR feedback (ADR 0015). GitHub's native auto-merge and the main ruleset decide merging; this workflow never
+# merges. When the CI workflow on a PR's latest commit did not succeed, or succeeded on a branch that is behind
+# its base (the ruleset's strict up-to-date policy then keeps auto-merge waiting), it explains once per commit.
+#
+# Security (ADR 0011): workflow_run runs the default-branch version of this file with a write token, so it never
+# checks out or executes PR code, uses no third-party actions, and reads event data only through env (never
+# interpolated into the script).
+name: PR feedback
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+concurrency:
+  group: pr-feedback-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  feedback:
+    name: comment on red or stale PRs
+    # Only CI runs started by a pull request from this repository (forks are ignored).
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read # compare the PR head with its base branch
+      pull-requests: write # read the PR
+      issues: write # comment on the PR (PR comments are issue comments)
+      actions: read # list CI runs for the commit
+    steps:
+      - name: Comment when CI failed or the branch is behind
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+        run: |
+          set -euo pipefail
+
+          # Posts a comment once: skipped when a comment carrying the same hidden marker exists.
+          # The markers keep the auto-merge: prefix of ADR 0012, so comments posted before ADR 0015 still dedupe.
+          comment_once() {
+            local pr="$1" marker="$2" text="$3"
+            if gh api --paginate "repos/$REPO/issues/$pr/comments" --jq '.[].body' | grep -qF "$marker"; then
+              echo "Comment $marker already present on #$pr."
+              return 0
+            fi
+            gh api -X POST "repos/$REPO/issues/$pr/comments" -f body="$(printf '%s\n\n%s' "$marker" "$text")" > /dev/null
+          }
+
+          # 1. The open PR whose head is exactly this commit. None means stale, closed or merged.
+          pr_json=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" \
+            --jq "[.[] | select(.state == \"open\" and .head.sha == \"$HEAD_SHA\" and .base.repo.full_name == \"$REPO\")] | first // empty")
+          if [ -z "$pr_json" ]; then
+            echo "No open PR has $HEAD_SHA as its head: nothing to do."
+            exit 0
+          fi
+          pr=$(jq -r '.number' <<< "$pr_json")
+          echo "PR #$pr, CI run $RUN_ID concluded '$CONCLUSION'."
+
+          # Only the newest CI run for this commit speaks. An older run (for example, cancelled or superseded
+          # after the PR title was edited) must not comment.
+          latest_run=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs?head_sha=$HEAD_SHA&event=pull_request&per_page=100" \
+            --jq '[.workflow_runs[].id] | max // empty')
+          if [ -n "$latest_run" ] && [ "$latest_run" != "$RUN_ID" ]; then
+            echo "CI run $latest_run is newer than $RUN_ID for $HEAD_SHA: leaving the feedback to it."
+            exit 0
+          fi
+
+          # 2. Forks and Dependabot PRs are reviewed by hand: no automated feedback.
+          if [ "$(jq -r '.head.repo.full_name // ""' <<< "$pr_json")" != "$REPO" ]; then
+            echo "PR #$pr comes from a fork: no comment."
+            exit 0
+          fi
+          if [ "$(jq -r '.user.login' <<< "$pr_json")" = "dependabot[bot]" ]; then
+            echo "PR #$pr is a Dependabot PR, reviewed by hand: no comment."
+            exit 0
+          fi
+
+          # 3. CI did not pass: explain once per commit, and stop.
+          case "$CONCLUSION" in
+            success) ;;
+            cancelled | skipped | stale)
+              echo "CI run was $CONCLUSION: no comment (a new run decides)."
+              exit 0
+              ;;
+            *)
+              comment_once "$pr" "<!-- auto-merge:$HEAD_SHA -->" \
+                "CI $CONCLUSION on $HEAD_SHA: the ruleset keeps this PR out of main. Fix it, squash into the one commit and git push --force-with-lease, then check that auto-merge is still enabled (gh pr view $pr --json autoMergeRequest). Run: $RUN_URL"
+              echo "CI $CONCLUSION: commented."
+              exit 0
+              ;;
+          esac
+
+          # 4. CI passed. The ruleset only merges a branch that contains the tip of its base (linear history,
+          #    strict status checks), so a branch that is behind waits until it is rebased.
+          base_ref=$(jq -r '.base.ref' <<< "$pr_json")
+          behind=$(gh api "repos/$REPO/compare/$base_ref...$HEAD_SHA" --jq '.behind_by')
+          if [ "$behind" != "0" ]; then
+            comment_once "$pr" "<!-- auto-merge:behind:$HEAD_SHA -->" \
+              "CI passed on $HEAD_SHA, but $base_ref moved ($behind commits behind): the ruleset keeps this PR waiting. Rebase onto origin/$base_ref (resolve-conflicts), squash into one commit and git push --force-with-lease, then check that auto-merge is still enabled (gh pr view $pr --json autoMergeRequest)."
+            echo "PR #$pr is $behind commits behind $base_ref: commented."
+            exit 0
+          fi
+
+          # 5. Green and up to date: native auto-merge merges it if it is enabled; without it the PR is held.
+          echo "PR #$pr is green and up to date: nothing to say."

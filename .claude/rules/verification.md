@@ -2,7 +2,7 @@
 
 Adapted from the user's `pstack` skills `blast-radius` (impact and proof levels) and `create-verification-skill` (driving the real app). The `impact-check` skill applies the first, and the `verify-game` skill (#31) the second. `issue-start` and `issue-finish` run them.
 
-The auto-merge workflow merges a PR as soon as CI is green (ADR 0012), so all of this is done **before** the PR is opened, or the PR is opened with the `status:blocked` hold until it is.
+Once auto-merge is enabled, GitHub merges a PR as soon as the `main` ruleset's required checks are green (ADR 0015), so all of this is done **before** `issue-finish` enables auto-merge; a PR whose evidence is not complete stays held with auto-merge off.
 
 ## Scope is checked before code is written
 

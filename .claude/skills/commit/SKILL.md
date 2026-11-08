@@ -35,7 +35,7 @@ Rules: `.claude/rules/commits.md`.
    The pre-commit hook runs Prettier and ESLint on the staged files.
    - If it fails, fix the reported problems, re-stage the same paths, and commit again. Never use `--no-verify`.
    - If the hook reformatted files, re-stage them and commit again.
-6. Work-in-progress commits on the issue branch are fine. A PR branch, however, must be **one** commit rebased onto `origin/main` (ADR 0012), so before pushing for a PR, squash (this is also `issue-finish` step 8):
+6. Work-in-progress commits on the issue branch are fine. A PR branch, however, must be **one** commit rebased onto `origin/main` (ADR 0015), so before pushing for a PR, squash (this is also `issue-finish` step 8):
    ```sh
    git fetch origin main && git rebase origin/main
    git reset --soft origin/main && git commit -F /tmp/commit-msg.txt   # subject = PR title, body = PR summary

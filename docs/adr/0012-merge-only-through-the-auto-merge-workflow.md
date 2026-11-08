@@ -1,6 +1,6 @@
 # 0012. Merge only through the auto-merge workflow
 
-- Status: Accepted
+- Status: Superseded by [0015](0015-protect-main-with-a-ruleset-and-native-auto-merge.md)
 - Date: 2026-11-07
 - Related issues: #28
 
