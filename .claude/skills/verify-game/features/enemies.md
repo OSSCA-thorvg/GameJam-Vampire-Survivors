@@ -7,7 +7,7 @@ Enemies spawn just outside the view from the per-minute wave table (`STAGE.waves
 - **Spawning off-screen:** every enemy UID appears for the first time outside the view (`|x - player.x| >= 640` or `|y - player.y| >= 360`); spawns are on the perimeter of the view expanded by 64 units. At minute 0 the first step tops up to `minAlive` 15 (`enemies` reads 15 on the first sample), then a batch of 3 arrives every 2 s. Minute 0 spawns bats and ghouls 3:1 (types `0` and `1`, #17).
 - **Chase:** enemies walk toward the player at their speed (bat 119 since #105, below every character's starting speed; ghoul 70 units/s since #17; skeleton 90, wisp 160, brute 55, wraith 80); after 10 s the mean distance to the player is well below the spawn ring's (about 110 measured against about 400+ at spawn).
 - **The player outruns bats (#105):** walking the default Warden (133 units/s) straight away from a chasing bat for 5 s increases the distance to it (bats fly at 119, so about 14 units more per second; the gain is at least 30 units over 5 s of `timeS`).
-- **Separation:** a standing player gets a crowd around it with no two enemies at the same point (no pair closer than 2 units after 60 s); enemies may overlap partly at the crowd's centre.
+- **Separation:** a standing player gets a crowd around it (at least 10 enemies within 300 units at 2:00 with level-ups answered by cards that add no weapon or damage, #104) with no two enemies at the same point (no pair closer than 2 units); enemies may overlap partly at the crowd's centre.
 - **Density follows the data:** changing a wave's `minAlive` in `packages/shared/src/content/stage.ts` changes the crowd on the next load with no other code change (minute 0 at 40: the first sample reads 40 instead of 15).
 - **Cap:** `enemies` never exceeds 400, also after `]` (fast-forward). Weapons kill enemies since #10 (`weapons.md`), so the live count depends on the kill rate; a fast-forward to minute 5 still reaches the cap when the Whip cannot keep up.
 - **Relocation:** while the player runs in one direction, enemies farther than 1360 units are moved every 0.5 s to the spawn ring on the side the player is moving toward (a UID jumping more than 600 units lands at `x > player.x` when running right); the count never falls to zero and, after stopping, every enemy is within 1360 units.
@@ -24,7 +24,7 @@ Open the game URL and press Enter on the title screen's "Start" (#9): enemies st
 
 1. `tabs_context_mcp` `{ createIfEmpty: true }`, use the group's new empty tab; `gif_creator` `start_recording`.
 2. `navigate` to `http://localhost:5180/`; `javascript_tool` `await window.__vsTest.waitFor((s) => s.state === 'title', 30000)`; `computer` `key` `Enter` (Start, #9); `javascript_tool` `JSON.stringify((await window.__vsTest.waitFor((s) => s.state === 'playing', 5000)).enemies)` → 15 or a little more; `computer` `screenshot` every second for a few seconds → bats enter from the view edges, none appear inside the view.
-3. `computer` `key` `i` (invulnerability, #17); wait 60 s pressing `1` on level-ups, `screenshot` → a crowd around the player, sprites not stacked on one point; `javascript_tool` reading `enemyPositions` → no two rows at the same `x`, `y`.
+3. `computer` `key` `i` (invulnerability, #17); wait 120 s of run time answering each level-up with a card that is not `NEW` weapon and adds no damage (a passive such as Hollow Heart, Clover or Pummarola; #104), `screenshot` → a crowd around the player, sprites not stacked on one point; `javascript_tool` reading `enemyPositions` → no two rows at the same `x`, `y`.
 4. `computer` `key` `]` with `repeat: 5`; read `enemies` every 500 ms for 10 s → at most 400.
 5. `computer` `key` `ArrowRight` with `repeat: 60`, `screenshot` → enemies still arrive from the edges; the long run that triggers relocation needs Playwright (Gotchas).
 6. Outrun (#105): reload, Start with the Warden, `key` `i`; `javascript_tool` picks a bat (type 0) left of the player (`x < player.x - 100`, `|y - player.y| < 150`) from `enemyPositions` and records its UID and distance; `computer` `key` `ArrowRight` with `repeat: 150` (about 5 s of key repeat); read the same UID again → its distance grew. Journey 7 is the timed version.
@@ -55,6 +55,9 @@ type EnemyRow = [uid: number, type: number, x: number, y: number];
 const enemyRows = (s: GameSnapshot): EnemyRow[] => s.enemyPositions as EnemyRow[];
 const player = (s: GameSnapshot) => s.player as { x: number; y: number };
 const HALF_W = 640;
+/** Journey 2's crowd: at least 10 enemies within `CROWD_RADIUS` of the player at `CROWD_AT_S` (#104, Gotchas). */
+const CROWD_RADIUS = 300;
+const CROWD_AT_S = 120;
 const HALF_H = 360;
 const inView = (s: GameSnapshot, [, , x, y]: EnemyRow): boolean =>
   Math.abs(x - player(s).x) < HALF_W && Math.abs(y - player(s).y) < HALF_H;
@@ -125,21 +128,23 @@ test('enemies 1: spawn just outside the view and close in', async ({ page }, tes
   }
 });
 
-test('enemies 2: standing still for 60 s, the crowd surrounds the player without fully overlapping', async ({
+test('enemies 2: standing still for 120 s, the crowd surrounds the player without fully overlapping', async ({
   page,
 }, testInfo) => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   const ev = startEvidence(page, 'enemies-2-crowd');
   noteEvidence(testInfo, ev);
   try {
     await startRun(page);
     await invulnerable(page);
-    const stop = answerLevelUps(page);
-    // 60 s of run time: level-up dialogs pause the run, so wait on the run clock, not the wall clock.
-    await waitForSnapshot(page, (s) => s.timeS >= 60 && s.state === 'playing', 120_000);
+    // #104: answer with a card that adds no weapon and no damage, so no area weapon (Garlic) clears the crowd.
+    const stop = answerLevelUps(page, { avoidNewWeapons: true, avoidDamage: true });
+    // 2:00 of run time (#104: minute 2's top-up to 40 alive; at 1:00 only about 25 are alive): level-up dialogs pause
+    // the run, so wait on the run clock, not the wall clock.
+    await waitForSnapshot(page, (s) => s.timeS >= CROWD_AT_S && s.state === 'playing', 200_000);
     await stop();
     const end = await snapshot(page);
-    await ev.shot('after-60s');
+    await ev.shot('after-120s');
     const rows = enemyRows(end);
     let closest = Infinity;
     let coincident = 0;
@@ -152,10 +157,22 @@ test('enemies 2: standing still for 60 s, the crowd surrounds the player without
         closest = Math.min(closest, d);
         if (d < 2) coincident++;
       }
-    const near = rows.filter(
-      ([, , x, y]) => Math.hypot(x - player(end).x, y - player(end).y) < 200,
-    ).length;
-    ev.json('crowd', { enemies: end.enemies, near, closest, coincident, rows });
+    const within = (r: number) =>
+      rows.filter(([, , x, y]) => Math.hypot(x - player(end).x, y - player(end).y) < r).length;
+    // #104: 300, not 200, and at 2:00, not 1:00: the Whip's knockback keeps the inner ring thin (Gotchas).
+    const near = within(CROWD_RADIUS);
+    ev.json('crowd', {
+      enemies: end.enemies,
+      near,
+      radius: CROWD_RADIUS,
+      nearBy: { 200: within(200), 300: within(300), 400: within(400) },
+      player: end.player,
+      closest,
+      coincident,
+      weapons: end.weapons,
+      passives: end.passives,
+      rows,
+    });
     expect(end.enemies as number).toBeGreaterThanOrEqual(15);
     expect(near).toBeGreaterThanOrEqual(10);
     expect(coincident).toBe(0);
@@ -334,7 +351,7 @@ test('enemies 6: fps at minute 14 with about 300 enemies', async ({ page }, test
 ## Gotchas
 
 - Since #9 enemies hurt the player, and a standing player dies in 15–30 s: journeys 2, 3 and 6 press `I` (`toggleInvulnerable`, #17) first, answer level-ups, and reach later minutes with `forwardTo` instead of `]` × N, since a fast-forward stops at the first level-up (2026-11-08, #9; re-enabled 2026-11-08, #17).
-- Journey 2's "at least 10 enemies within 200 units after 60 s" fails since level-ups are answered: by 1:00 the answered cards give the player Garlic and other weapons, which kill everything that comes close (#17's run: 25 alive, 6 within 200 units, closest pair 20.6 units, no coincident pairs). Separation itself is proven at level 4 (`separation.test.ts`) and by the journey's `coincident` 0; the crowd check needs a run without weapons, which no user path gives. Reported as failing, not weakened (2026-11-08, #17).
+- Journey 2's crowd check moved from "at least 10 within 200 units at 1:00" to "at least 10 within 300 units at 2:00", with level-ups answered by `answerLevelUps(page, { avoidNewWeapons: true, avoidDamage: true })` (a passive that adds no damage first, a new weapon only when nothing else is offered); the no-coincident-pair assertion is unchanged (2026-11-09, #104). The old check failed even without new weapons: the level-1 Whip alone (infinite pierce, knockback 200) keeps the inner ring thin, and only about 25 enemies are alive at 1:00. Measured at 1:00 with both options, 6 runs, within 200/300/400 units: 3/7/12, 7/8/9, 6/9/10, 5/8/11, 7/12/13, 7/9/11 (only the Whip at level 1 or 2; 0 coincident pairs, closest pair 16–29 units); with `avoidNewWeapons` only, 3 runs: 9, 3 and 7 within 200. At 2:00 (minute 2 tops up to 40 alive), 5 of 5 runs passed: 15/19/22, 14/17/20, 11/14/20, 12/13/21, 7/14/19 within 200/300/400, 0 coincident pairs, closest pair 9–19 units; in the last run every card of one dialog was a new weapon, so Knife joined, and the run still passed. `crowd.json` records `nearBy` for all three radii, the player and the weapons and passives taken.
 - The extension's `key` presses are instant down and up, so it cannot hold `ArrowRight` for 20 s; relocation needs the Playwright hold (2026-11-08, #8).
 - Before #10 nothing killed enemies, so the count kept growing past `minAlive` with each batch, and `]` × 5 fills the cap with minute 0–2 bats; at minute 5 and 14 the field held 400 enemies, almost all bats, instead of the wave's mix, so the fps journey measured 400 enemies, a harder case than the issue's "about 300" (2026-11-08, #8). Since #10 the Whip thins the crowd on the facing side, so the counts read lower; journeys 2, 3 and 6 now use #17's invulnerability (2026-11-08, #10).
 - Since #17 bats fly at 140 units/s, faster than the Warden (133), so only ghouls fall 1360 units behind; in 20 s one run in two saw no relocation. Journey 4 now plays Swift (161 units/s) with `I` on and runs for 30 s (2026-11-08, #17).
