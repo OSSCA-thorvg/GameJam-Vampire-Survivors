@@ -5,6 +5,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { Page, TestInfo } from '@playwright/test';
 import type { GameSnapshot } from '../packages/client/src/protocol/worker-messages';
+import { PASSIVES } from '../packages/shared/src/content/passives';
+import type { StatId } from '../packages/shared/src/content/stats';
 
 export type { GameSnapshot };
 
@@ -145,13 +147,71 @@ export async function startRun(page: Page, path = '/', rightPresses = 0): Promis
   return waitForSnapshot(page, (s) => s.state === 'playing', 5_000);
 }
 
+export interface AnswerLevelUpsOptions {
+  /**
+   * Picks the first card that is not a new weapon (a weapon upgrade, a passive or the heal) instead of `1`, falling
+   * back to `1` when every card is a new weapon (#104): a journey that needs a crowd near the player keeps area
+   * weapons such as Garlic out of the run.
+   */
+  avoidNewWeapons?: boolean;
+  /**
+   * With `avoidNewWeapons`, also ranks the other cards by how little they add to the kill rate (#104): a passive that
+   * adds no damage, then the heal, then a passive that does (`DAMAGE_STATS`), then a weapon upgrade.
+   */
+  avoidDamage?: boolean;
+}
+
+/** Passive stats that make weapons kill faster: more damage, area, fire rate or projectiles. */
+const DAMAGE_STATS: ReadonlySet<StatId> = new Set(['might', 'area', 'cooldown', 'amount']);
+const DAMAGE_PASSIVES: ReadonlySet<string> = new Set(
+  PASSIVES.filter((p) => p.perLevel.some((m) => DAMAGE_STATS.has(m.stat))).map((p) => p.name),
+);
+
+/** Lower is preferred; a new weapon is always last. */
+function cardRank(kind: string | null, name: string, avoidDamage: boolean): number {
+  if (kind === 'newWeapon' || kind === null) return 9;
+  if (!avoidDamage) return 0;
+  if (kind === 'newPassive' || kind === 'upgradePassive') return DAMAGE_PASSIVES.has(name) ? 2 : 0;
+  if (kind === 'heal') return 1;
+  return 3; // upgradeWeapon
+}
+
+/** The key to press for the level-up dialog's cards: the best-ranked card (`cardRank`), the first one on a tie. */
+async function levelUpKey(page: Page, avoidDamage: boolean): Promise<string> {
+  const cards = page.locator('[role="dialog"][aria-label="Level up"] button.card');
+  await cards.first().waitFor({ timeout: 2_000 }); // the dialog mounts with the state change; never read it empty
+  const found = await cards.evaluateAll((els) =>
+    els.map((c) => ({
+      kind: c.getAttribute('data-kind'),
+      name: c.querySelector('.card-name')?.textContent ?? '',
+    })),
+  );
+  let best = 0;
+  for (let i = 1; i < found.length; i++) {
+    const card = found[i];
+    const top = found[best];
+    if (
+      card &&
+      top &&
+      cardRank(card.kind, card.name, avoidDamage) < cardRank(top.kind, top.name, avoidDamage)
+    )
+      best = i;
+  }
+  return String(best + 1);
+}
+
 /**
- * Answers every level-up dialog (#11) with a real press of `1` while a journey that is not about level-ups plays a
+ * Answers every level-up dialog (#11) with a real key press while a journey that is not about level-ups plays a
  * run: since #11 a run pauses on each level-up, and a journey that waits for time to pass or for death would wait
- * forever. Polls every 100 ms; returns the function that stops it (await it before the test ends) and resolves to the
- * number of dialogs answered.
+ * forever. Presses `1` by default; `{ avoidNewWeapons: true }` presses the first card that is not a new weapon, and
+ * `avoidDamage` also prefers cards that add no damage (#104).
+ * Polls every 100 ms; returns the function that stops it (await it before the test ends) and resolves to the number
+ * of dialogs answered.
  */
-export function answerLevelUps(page: Page): () => Promise<number> {
+export function answerLevelUps(
+  page: Page,
+  options: AnswerLevelUpsOptions = {},
+): () => Promise<number> {
   // An object, so the loop re-reads the flag the stop function clears.
   const control = { running: true };
   let answered = 0;
@@ -160,7 +220,9 @@ export function answerLevelUps(page: Page): () => Promise<number> {
       try {
         const s = await snapshot(page);
         if (s.state === 'levelUp') {
-          await page.keyboard.press('1');
+          await page.keyboard.press(
+            options.avoidNewWeapons ? await levelUpKey(page, options.avoidDamage === true) : '1',
+          );
           answered++;
         }
       } catch {
