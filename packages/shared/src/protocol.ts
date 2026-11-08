@@ -32,6 +32,16 @@ export const MAX_MESSAGE_BYTES = 4096;
 export const SIMULTANEOUS_DEATH_WINDOW_MS = 100;
 /** A tab hidden this long during a match forfeits (ADR 0005). */
 export const AFK_FORFEIT_MS = 30_000;
+/**
+ * Versus match time limit in seconds (ADR 0005: 15 minutes). At the limit every player still alive survives and
+ * kills decide. #17 sources the limit from content data and keeps this constant equal to it through a test.
+ */
+export const MATCH_TIME_LIMIT_S = 900;
+/**
+ * The server ends a match by itself this long after the time limit (#60): every player who has reported neither
+ * `died` nor `survived` by `startAt + (MATCH_TIME_LIMIT_S + MATCH_DEADLINE_GRACE_S) s` is treated as survived.
+ */
+export const MATCH_DEADLINE_GRACE_S = 10;
 /** Longest raw `nickname` string the validator accepts before normalization; bounds the work done on it. */
 export const NICKNAME_RAW_MAX = 64;
 

@@ -1,3 +1,4 @@
+import { MATCH_TIME_LIMIT_S } from '@vs/shared';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from './config.js';
 
@@ -8,6 +9,8 @@ describe('loadConfig', () => {
       logLevel: 'info',
       allowedOrigins: ['http://localhost:5173', 'http://localhost:5180'],
       trustProxy: false,
+      matchTimeLimitS: 900,
+      matchTimeLimitOverrideIgnored: false,
     });
   });
 
@@ -39,6 +42,47 @@ describe('loadConfig', () => {
   it('throws on an invalid TRUST_PROXY', () => {
     for (const value of ['true', 'yes', '2', 'on']) {
       expect(() => loadConfig({ TRUST_PROXY: value })).toThrow(/TRUST_PROXY/);
+    }
+  });
+
+  it('honours MATCH_TIME_LIMIT_S_OVERRIDE only when NODE_ENV is test', () => {
+    expect(loadConfig({ NODE_ENV: 'test', MATCH_TIME_LIMIT_S_OVERRIDE: '20' })).toMatchObject({
+      matchTimeLimitS: 20,
+      matchTimeLimitOverrideIgnored: false,
+    });
+    for (const nodeEnv of [
+      undefined,
+      '',
+      'production',
+      'development',
+      'TEST',
+      ' test',
+      'testing',
+    ]) {
+      const env = nodeEnv === undefined ? {} : { NODE_ENV: nodeEnv };
+      expect(loadConfig({ ...env, MATCH_TIME_LIMIT_S_OVERRIDE: '20' })).toMatchObject({
+        matchTimeLimitS: MATCH_TIME_LIMIT_S,
+        matchTimeLimitOverrideIgnored: true,
+      });
+    }
+  });
+
+  it('never parses the override outside NODE_ENV=test, even when it is malformed', () => {
+    expect(
+      loadConfig({ NODE_ENV: 'production', MATCH_TIME_LIMIT_S_OVERRIDE: 'nonsense' })
+        .matchTimeLimitS,
+    ).toBe(MATCH_TIME_LIMIT_S);
+    expect(loadConfig({ NODE_ENV: 'test', MATCH_TIME_LIMIT_S_OVERRIDE: '' })).toMatchObject({
+      matchTimeLimitS: MATCH_TIME_LIMIT_S,
+      matchTimeLimitOverrideIgnored: false,
+    });
+  });
+
+  it('throws on an invalid override under NODE_ENV=test', () => {
+    for (const value of ['0', '-5', '1.5', '901', '1e2', 'abc', '0x10']) {
+      expect(() => loadConfig({ NODE_ENV: 'test', MATCH_TIME_LIMIT_S_OVERRIDE: value })).toThrow(
+        /MATCH_TIME_LIMIT_S_OVERRIDE/,
+      );
     }
   });
 });

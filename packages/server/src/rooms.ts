@@ -1,6 +1,8 @@
 import {
   AFK_FORFEIT_MS,
   DISCONNECT_GRACE_MS,
+  MATCH_DEADLINE_GRACE_S,
+  MATCH_TIME_LIMIT_S,
   MAX_PLAYERS_DEFAULT,
   SIMULTANEOUS_DEATH_WINDOW_MS,
   START_DELAY_MS,
@@ -40,6 +42,11 @@ export interface RegistryDeps {
   /** Match seed, a uint32; `crypto.randomInt(2^32)` by default. */
   randomSeed?: () => number;
   maxPlayers?: number;
+  /**
+   * Match time limit in ms; `MATCH_TIME_LIMIT_S * 1000` by default. Only `NODE_ENV=test` deployments change it
+   * (`MATCH_TIME_LIMIT_S_OVERRIDE`, `config.ts`).
+   */
+  matchTimeLimitMs?: number;
   /** Structured events for the log (room codes and counts only, never nicknames). */
   onEvent?: (event: string, fields: Record<string, string | number>) => void;
 }
@@ -79,6 +86,8 @@ interface Room {
   countdownTimer: TimerHandle | null;
   decideTimer: TimerHandle | null;
   resetTimer: TimerHandle | null;
+  /** Ends the match at `startAt + time limit + MATCH_DEADLINE_GRACE_S` (#60); cleared by any earlier result. */
+  deadlineTimer: TimerHandle | null;
 }
 
 /** Read-only view of a room for tests and logs. */
@@ -113,6 +122,7 @@ export class RoomRegistry {
   private readonly randomInt: RandomInt;
   private readonly randomSeed: () => number;
   private readonly maxPlayers: number;
+  private readonly matchTimeLimitMs: number;
   private readonly onEvent: (event: string, fields: Record<string, string | number>) => void;
 
   constructor(deps: RegistryDeps) {
@@ -122,6 +132,7 @@ export class RoomRegistry {
     this.randomInt = deps.randomInt ?? cryptoRandom;
     this.randomSeed = deps.randomSeed ?? (() => cryptoRandom(2 ** 32));
     this.maxPlayers = deps.maxPlayers ?? MAX_PLAYERS_DEFAULT;
+    this.matchTimeLimitMs = deps.matchTimeLimitMs ?? MATCH_TIME_LIMIT_S * 1000;
     this.onEvent =
       deps.onEvent ??
       (() => {
@@ -170,6 +181,7 @@ export class RoomRegistry {
       countdownTimer: null,
       decideTimer: null,
       resetTimer: null,
+      deadlineTimer: null,
     };
     this.rooms.set(code, room);
     this.addPlayer(room, playerId, nickname);
@@ -238,6 +250,16 @@ export class RoomRegistry {
       room.phase = 'playing';
       this.broadcastState(room);
     }, START_DELAY_MS);
+    // A silent or stalling client can never hold the result back past the deadline (#60).
+    this.clearTimer(room.deadlineTimer);
+    room.deadlineTimer = this.timers.set(
+      () => {
+        room.deadlineTimer = null;
+        if (this.rooms.get(room.code) !== room) return;
+        this.deadline(room);
+      },
+      START_DELAY_MS + this.matchTimeLimitMs + MATCH_DEADLINE_GRACE_S * 1000,
+    );
     this.onEvent('match_start', { code: room.code, players: room.players.length });
     this.broadcast(room, { type: 'matchStart', seed, startAt });
     this.broadcastState(room);
@@ -421,6 +443,7 @@ export class RoomRegistry {
     this.clearTimer(room.countdownTimer);
     this.clearTimer(room.decideTimer);
     this.clearTimer(room.resetTimer);
+    this.clearTimer(room.deadlineTimer);
     for (const p of room.players) {
       this.clearPlayerTimers(p);
       if (this.playerRoom.get(p.id) === room) this.playerRoom.delete(p.id);
@@ -486,6 +509,25 @@ export class RoomRegistry {
     }
   }
 
+  /**
+   * The match deadline passed (#60): every player still alive who has not reported `survived` is treated as
+   * survived with the kills last relayed in `status`, including one disconnected less than `DISCONNECT_GRACE_MS`
+   * ago (not dead yet, ADR 0006). The unchanged ADR 0005 rule then decides; if a last-alive decision is already
+   * pending (a death within the last 100 ms), that decision runs and sees everyone else as survived.
+   */
+  private deadline(room: Room): void {
+    if (room.phase !== 'countdown' && room.phase !== 'playing') return;
+    let forced = 0;
+    for (const p of room.players) {
+      if (!p.eliminated && !p.survived) {
+        p.survived = true;
+        forced += 1;
+      }
+    }
+    this.onEvent('match_deadline', { code: room.code, forced });
+    this.evaluate(room);
+  }
+
   private decideLastAlive(room: Room): void {
     if (room.phase !== 'countdown' && room.phase !== 'playing') return;
     const alive = room.players.filter((p) => !p.eliminated);
@@ -500,8 +542,10 @@ export class RoomRegistry {
     room.phase = 'finished';
     this.clearTimer(room.countdownTimer);
     this.clearTimer(room.decideTimer);
+    this.clearTimer(room.deadlineTimer);
     room.countdownTimer = null;
     room.decideTimer = null;
+    room.deadlineTimer = null;
     for (const p of room.players) this.clearPlayerTimers(p);
 
     const ranking: RankingEntry[] = room.players
