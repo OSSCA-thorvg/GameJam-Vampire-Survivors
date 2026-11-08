@@ -26,7 +26,7 @@ function setup() {
 
 it('creates every paint once: ground, garlic, gem, chest, elite marker, enemy, projectile, book and effect pools, player, HP and XP bars, skull, fills and texts', () => {
   const { view, byId, paints } = setup();
-  expect(byId('stage.ground')).toHaveLength(96);
+  expect(byId('stage.ground')).toHaveLength(117);
   expect(byId('enemy.bat')).toHaveLength(200);
   expect(byId('enemy.ghoul')).toHaveLength(200);
   expect(byId('weapon.magicWand')).toHaveLength(300);
@@ -71,8 +71,8 @@ it('creates every paint once: ground, garlic, gem, chest, elite marker, enemy, p
   // The 16 elite markers (#15), the HP fill and the XP fill; the level, the timer and the kill counter.
   expect(byId('Shape')).toHaveLength(18);
   expect(byId('Text')).toHaveLength(3);
-  expect(view.countPaints()).toBe(2736);
-  expect(paints).toHaveLength(2757);
+  expect(view.countPaints()).toBe(2757);
+  expect(paints).toHaveLength(2778);
 });
 
 it('follows the camera, snapped to device pixels', () => {
@@ -155,7 +155,7 @@ it('hides everything on clear and shows the HUD again on begin', () => {
   ])
     expect(shown(id), id).toBe(0);
   view.begin('warden');
-  expect(shown('stage.ground')).toBe(96);
+  expect(shown('stage.ground')).toBe(117);
   expect(shown('player.warden')).toBe(1);
   expect(shown('ui.xpBar')).toBe(1);
   expect(shown('Shape')).toBe(2);

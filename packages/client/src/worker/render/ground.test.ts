@@ -24,8 +24,8 @@ function fakeLibrary() {
   };
 }
 
-it('uses the 128-unit tile in a 12 × 8 grid', () => {
-  expect([GROUND_TILE, GROUND_COLS, GROUND_ROWS]).toEqual([128, 12, 8]);
+it('uses the 128-unit tile in a 13 × 9 grid', () => {
+  expect([GROUND_TILE, GROUND_COLS, GROUND_ROWS]).toEqual([128, 13, 9]);
 });
 
 it.each([
@@ -34,12 +34,12 @@ it.each([
   [12345.6, -987],
   [-0.5, -127.999],
   [-98765.4321, 4321.987],
-])('covers the whole view at camera (%d, %d) with 96 tiles', (cx, cy) => {
+])('covers the whole view at camera (%d, %d) with 117 tiles', (cx, cy) => {
   const { matrices, library, layer } = fakeLibrary();
   const ground = createGround(library, layer);
   ground.sync(cx, cy);
-  expect(ground.pool.created).toBe(96);
-  expect(matrices).toHaveLength(96);
+  expect(ground.pool.created).toBe(117);
+  expect(matrices).toHaveLength(117);
   const tiles = matrices.map((m) => {
     if (!m) throw new Error('tile never placed');
     // Overlapping placement: each tile spans its 128 units plus 1 unit of overlap.
@@ -76,12 +76,39 @@ it('acquires its tiles once and rewrites transforms only when the grid origin mo
   const { matrices, library, layer } = fakeLibrary();
   const ground = createGround(library, layer);
   for (let x = 0; x < 5000; x += 7.3) ground.sync(x, -x / 2);
-  expect(ground.pool.created).toBe(96);
-  expect(ground.pool.visibleCount).toBe(96);
+  expect(ground.pool.created).toBe(117);
+  expect(ground.pool.visibleCount).toBe(117);
   ground.sync(1000, 0);
   const before = JSON.stringify(matrices);
-  ground.sync(1001.5, 3); // the same tile origin (256, -384)
+  ground.sync(1001.5, 3); // the same tile origin (128, -512)
   expect(JSON.stringify(matrices)).toBe(before);
   ground.sync(1100, 0); // origin moves one tile right
   expect(JSON.stringify(matrices)).not.toBe(before);
+});
+
+// #103: `view.ts` snaps the world translate to whole device pixels (up to half a device pixel either way), and
+// `main/viewport.ts` lets the canvas extend under 2 device pixels right of and below the view. The grid covers a
+// margin of almost a whole tile on every side, so neither shows a partly covered edge column or row, also with the
+// camera exactly on a tile boundary.
+it.each([
+  [0, 0],
+  [-0.5, -127.999],
+  [-640, -360],
+  [-767.99, -487.99],
+  [12345.6, -987],
+  [640, 360],
+])('covers the view plus nearly a tile on every side at camera (%d, %d)', (cx, cy) => {
+  const { matrices, library, layer } = fakeLibrary();
+  createGround(library, layer).sync(cx, cy);
+  const camera = createCamera();
+  camera.x = cx;
+  camera.y = cy;
+  const view = camera.viewRect(0);
+  const lefts = matrices.map((m) => m?.e13 ?? Number.NaN);
+  const tops = matrices.map((m) => m?.e23 ?? Number.NaN);
+  const margin = GROUND_TILE - 1e-3;
+  expect(Math.min(...lefts)).toBeLessThanOrEqual(view.left - margin);
+  expect(Math.min(...tops)).toBeLessThanOrEqual(view.top - margin);
+  expect(Math.max(...lefts) + GROUND_TILE).toBeGreaterThanOrEqual(view.right + margin);
+  expect(Math.max(...tops) + GROUND_TILE).toBeGreaterThanOrEqual(view.bottom + margin);
 });

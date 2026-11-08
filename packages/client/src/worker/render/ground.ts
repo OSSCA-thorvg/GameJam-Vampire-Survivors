@@ -7,9 +7,15 @@ import { setTransform } from './transform';
 
 /** Tile size of `stage.ground` (128); `assets-catalog.test.ts` checks it equals the manifest's size. */
 export const GROUND_TILE = ASSET_SIZES['stage.ground'][0];
-/** One more tile than the view needs on each axis, so a partly scrolled view is still covered. */
-export const GROUND_COLS = Math.ceil(VIEW_WIDTH / GROUND_TILE) + 2;
-export const GROUND_ROWS = Math.ceil(VIEW_HEIGHT / GROUND_TILE) + 2;
+/**
+ * The grid starts one whole tile before the tile under the view's top-left corner and reaches at least one tile past
+ * its bottom-right corner, so the view plus a margin of under one tile on every side is covered. The margin is used
+ * twice (#103): `view.ts` snaps the world translate to whole device pixels, moving the world by up to half a device
+ * pixel either way, and `main/viewport.ts` lets the canvas extend under 2 device pixels right of and below the view.
+ * Without the left and top margin, a camera on a tile boundary showed a partly covered first column (1366 × 768).
+ */
+export const GROUND_COLS = Math.ceil(VIEW_WIDTH / GROUND_TILE) + 3;
+export const GROUND_ROWS = Math.ceil(VIEW_HEIGHT / GROUND_TILE) + 3;
 /**
  * Tiles overlap by 1 world unit: placed edge to edge, anti-aliased tile edges at fractional view scales show
  * hairline seams (found in #5; `assets/README.md`).
@@ -28,7 +34,7 @@ export interface Ground {
 
 /**
  * The endless ground (ADR 0003): a fixed grid of `GROUND_COLS × GROUND_ROWS` pooled `stage.ground` instances,
- * acquired once. Each frame the grid snaps to the tile containing the view's top-left corner. The manifest anchors
+ * acquired once. Each frame the grid snaps to one tile before the tile containing the view's top-left corner. The manifest anchors
  * the tile at `[0, 0]` (checked by `packages/shared/src/assets.test.ts`).
  */
 export function createGround(
@@ -54,8 +60,8 @@ export function createGround(
     },
     acquire,
     sync(cameraX, cameraY) {
-      const x0 = Math.floor((cameraX - VIEW_WIDTH / 2) / GROUND_TILE) * GROUND_TILE;
-      const y0 = Math.floor((cameraY - VIEW_HEIGHT / 2) / GROUND_TILE) * GROUND_TILE;
+      const x0 = (Math.floor((cameraX - VIEW_WIDTH / 2) / GROUND_TILE) - 1) * GROUND_TILE;
+      const y0 = (Math.floor((cameraY - VIEW_HEIGHT / 2) / GROUND_TILE) - 1) * GROUND_TILE;
       if (x0 === lastX0 && y0 === lastY0) return;
       lastX0 = x0;
       lastY0 = y0;
