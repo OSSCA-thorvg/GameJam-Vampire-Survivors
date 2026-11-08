@@ -1,0 +1,2071 @@
+{
+  "version": 1,
+  "issue": 84,
+  "phase": "reviewed-source-complete",
+  "baseMain": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+  "historicalReceipt": {
+    "file": "docs/assets/rebuild-76.receipt.json",
+    "sha256": "21854fc1246e99c0ed29e583d40af18edf875c679e06c26308d8783017330ebf",
+    "policy": "Immutable historical source/pack evidence; not current runtime graph ledger"
+  },
+  "tool": {
+    "repository": "https://github.com/aldegad/sprite-gen",
+    "version": "4.3.0",
+    "commit": "35a27e137bfd72440cc856b080913c66f69c772e",
+    "provider": "codex",
+    "auth": "confirmed ChatGPT subscription",
+    "codexUnavailable": "ask"
+  },
+  "diagnosticMaster": {
+    "id": "enemy.lottieTest",
+    "file": "assets/enemies/lottie-test.json",
+    "gitCommit": "65cfedebd3b1969c84704432808cc948dcfc5a3e",
+    "gitBlob": "4add4862f7c88ff1f174c706790a226f64e1bbd8",
+    "sha256": "3e8545c7e339ff51725c5cd5f66853cc58a0db6d63ba84cf0aedf1582988a20b",
+    "manifestEntry": {
+      "file": "enemies/lottie-test.json",
+      "format": "lottie",
+      "size": [32, 32],
+      "anchor": [0.5, 0.5]
+    }
+  },
+  "logicalIds": [
+    "boss.death",
+    "boss.reaper10",
+    "boss.reaper5",
+    "enemy.bat",
+    "enemy.brute",
+    "enemy.ghoul",
+    "enemy.lottieTest",
+    "enemy.skeleton",
+    "enemy.wisp",
+    "enemy.wraith",
+    "font.hud",
+    "fx.chestOpen",
+    "fx.enemyDeath",
+    "fx.freeze",
+    "fx.hit",
+    "fx.levelUp",
+    "fx.warning",
+    "gem.blue",
+    "gem.green",
+    "gem.red",
+    "icon.passive.bracer",
+    "icon.passive.candelabrador",
+    "icon.passive.clover",
+    "icon.passive.emptyTome",
+    "icon.passive.hollowHeart",
+    "icon.passive.pummarola",
+    "icon.passive.spellbinder",
+    "icon.passive.spinach",
+    "icon.weapon.axe",
+    "icon.weapon.bloodyTear",
+    "icon.weapon.cross",
+    "icon.weapon.deathSpiral",
+    "icon.weapon.fireWand",
+    "icon.weapon.garlic",
+    "icon.weapon.heavenSword",
+    "icon.weapon.hellfire",
+    "icon.weapon.holyWand",
+    "icon.weapon.kingBible",
+    "icon.weapon.knife",
+    "icon.weapon.magicWand",
+    "icon.weapon.soulEater",
+    "icon.weapon.thousandEdge",
+    "icon.weapon.unholyVespers",
+    "icon.weapon.whip",
+    "pickup.chest",
+    "pickup.floorChicken",
+    "pickup.interference.eliteCall",
+    "pickup.interference.gemThief",
+    "pickup.interference.swarm",
+    "pickup.littleClover",
+    "pickup.orologion",
+    "pickup.rosary",
+    "pickup.vacuum",
+    "player.aurelia",
+    "player.ember",
+    "player.swift",
+    "player.warden",
+    "portrait.aurelia",
+    "portrait.ember",
+    "portrait.swift",
+    "portrait.warden",
+    "stage.brazier",
+    "stage.brazierBroken",
+    "stage.ground",
+    "ui.favicon",
+    "ui.hpBar",
+    "ui.placeholder",
+    "ui.skull",
+    "ui.xpBar",
+    "weapon.axe",
+    "weapon.bloodyTear",
+    "weapon.cross",
+    "weapon.deathSpiral",
+    "weapon.fireWand",
+    "weapon.garlic",
+    "weapon.heavenSword",
+    "weapon.hellfire",
+    "weapon.holyWand",
+    "weapon.kingBible",
+    "weapon.knife",
+    "weapon.magicWand",
+    "weapon.soulEater",
+    "weapon.thousandEdge",
+    "weapon.unholyVespers",
+    "weapon.whip"
+  ],
+  "motionIds": [
+    "boss.death",
+    "boss.reaper10",
+    "boss.reaper5",
+    "enemy.bat",
+    "enemy.brute",
+    "enemy.ghoul",
+    "enemy.skeleton",
+    "enemy.wisp",
+    "enemy.wraith",
+    "fx.chestOpen",
+    "fx.enemyDeath",
+    "fx.freeze",
+    "fx.hit",
+    "fx.levelUp",
+    "fx.warning",
+    "player.aurelia",
+    "player.ember",
+    "player.swift",
+    "player.warden",
+    "stage.brazier",
+    "weapon.axe",
+    "weapon.bloodyTear",
+    "weapon.cross",
+    "weapon.deathSpiral",
+    "weapon.fireWand",
+    "weapon.garlic",
+    "weapon.heavenSword",
+    "weapon.hellfire",
+    "weapon.holyWand",
+    "weapon.kingBible",
+    "weapon.knife",
+    "weapon.magicWand",
+    "weapon.soulEater",
+    "weapon.thousandEdge",
+    "weapon.unholyVespers",
+    "weapon.whip"
+  ],
+  "staticIds": [
+    "font.hud",
+    "gem.blue",
+    "gem.green",
+    "gem.red",
+    "icon.passive.bracer",
+    "icon.passive.candelabrador",
+    "icon.passive.clover",
+    "icon.passive.emptyTome",
+    "icon.passive.hollowHeart",
+    "icon.passive.pummarola",
+    "icon.passive.spellbinder",
+    "icon.passive.spinach",
+    "icon.weapon.axe",
+    "icon.weapon.bloodyTear",
+    "icon.weapon.cross",
+    "icon.weapon.deathSpiral",
+    "icon.weapon.fireWand",
+    "icon.weapon.garlic",
+    "icon.weapon.heavenSword",
+    "icon.weapon.hellfire",
+    "icon.weapon.holyWand",
+    "icon.weapon.kingBible",
+    "icon.weapon.knife",
+    "icon.weapon.magicWand",
+    "icon.weapon.soulEater",
+    "icon.weapon.thousandEdge",
+    "icon.weapon.unholyVespers",
+    "icon.weapon.whip",
+    "pickup.chest",
+    "pickup.floorChicken",
+    "pickup.interference.eliteCall",
+    "pickup.interference.gemThief",
+    "pickup.interference.swarm",
+    "pickup.littleClover",
+    "pickup.orologion",
+    "pickup.rosary",
+    "pickup.vacuum",
+    "portrait.aurelia",
+    "portrait.ember",
+    "portrait.swift",
+    "portrait.warden",
+    "stage.brazierBroken",
+    "stage.ground",
+    "ui.favicon",
+    "ui.hpBar",
+    "ui.placeholder",
+    "ui.skull",
+    "ui.xpBar"
+  ],
+  "finalFormatCounts": {
+    "lottie": 37,
+    "png": 47,
+    "ttf": 1
+  },
+  "bankExport": {
+    "strategy": "unmodified-upstream-canonical-row-common-then-whole-bank",
+    "commonScaleAcrossStates": "ONE final pixel scale after declared upstream uniform row calibration",
+    "sharedPaletteSize": 64,
+    "binaryAlpha": true,
+    "resourceScale": 2,
+    "resourceGrid": 1,
+    "perPoseBboxFit": false,
+    "canonicalComparisonsPreserved": true,
+    "sourcePoseCount": 16,
+    "nativePoseCount": 12,
+    "refinementScope": "ALL16 source poses before fixed temporal selection",
+    "frameSelection": {
+      "idle": [0, 2, 4, 6],
+      "move": [0, 1, 2, 3, 4, 5, 6, 7]
+    },
+    "stateCalibration": "Replay official fit_row_to_cells: one uniform factor per complete8-pose state; require exact canonical decoded pixels",
+    "rawMagnification": "Retain uncorrected source measurements and per-state factors; no raw continuity pass",
+    "finalMotionPresenceThreshold": 0.01
+  },
+  "pilotGate": {
+    "sources": ["player.swift", "enemy.bat"],
+    "bulkAllowed": false,
+    "requireActualWebGl": true,
+    "minimumWarmStressFps": 40,
+    "normalWasmCapacityMax": 536870912,
+    "stressWasmCapacityMax": 1073741824
+  },
+  "supportFiles": ["CATALOG.md", "README.md", "manifest.json", "fonts/LICENSE-NotoSansMono.txt"],
+  "assets": [
+    {
+      "id": "boss.death",
+      "kind": "actor",
+      "logicalSize": [128, 128],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/bosses/death.png",
+        "sha256": "4aa8a8fa995fb22dc07071a2dbdb5a75634b44e4c027442a3f39f280de523b2a",
+        "archive": "verification/issue-84/approved-masters/bosses/death.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/bosses/death.png",
+        "gitBlob": "fb87644bd759c2071506a11d1b1beb4870d4a3b3"
+      },
+      "outputFile": "bosses/death.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "profile": "boss",
+      "bodyPlan": "legless",
+      "grounded": false,
+      "sourceStates": {
+        "idle": {
+          "frames": 8,
+          "fps": 4,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "runtime": {
+        "fps": 12,
+        "markers": {
+          "idle": [0, 24],
+          "move": [24, 32]
+        },
+        "nativeProfile": "flat-image-pose-bank"
+      },
+      "decodedBankBudget": 4194304,
+      "nativeStates": {
+        "idle": {
+          "frames": 4,
+          "fps": 2,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "frameSelection": {
+        "idle": [0, 2, 4, 6],
+        "move": [0, 1, 2, 3, 4, 5, 6, 7]
+      }
+    },
+    {
+      "id": "boss.reaper10",
+      "kind": "actor",
+      "logicalSize": [112, 112],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/bosses/reaper10.png",
+        "sha256": "51b9744873b63a752cc3f1bfac589bae351241e57de790abd51a2d8480d9e480",
+        "archive": "verification/issue-84/approved-masters/bosses/reaper10.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/bosses/reaper10.png",
+        "gitBlob": "07f6e221c884012bf8a19b4bce8bef4c3d00dcb9"
+      },
+      "outputFile": "bosses/reaper10.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "profile": "boss",
+      "bodyPlan": "legless",
+      "grounded": false,
+      "sourceStates": {
+        "idle": {
+          "frames": 8,
+          "fps": 4,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "runtime": {
+        "fps": 12,
+        "markers": {
+          "idle": [0, 24],
+          "move": [24, 32]
+        },
+        "nativeProfile": "flat-image-pose-bank"
+      },
+      "decodedBankBudget": 4194304,
+      "nativeStates": {
+        "idle": {
+          "frames": 4,
+          "fps": 2,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "frameSelection": {
+        "idle": [0, 2, 4, 6],
+        "move": [0, 1, 2, 3, 4, 5, 6, 7]
+      }
+    },
+    {
+      "id": "boss.reaper5",
+      "kind": "actor",
+      "logicalSize": [96, 96],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/bosses/reaper5.png",
+        "sha256": "d68854df504ab9c3d7084ba593cac27327feddc2b57f2b6e49aaf1fd8fd34d28",
+        "archive": "verification/issue-84/approved-masters/bosses/reaper5.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/bosses/reaper5.png",
+        "gitBlob": "b566b145b5c2565ee919bfd43a41ee48dca3c0ee"
+      },
+      "outputFile": "bosses/reaper5.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "profile": "boss",
+      "bodyPlan": "legless",
+      "grounded": false,
+      "sourceStates": {
+        "idle": {
+          "frames": 8,
+          "fps": 4,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "runtime": {
+        "fps": 12,
+        "markers": {
+          "idle": [0, 24],
+          "move": [24, 32]
+        },
+        "nativeProfile": "flat-image-pose-bank"
+      },
+      "decodedBankBudget": 4194304,
+      "nativeStates": {
+        "idle": {
+          "frames": 4,
+          "fps": 2,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "frameSelection": {
+        "idle": [0, 2, 4, 6],
+        "move": [0, 1, 2, 3, 4, 5, 6, 7]
+      }
+    },
+    {
+      "id": "enemy.bat",
+      "kind": "actor",
+      "logicalSize": [32, 32],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/enemies/bat.png",
+        "sha256": "31a76dbbd9c9bbb9468d1b1a15af5d2b7baa8233ef460dd5cb7fc3e1c1e33aa8",
+        "archive": "verification/issue-84/approved-masters/enemies/bat.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/enemies/bat.png",
+        "gitBlob": "0e5b132120d21f6334c08420975b967e0e350548"
+      },
+      "outputFile": "enemies/bat.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "profile": "actor",
+      "bodyPlan": "legless",
+      "grounded": false,
+      "sourceStates": {
+        "idle": {
+          "frames": 8,
+          "fps": 4,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "runtime": {
+        "fps": 12,
+        "markers": {
+          "idle": [0, 24],
+          "move": [24, 32]
+        },
+        "nativeProfile": "flat-image-pose-bank"
+      },
+      "decodedBankBudget": 1048576,
+      "nativeStates": {
+        "idle": {
+          "frames": 4,
+          "fps": 2,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "frameSelection": {
+        "idle": [0, 2, 4, 6],
+        "move": [0, 1, 2, 3, 4, 5, 6, 7]
+      }
+    },
+    {
+      "id": "enemy.brute",
+      "kind": "actor",
+      "logicalSize": [56, 56],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/enemies/brute.png",
+        "sha256": "8b3e0c02ac031ae7b59b53a7e60b848d7ba73c326c1896d2f39f1886d2093677",
+        "archive": "verification/issue-84/approved-masters/enemies/brute.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/enemies/brute.png",
+        "gitBlob": "b27ad38bb8fe38b734ecca35a89d5a1b7dd5cc2d"
+      },
+      "outputFile": "enemies/brute.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "profile": "actor",
+      "bodyPlan": "biped",
+      "grounded": true,
+      "sourceStates": {
+        "idle": {
+          "frames": 8,
+          "fps": 4,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "runtime": {
+        "fps": 12,
+        "markers": {
+          "idle": [0, 24],
+          "move": [24, 32]
+        },
+        "nativeProfile": "flat-image-pose-bank"
+      },
+      "decodedBankBudget": 1048576,
+      "nativeStates": {
+        "idle": {
+          "frames": 4,
+          "fps": 2,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "frameSelection": {
+        "idle": [0, 2, 4, 6],
+        "move": [0, 1, 2, 3, 4, 5, 6, 7]
+      }
+    },
+    {
+      "id": "enemy.ghoul",
+      "kind": "actor",
+      "logicalSize": [36, 40],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/enemies/ghoul.png",
+        "sha256": "6612faa60ce29456f9c6d68f8e8b578fb9fd9dadfb5a70cf70cee65da12ca0d4",
+        "archive": "verification/issue-84/approved-masters/enemies/ghoul.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/enemies/ghoul.png",
+        "gitBlob": "678b6343e933ef173054298cdf0282eea46a2dc7"
+      },
+      "outputFile": "enemies/ghoul.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "profile": "actor",
+      "bodyPlan": "biped",
+      "grounded": true,
+      "sourceStates": {
+        "idle": {
+          "frames": 8,
+          "fps": 4,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "runtime": {
+        "fps": 12,
+        "markers": {
+          "idle": [0, 24],
+          "move": [24, 32]
+        },
+        "nativeProfile": "flat-image-pose-bank"
+      },
+      "decodedBankBudget": 1048576,
+      "nativeStates": {
+        "idle": {
+          "frames": 4,
+          "fps": 2,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "frameSelection": {
+        "idle": [0, 2, 4, 6],
+        "move": [0, 1, 2, 3, 4, 5, 6, 7]
+      }
+    },
+    {
+      "id": "enemy.skeleton",
+      "kind": "actor",
+      "logicalSize": [36, 44],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/enemies/skeleton.png",
+        "sha256": "b652a22100919e08a20d1857b682cc21befa6199c37dc87ecec324c0679ef90e",
+        "archive": "verification/issue-84/approved-masters/enemies/skeleton.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/enemies/skeleton.png",
+        "gitBlob": "5426e3ee2f848a7ba9267b673e75bcf9d388bc31"
+      },
+      "outputFile": "enemies/skeleton.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "profile": "actor",
+      "bodyPlan": "biped",
+      "grounded": true,
+      "sourceStates": {
+        "idle": {
+          "frames": 8,
+          "fps": 4,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "runtime": {
+        "fps": 12,
+        "markers": {
+          "idle": [0, 24],
+          "move": [24, 32]
+        },
+        "nativeProfile": "flat-image-pose-bank"
+      },
+      "decodedBankBudget": 1048576,
+      "nativeStates": {
+        "idle": {
+          "frames": 4,
+          "fps": 2,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "frameSelection": {
+        "idle": [0, 2, 4, 6],
+        "move": [0, 1, 2, 3, 4, 5, 6, 7]
+      }
+    },
+    {
+      "id": "enemy.wisp",
+      "kind": "actor",
+      "logicalSize": [32, 32],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/enemies/wisp.png",
+        "sha256": "a049987db2904415d1e552efe81de4e821b407298241362612637d48aefdda37",
+        "archive": "verification/issue-84/approved-masters/enemies/wisp.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/enemies/wisp.png",
+        "gitBlob": "1b188079870cb69331c60a0f63fc38f53221904d"
+      },
+      "outputFile": "enemies/wisp.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "profile": "actor",
+      "bodyPlan": "legless",
+      "grounded": false,
+      "sourceStates": {
+        "idle": {
+          "frames": 8,
+          "fps": 4,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "runtime": {
+        "fps": 12,
+        "markers": {
+          "idle": [0, 24],
+          "move": [24, 32]
+        },
+        "nativeProfile": "flat-image-pose-bank"
+      },
+      "decodedBankBudget": 1048576,
+      "nativeStates": {
+        "idle": {
+          "frames": 4,
+          "fps": 2,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "frameSelection": {
+        "idle": [0, 2, 4, 6],
+        "move": [0, 1, 2, 3, 4, 5, 6, 7]
+      }
+    },
+    {
+      "id": "enemy.wraith",
+      "kind": "actor",
+      "logicalSize": [64, 64],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/enemies/wraith.png",
+        "sha256": "fb28fff75dcf9dc90fc747c386869a457e614d68a8191dc1530fe633f262a6df",
+        "archive": "verification/issue-84/approved-masters/enemies/wraith.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/enemies/wraith.png",
+        "gitBlob": "801347408d654a3ba821b38dd42b393be508ff13"
+      },
+      "outputFile": "enemies/wraith.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "profile": "actor",
+      "bodyPlan": "biped",
+      "grounded": true,
+      "sourceStates": {
+        "idle": {
+          "frames": 8,
+          "fps": 4,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "runtime": {
+        "fps": 12,
+        "markers": {
+          "idle": [0, 24],
+          "move": [24, 32]
+        },
+        "nativeProfile": "flat-image-pose-bank"
+      },
+      "decodedBankBudget": 1048576,
+      "nativeStates": {
+        "idle": {
+          "frames": 4,
+          "fps": 2,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "frameSelection": {
+        "idle": [0, 2, 4, 6],
+        "move": [0, 1, 2, 3, 4, 5, 6, 7]
+      },
+      "locomotionStyle": "grounded-undead-drag",
+      "artDirection": {
+        "file": "docs/assets/motion-84-wraith-art-direction.json",
+        "sha256": "5ec9a09b1b86bc74022802935859f87b49be6146dd1c3680c32229832d52b7c4"
+      }
+    },
+    {
+      "id": "fx.chestOpen",
+      "kind": "effect",
+      "logicalSize": [128, 128],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/fx/chest-open.json",
+        "sha256": "6e2b5957d0f96eb0e644d154e29a487d38c873b5b54742798aa2b982c96ef973",
+        "archive": "verification/issue-84/approved-masters/fx/chest-open.json",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/fx/chest-open.json",
+        "gitBlob": "31867cf4aa9f59439e954d48926370a02bf99428",
+        "resources": [
+          {
+            "file": "assets/fx/chest-open/art.png",
+            "sha256": "eac6867021501a3d8c97a800933a1b790be3208985d4110ce0c618c6c409f1c4",
+            "archive": "verification/issue-84/approved-masters/fx/chest-open/art.png",
+            "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+            "gitPath": "assets/fx/chest-open/art.png",
+            "gitBlob": "444e59dd4d455a518faf36ebbe4845ad30257cc7"
+          }
+        ]
+      },
+      "outputFile": "fx/chest-open.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 30,
+        "durationSeconds": 0.8,
+        "loop": true,
+        "preset": "preserve-original-native-envelopes"
+      }
+    },
+    {
+      "id": "fx.enemyDeath",
+      "kind": "effect",
+      "logicalSize": [32, 32],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/fx/enemy-death.png",
+        "sha256": "61ed525306127d1493d3917c0a0dc94fe96ebe86c15c0fa4452a0a557f93eb02",
+        "archive": "verification/issue-84/approved-masters/fx/enemy-death.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/fx/enemy-death.png",
+        "gitBlob": "6a1baf75fb1661befae8bd32ff8c985eddaae04c"
+      },
+      "outputFile": "fx/enemy-death.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 0.5,
+        "loop": false,
+        "preset": "native-enemyDeath"
+      }
+    },
+    {
+      "id": "fx.freeze",
+      "kind": "effect",
+      "logicalSize": [64, 64],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/fx/freeze.png",
+        "sha256": "085d816489c4abe6fe70d063bdead9f1eeae229eb0820c3e077408b507cfa5e9",
+        "archive": "verification/issue-84/approved-masters/fx/freeze.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/fx/freeze.png",
+        "gitBlob": "05909c3436bec8a7ad38256659f86eba7e261833"
+      },
+      "outputFile": "fx/freeze.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 30,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "native-freeze"
+      }
+    },
+    {
+      "id": "fx.hit",
+      "kind": "effect",
+      "logicalSize": [24, 24],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/fx/hit.png",
+        "sha256": "ec42c83ac4fee10e22eef9c5f7f2c7c69014b55dd72be7e920984094ff6d07de",
+        "archive": "verification/issue-84/approved-masters/fx/hit.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/fx/hit.png",
+        "gitBlob": "8510cefb6a966fa919f7f43395520b96cd736361"
+      },
+      "outputFile": "fx/hit.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 0.25,
+        "loop": false,
+        "preset": "native-hit"
+      }
+    },
+    {
+      "id": "fx.levelUp",
+      "kind": "effect",
+      "logicalSize": [96, 96],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/fx/level-up.json",
+        "sha256": "897219443461582f2b81cf7780b2d093d3a1569a714bb596f27e67057cfe90d4",
+        "archive": "verification/issue-84/approved-masters/fx/level-up.json",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/fx/level-up.json",
+        "gitBlob": "b1b5b137b79d98fc69d2a8c48b56c21c981d25d1",
+        "resources": [
+          {
+            "file": "assets/fx/level-up/art.png",
+            "sha256": "afbe6743a824c4502f3788fe53ca25ecafa62d3df30bb348d28304e0e048ebdd",
+            "archive": "verification/issue-84/approved-masters/fx/level-up/art.png",
+            "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+            "gitPath": "assets/fx/level-up/art.png",
+            "gitBlob": "1e1a41f8ae7314d7745e9e9c8e16a39d7181df67"
+          }
+        ]
+      },
+      "outputFile": "fx/level-up.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 30,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "preserve-original-native-envelopes"
+      }
+    },
+    {
+      "id": "fx.warning",
+      "kind": "effect",
+      "logicalSize": [48, 48],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/fx/warning.png",
+        "sha256": "b2d18671a646f15b7df4b8cb0baf005c8c208cfa74cc76d2152cc66103e9d623",
+        "archive": "verification/issue-84/approved-masters/fx/warning.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/fx/warning.png",
+        "gitBlob": "d96c76f673b624656040ebb0469dcd9eb7f81247"
+      },
+      "outputFile": "fx/warning.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 30,
+        "durationSeconds": 0.8,
+        "loop": true,
+        "preset": "native-warning"
+      }
+    },
+    {
+      "id": "player.aurelia",
+      "kind": "actor",
+      "logicalSize": [48, 48],
+      "anchor": [0.5, 0.9],
+      "master": {
+        "file": "assets/characters/aurelia.png",
+        "sha256": "19d22b8dd323754e9c7c8648ccbd59d6f81955fa8aabcc2135e29ddb0db23223",
+        "archive": "verification/issue-84/approved-masters/characters/aurelia.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/characters/aurelia.png",
+        "gitBlob": "c603a4b0ec217a1c947e0e69735d155e783ecc6d"
+      },
+      "outputFile": "characters/aurelia.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "profile": "player",
+      "bodyPlan": "biped",
+      "grounded": true,
+      "sourceStates": {
+        "idle": {
+          "frames": 8,
+          "fps": 4,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "runtime": {
+        "fps": 150,
+        "markers": {
+          "idle": [0, 600],
+          "move": [600, 1200]
+        },
+        "nativeProfile": "actor-precomp-hold-parent-opacity"
+      },
+      "decodedBankBudget": 1048576,
+      "nativeStates": {
+        "idle": {
+          "frames": 4,
+          "fps": 2,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "frameSelection": {
+        "idle": [0, 2, 4, 6],
+        "move": [0, 1, 2, 3, 4, 5, 6, 7]
+      }
+    },
+    {
+      "id": "player.ember",
+      "kind": "actor",
+      "logicalSize": [48, 48],
+      "anchor": [0.5, 0.9],
+      "master": {
+        "file": "assets/characters/ember.png",
+        "sha256": "d09dd5712765835af6516e6d181aebb4ea5397d1ce0d75f5a2af5b963312c16f",
+        "archive": "verification/issue-84/approved-masters/characters/ember.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/characters/ember.png",
+        "gitBlob": "f8b99c5646cc34f65be81c309d5cc7996d2c9252"
+      },
+      "outputFile": "characters/ember.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "profile": "player",
+      "bodyPlan": "biped",
+      "grounded": true,
+      "sourceStates": {
+        "idle": {
+          "frames": 8,
+          "fps": 4,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "runtime": {
+        "fps": 150,
+        "markers": {
+          "idle": [0, 600],
+          "move": [600, 1200]
+        },
+        "nativeProfile": "actor-precomp-hold-parent-opacity"
+      },
+      "decodedBankBudget": 1048576,
+      "nativeStates": {
+        "idle": {
+          "frames": 4,
+          "fps": 2,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "frameSelection": {
+        "idle": [0, 2, 4, 6],
+        "move": [0, 1, 2, 3, 4, 5, 6, 7]
+      }
+    },
+    {
+      "id": "player.swift",
+      "kind": "actor",
+      "logicalSize": [48, 48],
+      "anchor": [0.5, 0.9],
+      "master": {
+        "file": "assets/characters/swift.png",
+        "sha256": "c0ca0237e389273ad4672ad745a015979adbe262dfa64f91a6c62c2807b0b1c9",
+        "archive": "verification/issue-84/approved-masters/characters/swift.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/characters/swift.png",
+        "gitBlob": "a2f9e6fc61f25f5dcfe0c2e6496881673efea5bd"
+      },
+      "outputFile": "characters/swift.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "profile": "player",
+      "bodyPlan": "biped",
+      "grounded": true,
+      "sourceStates": {
+        "idle": {
+          "frames": 8,
+          "fps": 4,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "runtime": {
+        "fps": 150,
+        "markers": {
+          "idle": [0, 600],
+          "move": [600, 1200]
+        },
+        "nativeProfile": "actor-precomp-hold-parent-opacity"
+      },
+      "decodedBankBudget": 1048576,
+      "nativeStates": {
+        "idle": {
+          "frames": 4,
+          "fps": 2,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "frameSelection": {
+        "idle": [0, 2, 4, 6],
+        "move": [0, 1, 2, 3, 4, 5, 6, 7]
+      }
+    },
+    {
+      "id": "player.warden",
+      "kind": "actor",
+      "logicalSize": [48, 48],
+      "anchor": [0.5, 0.9],
+      "master": {
+        "file": "assets/characters/warden.png",
+        "sha256": "7725118a4040792493f93bccee25fb005563ed934a1be1be7454633a63641e50",
+        "archive": "verification/issue-84/approved-masters/characters/warden.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/characters/warden.png",
+        "gitBlob": "b389b4da2c27ac0c936618fc1d9011c80abfbee5"
+      },
+      "outputFile": "characters/warden.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "profile": "player",
+      "bodyPlan": "biped",
+      "grounded": true,
+      "sourceStates": {
+        "idle": {
+          "frames": 8,
+          "fps": 4,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "runtime": {
+        "fps": 150,
+        "markers": {
+          "idle": [0, 600],
+          "move": [600, 1200]
+        },
+        "nativeProfile": "actor-precomp-hold-parent-opacity"
+      },
+      "decodedBankBudget": 1048576,
+      "nativeStates": {
+        "idle": {
+          "frames": 4,
+          "fps": 2,
+          "durationSeconds": 2
+        },
+        "move": {
+          "frames": 8,
+          "fps": 12,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "frameSelection": {
+        "idle": [0, 2, 4, 6],
+        "move": [0, 1, 2, 3, 4, 5, 6, 7]
+      }
+    },
+    {
+      "id": "stage.brazier",
+      "kind": "stage",
+      "logicalSize": [24, 40],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/stage/brazier.png",
+        "sha256": "1ce7a2adad0516cda38959e967f66d811cdc068783a186209599c1fccaf531ca",
+        "archive": "verification/issue-84/approved-masters/stage/brazier.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/stage/brazier.png",
+        "gitBlob": "05cca54d61a4f294adb37a1a68f829fde1922150"
+      },
+      "outputFile": "stage/brazier.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "sourceStates": {
+        "flame": {
+          "frames": 4,
+          "fps": 6,
+          "durationSeconds": 0.6666666666666666
+        }
+      },
+      "runtime": {
+        "fps": 6,
+        "durationSeconds": 0.6666666666666666,
+        "loop": true,
+        "preset": "registered-stand-native-flame-pose-bank"
+      }
+    },
+    {
+      "id": "weapon.axe",
+      "kind": "projectile",
+      "logicalSize": [28, 28],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/weapons/axe.png",
+        "sha256": "a94a10e87209b94118ccd4661011854164a6914d3cb3337bc10c022f7567e699",
+        "archive": "verification/issue-84/approved-masters/weapons/axe.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/weapons/axe.png",
+        "gitBlob": "a699deed2b9c56cb84f4c205387bdc458caea233"
+      },
+      "outputFile": "weapons/axe.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "centered-native-rotation",
+        "worldTranslation": false
+      }
+    },
+    {
+      "id": "weapon.bloodyTear",
+      "kind": "projectile",
+      "logicalSize": [180, 44],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/weapons/bloody-tear.png",
+        "sha256": "20ae0c00b259795a187d8aca1b8220a575d6180e8a37da8cd84f69e39dc8a6b1",
+        "archive": "verification/issue-84/approved-masters/weapons/bloody-tear.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/weapons/bloody-tear.png",
+        "gitBlob": "5dc6a119cfbafc9894d74af0fb1b7ea3232cea44"
+      },
+      "outputFile": "weapons/bloody-tear.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "native-pulse-trail-opacity",
+        "worldTranslation": false
+      }
+    },
+    {
+      "id": "weapon.cross",
+      "kind": "projectile",
+      "logicalSize": [28, 28],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/weapons/cross.png",
+        "sha256": "abfd9ab02261d1d47e92cf96f2feb42b4ad6244d646db7d1dd9804192b9a5d88",
+        "archive": "verification/issue-84/approved-masters/weapons/cross.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/weapons/cross.png",
+        "gitBlob": "cb99f0a2e6c890d7d6ed1d23e6f2c6f67063f4cc"
+      },
+      "outputFile": "weapons/cross.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "centered-native-rotation",
+        "worldTranslation": false
+      }
+    },
+    {
+      "id": "weapon.deathSpiral",
+      "kind": "projectile",
+      "logicalSize": [36, 36],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/weapons/death-spiral.png",
+        "sha256": "a3db64e6d52d5033789dc8fef6bf99c09d898cbc1c6ee10d70bb5216a839b9b9",
+        "archive": "verification/issue-84/approved-masters/weapons/death-spiral.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/weapons/death-spiral.png",
+        "gitBlob": "fa0a86ccc18ee07eade16b046318b5c2182c5a1e"
+      },
+      "outputFile": "weapons/death-spiral.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "centered-native-rotation",
+        "worldTranslation": false
+      }
+    },
+    {
+      "id": "weapon.fireWand",
+      "kind": "projectile",
+      "logicalSize": [20, 20],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/weapons/fire-wand.png",
+        "sha256": "6c89614112ccf250b42b7f5bb0cec1dc3f4987a9b3ba40d7907e9b46e363e376",
+        "archive": "verification/issue-84/approved-masters/weapons/fire-wand.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/weapons/fire-wand.png",
+        "gitBlob": "86dbc8b71be36966865999a2c49d1b9cc9f5af3c"
+      },
+      "outputFile": "weapons/fire-wand.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "native-pulse-trail-opacity",
+        "worldTranslation": false
+      }
+    },
+    {
+      "id": "weapon.garlic",
+      "kind": "projectile",
+      "logicalSize": [100, 100],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/weapons/garlic.png",
+        "sha256": "3b743321e821aae412ebc28cf4bfbcd4dca732e28bd441b7e1cbf8b9c0dc217f",
+        "archive": "verification/issue-84/approved-masters/weapons/garlic.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/weapons/garlic.png",
+        "gitBlob": "42c5b50deca0323e3def600ffb63ca9d12e66dfa"
+      },
+      "outputFile": "weapons/garlic.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "native-pulse-trail-opacity",
+        "worldTranslation": false
+      }
+    },
+    {
+      "id": "weapon.heavenSword",
+      "kind": "projectile",
+      "logicalSize": [32, 32],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/weapons/heaven-sword.png",
+        "sha256": "cb310280510042d026056e3ff4b7872d500914cb2d8b564667e59b1ed954b58f",
+        "archive": "verification/issue-84/approved-masters/weapons/heaven-sword.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/weapons/heaven-sword.png",
+        "gitBlob": "907afd5c846d2ef2b88e0c096f3287538ef700c0"
+      },
+      "outputFile": "weapons/heaven-sword.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "centered-native-rotation",
+        "worldTranslation": false
+      }
+    },
+    {
+      "id": "weapon.hellfire",
+      "kind": "projectile",
+      "logicalSize": [40, 40],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/weapons/hellfire.png",
+        "sha256": "e241adc38a8acea627d15b17cbc8057621af9b661b140e1e8d72b35ee1bc7ffe",
+        "archive": "verification/issue-84/approved-masters/weapons/hellfire.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/weapons/hellfire.png",
+        "gitBlob": "0a069e82fa65f03b5034b0c965c34ba9927a70cd"
+      },
+      "outputFile": "weapons/hellfire.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "native-pulse-trail-opacity",
+        "worldTranslation": false
+      }
+    },
+    {
+      "id": "weapon.holyWand",
+      "kind": "projectile",
+      "logicalSize": [14, 14],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/weapons/holy-wand.png",
+        "sha256": "12ea3bcd049f4cea0cea95fa85cd441fec4f75056600500303327516d6b299c0",
+        "archive": "verification/issue-84/approved-masters/weapons/holy-wand.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/weapons/holy-wand.png",
+        "gitBlob": "11ab25e3607605085998e2228bd3f25b0d881b43"
+      },
+      "outputFile": "weapons/holy-wand.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "native-pulse-trail-opacity",
+        "worldTranslation": false
+      }
+    },
+    {
+      "id": "weapon.kingBible",
+      "kind": "projectile",
+      "logicalSize": [24, 28],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/weapons/king-bible.png",
+        "sha256": "a92ed37e47abb12f632810c79407207459ce46dc61a53acc0acff6565cdafea4",
+        "archive": "verification/issue-84/approved-masters/weapons/king-bible.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/weapons/king-bible.png",
+        "gitBlob": "a87bb0daf3a7400d6518549af920d1fa9e898b9d"
+      },
+      "outputFile": "weapons/king-bible.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "centered-native-rotation",
+        "worldTranslation": false
+      }
+    },
+    {
+      "id": "weapon.knife",
+      "kind": "projectile",
+      "logicalSize": [20, 6],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/weapons/knife.png",
+        "sha256": "d7d8dbe235b0db9470210fdb0fb889f331fca43a275e4aee05eea741bda78b74",
+        "archive": "verification/issue-84/approved-masters/weapons/knife.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/weapons/knife.png",
+        "gitBlob": "e411b9f93ed747229b95b01489c4ec84fe47096c"
+      },
+      "outputFile": "weapons/knife.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "native-pulse-trail-opacity",
+        "worldTranslation": false
+      }
+    },
+    {
+      "id": "weapon.magicWand",
+      "kind": "projectile",
+      "logicalSize": [12, 12],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/weapons/magic-wand.png",
+        "sha256": "11c4b94fcf3dc7ece996acbc8ba570d25f44c7078f9502eab27049142c67873f",
+        "archive": "verification/issue-84/approved-masters/weapons/magic-wand.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/weapons/magic-wand.png",
+        "gitBlob": "fec0ab3dd0341b225ef343f4c83444874915e0ef"
+      },
+      "outputFile": "weapons/magic-wand.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "native-pulse-trail-opacity",
+        "worldTranslation": false
+      }
+    },
+    {
+      "id": "weapon.soulEater",
+      "kind": "projectile",
+      "logicalSize": [140, 140],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/weapons/soul-eater.png",
+        "sha256": "a9aa1beed870c882232dff9bfe884a15fe64e38749be2e4dc7d677b505f3d052",
+        "archive": "verification/issue-84/approved-masters/weapons/soul-eater.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/weapons/soul-eater.png",
+        "gitBlob": "b888e85f9914f85aa4abd92a153eb2a9fddd81c5"
+      },
+      "outputFile": "weapons/soul-eater.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "native-pulse-trail-opacity",
+        "worldTranslation": false
+      }
+    },
+    {
+      "id": "weapon.thousandEdge",
+      "kind": "projectile",
+      "logicalSize": [22, 6],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/weapons/thousand-edge.png",
+        "sha256": "83f33d2f11490ebe9d4fe2eb0f4be517c6da9a9a50f3e532df762f4b438e5bcc",
+        "archive": "verification/issue-84/approved-masters/weapons/thousand-edge.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/weapons/thousand-edge.png",
+        "gitBlob": "552befbd8c6ead248d91c6fffa900ea42f2db6d0"
+      },
+      "outputFile": "weapons/thousand-edge.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "native-pulse-trail-opacity",
+        "worldTranslation": false
+      }
+    },
+    {
+      "id": "weapon.unholyVespers",
+      "kind": "projectile",
+      "logicalSize": [26, 30],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/weapons/unholy-vespers.png",
+        "sha256": "08625586a96baac7d05027332c4541b1814ed80c98fa8f969ff668502914d664",
+        "archive": "verification/issue-84/approved-masters/weapons/unholy-vespers.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/weapons/unholy-vespers.png",
+        "gitBlob": "2691f66ac82aaf44752ae4eaa72ac8a652f8e6f4"
+      },
+      "outputFile": "weapons/unholy-vespers.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "centered-native-rotation",
+        "worldTranslation": false
+      }
+    },
+    {
+      "id": "weapon.whip",
+      "kind": "projectile",
+      "logicalSize": [160, 40],
+      "anchor": [0.5, 0.5],
+      "master": {
+        "file": "assets/weapons/whip.png",
+        "sha256": "c1cf07a829265a6bd1a7e20ac8026d38a4d4b1ff30d2e82b7e70f1658d32aec8",
+        "archive": "verification/issue-84/approved-masters/weapons/whip.png",
+        "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+        "gitPath": "assets/weapons/whip.png",
+        "gitBlob": "82b5dd29037c9d0fb49e00bcdfd60ce14582e0d5"
+      },
+      "outputFile": "weapons/whip.json",
+      "resourceScale": 2,
+      "resourceGrid": 1,
+      "paletteSize": 64,
+      "runtime": {
+        "fps": 60,
+        "durationSeconds": 1,
+        "loop": true,
+        "preset": "native-pulse-trail-opacity",
+        "worldTranslation": false
+      }
+    }
+  ],
+  "staticMasters": [
+    {
+      "id": "font.hud",
+      "file": "assets/fonts/hud.ttf",
+      "sha256": "dc8bbbd58c5b5404ec1eb392b6aedeb81904869b1009ec9b1ba056e4cb310dd0",
+      "archive": "verification/issue-84/approved-masters/fonts/hud.ttf",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/fonts/hud.ttf",
+      "gitBlob": "b92755533ad056806f37dcd90b3d9d5f6cfd927e"
+    },
+    {
+      "id": "gem.blue",
+      "file": "assets/pickups/gem-blue.png",
+      "sha256": "a9f612bfc73561bc1d55475e3536607a672808676dc654338844ac20e6275a8a",
+      "archive": "verification/issue-84/approved-masters/pickups/gem-blue.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/pickups/gem-blue.png",
+      "gitBlob": "74c578691798f4a17d9be61cd61569ebdb6efcd7"
+    },
+    {
+      "id": "gem.green",
+      "file": "assets/pickups/gem-green.png",
+      "sha256": "7a4f371a07b64797bf7165b6984ba63e5f37873f127b81785ca94472d812e555",
+      "archive": "verification/issue-84/approved-masters/pickups/gem-green.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/pickups/gem-green.png",
+      "gitBlob": "db79022f97032cb9a510bcaaf2cb765c4b420f59"
+    },
+    {
+      "id": "gem.red",
+      "file": "assets/pickups/gem-red.png",
+      "sha256": "a9465b0b4b5a85b7de8c2c47b3f5596bb23064e708f838a84fa5400a8e03a873",
+      "archive": "verification/issue-84/approved-masters/pickups/gem-red.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/pickups/gem-red.png",
+      "gitBlob": "17b93f662410ae71f8c89ef4826dabdba3527d93"
+    },
+    {
+      "id": "icon.passive.bracer",
+      "file": "assets/icons/passive-bracer.png",
+      "sha256": "9bf3f3a81824c41268ceceae8fdb5e7572a53f6b68159c4d74d859438adbd331",
+      "archive": "verification/issue-84/approved-masters/icons/passive-bracer.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/passive-bracer.png",
+      "gitBlob": "5e7824da417ffb7dd730744e9290fc3f687339aa"
+    },
+    {
+      "id": "icon.passive.candelabrador",
+      "file": "assets/icons/passive-candelabrador.png",
+      "sha256": "d4cc0d5bc088f07b684710962df804f13184fe41b5b8ee90318b65e8e83488b7",
+      "archive": "verification/issue-84/approved-masters/icons/passive-candelabrador.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/passive-candelabrador.png",
+      "gitBlob": "3fe59a72fe60116f72c4c3cb4ab8409639bc3c3a"
+    },
+    {
+      "id": "icon.passive.clover",
+      "file": "assets/icons/passive-clover.png",
+      "sha256": "bf93c852cf48798a0c8e420c119d96cdc0a582e41c1e425fb01bb9e949dd8d34",
+      "archive": "verification/issue-84/approved-masters/icons/passive-clover.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/passive-clover.png",
+      "gitBlob": "82562d293c59ef60feffb2f1e878727f9d2fbca5"
+    },
+    {
+      "id": "icon.passive.emptyTome",
+      "file": "assets/icons/passive-empty-tome.png",
+      "sha256": "8a54d0826fefa26802079b1c0380f7442bd4e739ae708d4765d08ad9fe130449",
+      "archive": "verification/issue-84/approved-masters/icons/passive-empty-tome.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/passive-empty-tome.png",
+      "gitBlob": "77d7218ad0fe28bb87a2c0e9223d4ae93365078c"
+    },
+    {
+      "id": "icon.passive.hollowHeart",
+      "file": "assets/icons/passive-hollow-heart.png",
+      "sha256": "b246a068a6a06a4a4f16c074b3ebc117cb2b01b6145f9b37423114af96e4881e",
+      "archive": "verification/issue-84/approved-masters/icons/passive-hollow-heart.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/passive-hollow-heart.png",
+      "gitBlob": "9288273be11b05f7c162e972485abc3621a9ebf0"
+    },
+    {
+      "id": "icon.passive.pummarola",
+      "file": "assets/icons/passive-pummarola.png",
+      "sha256": "e1465da9ef59dddc0a0d3d181f24542c47aa018a42bdd6f81fcc91f6698531cc",
+      "archive": "verification/issue-84/approved-masters/icons/passive-pummarola.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/passive-pummarola.png",
+      "gitBlob": "f052bc9a351a9a188207402257e42422c491d67c"
+    },
+    {
+      "id": "icon.passive.spellbinder",
+      "file": "assets/icons/passive-spellbinder.png",
+      "sha256": "219f34ce2b2f879b03a5016e9e0d297de5f066fac488bb98af8a40f40acbaa0d",
+      "archive": "verification/issue-84/approved-masters/icons/passive-spellbinder.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/passive-spellbinder.png",
+      "gitBlob": "68d2cb2f778979de0de1c12e66c4a50b1597bf3c"
+    },
+    {
+      "id": "icon.passive.spinach",
+      "file": "assets/icons/passive-spinach.png",
+      "sha256": "f88a053264c4d2a889601e24e5ecaa0bf1106751117bb6661767001719284973",
+      "archive": "verification/issue-84/approved-masters/icons/passive-spinach.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/passive-spinach.png",
+      "gitBlob": "3127de7d308119c74878d6726b3b5e0552da0ab9"
+    },
+    {
+      "id": "icon.weapon.axe",
+      "file": "assets/icons/weapon-axe.png",
+      "sha256": "2c6cf3d35b158cbc895b5b6fdc233caed0ab8e6b0ed527b3d83657db434da2a2",
+      "archive": "verification/issue-84/approved-masters/icons/weapon-axe.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/weapon-axe.png",
+      "gitBlob": "9de8dc7ea3c87e7009416a821ae06ce7e38fa80e"
+    },
+    {
+      "id": "icon.weapon.bloodyTear",
+      "file": "assets/icons/weapon-bloody-tear.png",
+      "sha256": "2720fd05b69aabf804769180d7036c69fd098965b8ffa66f285f74bef16bd955",
+      "archive": "verification/issue-84/approved-masters/icons/weapon-bloody-tear.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/weapon-bloody-tear.png",
+      "gitBlob": "64869f7b12e379a3b62a87f91cc6b8c93ca12b4b"
+    },
+    {
+      "id": "icon.weapon.cross",
+      "file": "assets/icons/weapon-cross.png",
+      "sha256": "ba493754f1406848b85895f70832cb93173dc1ab56f1c1c301e5154639bfb973",
+      "archive": "verification/issue-84/approved-masters/icons/weapon-cross.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/weapon-cross.png",
+      "gitBlob": "cb3935cab68b263d4befbada52a8a39e5846c8a5"
+    },
+    {
+      "id": "icon.weapon.deathSpiral",
+      "file": "assets/icons/weapon-death-spiral.png",
+      "sha256": "3b7809640ec3b49be24b44f2769dd4347d49750cec58b7375eacf0538fe78d30",
+      "archive": "verification/issue-84/approved-masters/icons/weapon-death-spiral.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/weapon-death-spiral.png",
+      "gitBlob": "e6a3fcc2cf1e361d372c2a41f5b7093637abd93a"
+    },
+    {
+      "id": "icon.weapon.fireWand",
+      "file": "assets/icons/weapon-fire-wand.png",
+      "sha256": "7fce22b0598691711276d9dc5fc82d1eb2f25e1e79917e8c960e45003bc66a27",
+      "archive": "verification/issue-84/approved-masters/icons/weapon-fire-wand.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/weapon-fire-wand.png",
+      "gitBlob": "e9513a34b994b1c9468ef05154b717e649f6e05f"
+    },
+    {
+      "id": "icon.weapon.garlic",
+      "file": "assets/icons/weapon-garlic.png",
+      "sha256": "ec320b441b7277252bc1a64df74dc0701fe99c68b1412ece7377c286efb5dbaf",
+      "archive": "verification/issue-84/approved-masters/icons/weapon-garlic.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/weapon-garlic.png",
+      "gitBlob": "63b586c53b712ca6b183e01e21ffe106e5ba6612"
+    },
+    {
+      "id": "icon.weapon.heavenSword",
+      "file": "assets/icons/weapon-heaven-sword.png",
+      "sha256": "a9452eaef182b08e5b18b7c4cca9bbe4184905695d0185c23dff63ba6dbe0f33",
+      "archive": "verification/issue-84/approved-masters/icons/weapon-heaven-sword.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/weapon-heaven-sword.png",
+      "gitBlob": "a12bd41164fce4d6da6452b743bdf1aa036555b6"
+    },
+    {
+      "id": "icon.weapon.hellfire",
+      "file": "assets/icons/weapon-hellfire.png",
+      "sha256": "3deba81e0f69a65991085042c7787011862ac7d68cab40463ba8b24a90f3e91b",
+      "archive": "verification/issue-84/approved-masters/icons/weapon-hellfire.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/weapon-hellfire.png",
+      "gitBlob": "66f5d6403596d252dee4acf1b0abc4634fffbaf9"
+    },
+    {
+      "id": "icon.weapon.holyWand",
+      "file": "assets/icons/weapon-holy-wand.png",
+      "sha256": "0db6ced60e911bace5c8964b512711b33277e861be898c06804228693b686683",
+      "archive": "verification/issue-84/approved-masters/icons/weapon-holy-wand.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/weapon-holy-wand.png",
+      "gitBlob": "991c656aeb8916ee977eb6eb7812dda81c4ed1d4"
+    },
+    {
+      "id": "icon.weapon.kingBible",
+      "file": "assets/icons/weapon-king-bible.png",
+      "sha256": "047bbd5cfbaa3cd83e0b1cb05d07a5a5d3350a5aacf21eb5240c1bd85f15a703",
+      "archive": "verification/issue-84/approved-masters/icons/weapon-king-bible.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/weapon-king-bible.png",
+      "gitBlob": "a0ac98e7569b14b386aff9d89df4341f7ec2d2ad"
+    },
+    {
+      "id": "icon.weapon.knife",
+      "file": "assets/icons/weapon-knife.png",
+      "sha256": "9d70978a843f1a2ae7543c63022bfb75147ab8f429eccc7b5433586a0637a53e",
+      "archive": "verification/issue-84/approved-masters/icons/weapon-knife.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/weapon-knife.png",
+      "gitBlob": "f031f58162a47855b62eefdbfee47e1a9fb8fcde"
+    },
+    {
+      "id": "icon.weapon.magicWand",
+      "file": "assets/icons/weapon-magic-wand.png",
+      "sha256": "e4d2c631030c892cdeca02f7c1cc2a5126ba9be0a66ad5c6fab0ff3fcca9bc57",
+      "archive": "verification/issue-84/approved-masters/icons/weapon-magic-wand.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/weapon-magic-wand.png",
+      "gitBlob": "17e50b8a6487b40b748d8f45c91bbf51b4ab3cd7"
+    },
+    {
+      "id": "icon.weapon.soulEater",
+      "file": "assets/icons/weapon-soul-eater.png",
+      "sha256": "7c9ed94325fe8ca676142d1b5065d81cc29aff9c9fd2014a91f70a64fd4be0df",
+      "archive": "verification/issue-84/approved-masters/icons/weapon-soul-eater.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/weapon-soul-eater.png",
+      "gitBlob": "63bdf862f6bff907feb48ab3a804ba48a1d9951a"
+    },
+    {
+      "id": "icon.weapon.thousandEdge",
+      "file": "assets/icons/weapon-thousand-edge.png",
+      "sha256": "0520283811349f455a37db8a96a06c96c1260f25a711ca42320dd0636b457bfb",
+      "archive": "verification/issue-84/approved-masters/icons/weapon-thousand-edge.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/weapon-thousand-edge.png",
+      "gitBlob": "611b1d634a06f5b2b98dbd81e41499addbdd4f30"
+    },
+    {
+      "id": "icon.weapon.unholyVespers",
+      "file": "assets/icons/weapon-unholy-vespers.png",
+      "sha256": "aeafb0480f715c732d657bf8cb97c1467664684fa586bdbb6d417fb5e3ab12cf",
+      "archive": "verification/issue-84/approved-masters/icons/weapon-unholy-vespers.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/weapon-unholy-vespers.png",
+      "gitBlob": "ee66994a489f72aebfc178e03a5b84aa9e29152a"
+    },
+    {
+      "id": "icon.weapon.whip",
+      "file": "assets/icons/weapon-whip.png",
+      "sha256": "c474bc7b91f662160485f5bde4ae7a397d1c7a1c9c57fd9fc6e225e12ff43e23",
+      "archive": "verification/issue-84/approved-masters/icons/weapon-whip.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/icons/weapon-whip.png",
+      "gitBlob": "e72d91e7467db6beb7f77d6b93492fd4f1679c19"
+    },
+    {
+      "id": "pickup.chest",
+      "file": "assets/pickups/chest.png",
+      "sha256": "f9a82542ac580c3befe04ec6b672fd38a5d4a22da7d14e71d356e01d943a7efa",
+      "archive": "verification/issue-84/approved-masters/pickups/chest.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/pickups/chest.png",
+      "gitBlob": "6923f582b544daa855eb79ad7a34e2ae741da322"
+    },
+    {
+      "id": "pickup.floorChicken",
+      "file": "assets/pickups/floor-chicken.png",
+      "sha256": "3ceae51ab26b0545926054ea36537d603af96860b35c23244b854913b5c835ca",
+      "archive": "verification/issue-84/approved-masters/pickups/floor-chicken.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/pickups/floor-chicken.png",
+      "gitBlob": "f81890df3a257d626121df2ffeacb2a03b486024"
+    },
+    {
+      "id": "pickup.interference.eliteCall",
+      "file": "assets/pickups/interference-elite-call.png",
+      "sha256": "50225f396805378d2acbe4d2a20ed7fd28d15eb146ce07850da40ec4f34e0080",
+      "archive": "verification/issue-84/approved-masters/pickups/interference-elite-call.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/pickups/interference-elite-call.png",
+      "gitBlob": "fe346c72ddaa987ed067a24a39b8508595ed1baa"
+    },
+    {
+      "id": "pickup.interference.gemThief",
+      "file": "assets/pickups/interference-gem-thief.png",
+      "sha256": "282702282fa345f3bac1fd3f44b1cb326fe3a3737c4bd5eaa12bccda9779359e",
+      "archive": "verification/issue-84/approved-masters/pickups/interference-gem-thief.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/pickups/interference-gem-thief.png",
+      "gitBlob": "c06e913912d3c4107605a738ed3f34eb24a1669e"
+    },
+    {
+      "id": "pickup.interference.swarm",
+      "file": "assets/pickups/interference-swarm.png",
+      "sha256": "a4efb88aa2dbb081546433b9558348aa211fa592e92e6669f24004ef9ba18fc1",
+      "archive": "verification/issue-84/approved-masters/pickups/interference-swarm.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/pickups/interference-swarm.png",
+      "gitBlob": "324f8ca8dd9d248843ba47fee708a2aae4eac011"
+    },
+    {
+      "id": "pickup.littleClover",
+      "file": "assets/pickups/little-clover.png",
+      "sha256": "f04d4b3ef6035b24e1c0377ed9d0ed3d76de3566aa799829fa19f5de31608465",
+      "archive": "verification/issue-84/approved-masters/pickups/little-clover.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/pickups/little-clover.png",
+      "gitBlob": "cccc7b4a1dabc45c7a0e2248905e1ab4144283fd"
+    },
+    {
+      "id": "pickup.orologion",
+      "file": "assets/pickups/orologion.png",
+      "sha256": "8266eb2f3f2822732107ce39356527bcc031cd731b640ecd2d85c0f73ed0d5a2",
+      "archive": "verification/issue-84/approved-masters/pickups/orologion.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/pickups/orologion.png",
+      "gitBlob": "a21f2b41c92db7eb90f137dc4661dadb140a090b"
+    },
+    {
+      "id": "pickup.rosary",
+      "file": "assets/pickups/rosary.png",
+      "sha256": "a690a4880dabf8abd99007731024c30152eb25c3a0f81c9652a0b996bc64007b",
+      "archive": "verification/issue-84/approved-masters/pickups/rosary.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/pickups/rosary.png",
+      "gitBlob": "079fde0f5290ca2b9b4ec969128aa1bb23ae5434"
+    },
+    {
+      "id": "pickup.vacuum",
+      "file": "assets/pickups/vacuum.png",
+      "sha256": "5c674ccd23f1bb1292aecb2ecff86cf3f9125553b1d308f615bf3b3ea409171b",
+      "archive": "verification/issue-84/approved-masters/pickups/vacuum.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/pickups/vacuum.png",
+      "gitBlob": "9af7c08eed8603c9f998516c6e142a359930a741"
+    },
+    {
+      "id": "portrait.aurelia",
+      "file": "assets/characters/portrait-aurelia.png",
+      "sha256": "22774ca57a83db1efbcb5cee097aa00d22dd44e2b964b8e06f7b06d2abaf99c6",
+      "archive": "verification/issue-84/approved-masters/characters/portrait-aurelia.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/characters/portrait-aurelia.png",
+      "gitBlob": "1ebbb1fd0a5eeef812dcf0048b183c4c6ffafb10"
+    },
+    {
+      "id": "portrait.ember",
+      "file": "assets/characters/portrait-ember.png",
+      "sha256": "83780b9ce697a8034d97ac641679f6d93892cb0eead68bf8f10f917197398f6b",
+      "archive": "verification/issue-84/approved-masters/characters/portrait-ember.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/characters/portrait-ember.png",
+      "gitBlob": "37f96ba6dd547b9ab4164a2fdf7d305db4d6b523"
+    },
+    {
+      "id": "portrait.swift",
+      "file": "assets/characters/portrait-swift.png",
+      "sha256": "3a1746954dc4d0ff0a37d6ce12b1b9c18a99428222f103d17dc19adbecd77dc1",
+      "archive": "verification/issue-84/approved-masters/characters/portrait-swift.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/characters/portrait-swift.png",
+      "gitBlob": "b750861ea4424be6918b04a6d7ddd0a609517f55"
+    },
+    {
+      "id": "portrait.warden",
+      "file": "assets/characters/portrait-warden.png",
+      "sha256": "4d04d7d78e7f0e795134c75271542e3b2edf9f2b58885a36cd0768c0d616dcda",
+      "archive": "verification/issue-84/approved-masters/characters/portrait-warden.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/characters/portrait-warden.png",
+      "gitBlob": "618a02f2c640d76d1a470193a7525111fdf1e388"
+    },
+    {
+      "id": "stage.brazierBroken",
+      "file": "assets/stage/brazier-broken.png",
+      "sha256": "159fa55a2788489d3c5fa787a61fd54f231144ff18740a4f9775cd3fe9214ae8",
+      "archive": "verification/issue-84/approved-masters/stage/brazier-broken.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/stage/brazier-broken.png",
+      "gitBlob": "d02cc96c93efb13e425d45745d81a0a72c86e1aa"
+    },
+    {
+      "id": "stage.ground",
+      "file": "assets/stage/ground.png",
+      "sha256": "e450adaa2216c542f0a4fc771dd72f1647a9355cafcdee2e5d5240206d599620",
+      "archive": "verification/issue-84/approved-masters/stage/ground.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/stage/ground.png",
+      "gitBlob": "12c036220735a997850c24933b492de2ecee231b"
+    },
+    {
+      "id": "ui.favicon",
+      "file": "assets/ui/favicon.png",
+      "sha256": "e777d896baee5a5163c9bbb7cec7f393fe18c086aa560849d380599e382d6746",
+      "archive": "verification/issue-84/approved-masters/ui/favicon.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/ui/favicon.png",
+      "gitBlob": "457fdcb2729428e0d48670eb1d29c4ac35d7b3ac"
+    },
+    {
+      "id": "ui.hpBar",
+      "file": "assets/ui/hp-bar.png",
+      "sha256": "59cf8b0a12fe6707a218902115fbc43c278aaf43fc663ba9802aec08a0ad0022",
+      "archive": "verification/issue-84/approved-masters/ui/hp-bar.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/ui/hp-bar.png",
+      "gitBlob": "d62454fede955cf1c99edf0276661e07b8623062"
+    },
+    {
+      "id": "ui.placeholder",
+      "file": "assets/ui/placeholder.png",
+      "sha256": "db8ad304b655b47d0fb0bea53dd5d968b4aeb2c64621b1cc61014f0b1ea0e458",
+      "archive": "verification/issue-84/approved-masters/ui/placeholder.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/ui/placeholder.png",
+      "gitBlob": "b5b17b3592956826454bda79205a95914a9d02f6"
+    },
+    {
+      "id": "ui.skull",
+      "file": "assets/ui/skull.png",
+      "sha256": "971c8411a9fd2d4d1da9f76175af11c99a9441cf5c530b21d2246cbf24eba30c",
+      "archive": "verification/issue-84/approved-masters/ui/skull.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/ui/skull.png",
+      "gitBlob": "8cb4e8c0484f3962651f542af5b4934511185ae1"
+    },
+    {
+      "id": "ui.xpBar",
+      "file": "assets/ui/xp-bar.png",
+      "sha256": "c1dfbab8717025ff79625d3b994cc5e188dc78af0215cc6b0ae989859ae09b77",
+      "archive": "verification/issue-84/approved-masters/ui/xp-bar.png",
+      "gitCommit": "65f92ab58da2c42340784840cb6b3b11e9ed7487",
+      "gitPath": "assets/ui/xp-bar.png",
+      "gitBlob": "5c15099ce292177cd33267a4a4b86e0fc67c9067"
+    }
+  ],
+  "masterRestorationCommand": "python3 scripts/assets/motion_inventory.py restore-masters --out verification/issue-84/approved-masters",
+  "flyingExport": {
+    "strategy": "unmodified-upstream-raw-component-coordinate-affine-full-cell",
+    "sourcePoseCount": 16,
+    "nativePoseCount": 12,
+    "frameSelection": {
+      "idle": [0, 2, 4, 6],
+      "move": [0, 1, 2, 3, 4, 5, 6, 7]
+    },
+    "stateCalibration": "Exact canonical decoded-pixel replay and official uniform8-pose factor; raw coordinate affine replaces per-pose centering",
+    "componentMembership": "Actual unmodified upstream groups: raw bbox, padded component origin, mask pixel count and sorted big-endian uint32 index SHA256",
+    "frameOrigin": "Declared8-column slot center and raw-row midline are position metadata only; never equal-width raster cuts",
+    "affine": "cellPoint = cellCenter + stateFactor*(rawPoint - [slotCenter,rowMidline])",
+    "registration": null,
+    "perPoseBboxFit": false,
+    "footBaseline": false,
+    "finalScale": "ONE uniform full-cell kCentroid scale acrossALL16; binary alpha and shared64palette",
+    "resourceScale": 2,
+    "resourceGrid": 1,
+    "sharedPaletteSize": 64,
+    "finalMotionPresenceThreshold": 0.01
+  },
+  "bossExport": {
+    "strategy": "master-footprint-one-camera-before-kcentroid-ALL16",
+    "cameraInputs": "approved exactGitmaster2x alphaBBox center/extent and neutralidle0 mapped fullcell",
+    "cameraScope": "ONE uniform scale+translation acrossALL16 before finalkCentroid; no perpose fitting",
+    "all16MarginStagePixels": 2,
+    "bound": "min(masterFootprintTargetScale, all16MaskBoundsScaleCap)",
+    "baseRoute": "unchanged raw-component-coordinate flying profile",
+    "sourcePoseCount": 16,
+    "nativePoseCount": 12,
+    "frameSelection": {
+      "idle": [0, 2, 4, 6],
+      "move": [0, 1, 2, 3, 4, 5, 6, 7]
+    },
+    "resourceScale": 2,
+    "resourceGrid": 1,
+    "sharedPaletteSize": 64,
+    "finalMotionPresenceThreshold": 0.01
+  }
+}

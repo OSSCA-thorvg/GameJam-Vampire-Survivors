@@ -23,14 +23,14 @@ export class RenderBinding<S extends BindingSchema> {
       throw new RangeError('Unknown paint pool');
     return pool;
   }
-  bind(slot: number, poolId: number): void {
+  bind(slot: number, poolId: number, duration?: number, initialRotation = 0): void {
     if (!Number.isInteger(slot) || slot < 0 || slot >= this.store.count)
       throw new RangeError('Bind needs a live entity slot');
     const uid = this.store.uid[slot] ?? 0;
     const idIndex = uid & 0xfff;
     if (this.bound[idIndex] && this.boundUid[idIndex] === uid)
       throw new Error('Unbind the existing paint before binding or removing its entity');
-    const handle = this.pool(poolId).acquire();
+    const handle = this.pool(poolId).acquire(duration, initialRotation);
     this.store.cols.poolId[slot] = poolId;
     this.store.cols.paintHandle[slot] = handle;
     this.bound[idIndex] = 1;
@@ -59,12 +59,14 @@ export class RenderBinding<S extends BindingSchema> {
       const uid = store.uid[i] ?? 0;
       const idIndex = uid & 0xfff;
       if (!this.bound[idIndex] || this.boundUid[idIndex] !== uid) continue;
-      const instance = this.pool(store.cols.poolId[i] ?? 0).get(store.cols.paintHandle[i] ?? 0);
+      const pool = this.pool(store.cols.poolId[i] ?? 0);
+      const handle = store.cols.paintHandle[i] ?? 0;
+      const instance = pool.get(handle);
       setTransform(
         instance,
         xs[i] ?? 0,
         ys[i] ?? 0,
-        rotations?.[i] ?? 0,
+        pool.rotation(handle, rotations?.[i] ?? 0),
         scales?.[i] ?? 1,
         flips?.[i] === 1,
       );

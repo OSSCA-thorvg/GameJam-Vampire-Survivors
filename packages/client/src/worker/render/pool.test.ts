@@ -94,3 +94,31 @@ it('restarts a Lottie instance each time it is acquired, and leaves static paint
   plain.acquire();
   expect(restart).toHaveBeenCalledTimes(2);
 });
+
+it('fits event leases once and retains game aim while native axe/cross/sword own cosmetic spin', () => {
+  const { create, layer } = fakePaintLibrary();
+  const duration = vi.fn();
+  const reset = vi.fn();
+  const library = {
+    create: () => ({ ...create(), lottie: { frame: vi.fn() } as never }),
+    resetPlayback: reset,
+    setPlaybackActive: vi.fn(),
+    setPlaybackDuration: duration,
+  };
+  for (const id of ['weapon.axe', 'weapon.cross', 'weapon.heavenSword'] as const) {
+    const pool = new PaintPool(library, id, layer, 1);
+    const handle = pool.acquire(0.5, 37);
+    expect(pool.rotation(handle, 757)).toBe(37);
+    expect(duration).toHaveBeenLastCalledWith(pool.get(handle), 0.5);
+    pool.release(handle);
+    pool.acquire(undefined, -20);
+    expect(pool.rotation(handle, 700)).toBe(-20);
+    expect(pool.created).toBe(1);
+  }
+  const knife = new PaintPool(library, 'weapon.knife', layer, 1);
+  expect(knife.rotation(knife.acquire(), 83)).toBe(83);
+  const fallback = new PaintPool({ create }, 'weapon.axe', layer, 1);
+  expect(fallback.rotation(fallback.acquire(), 757)).toBe(757);
+  expect(reset).toHaveBeenCalledTimes(7);
+  expect(duration).toHaveBeenCalledTimes(3);
+});

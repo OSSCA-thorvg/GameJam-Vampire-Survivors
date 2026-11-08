@@ -1,6 +1,6 @@
 # 0003. Render with @thorvg/webcanvas using the WebGL backend
 
-- Status: Accepted
+- Status: Superseded in part by [0019](0019-render-all-actor-and-effect-motion-with-native-lottie.md) (animated-instance cloning and native visual playback; WebGL/worker/pooling retained)
 - Date: 2026-11-07
 
 ## Context

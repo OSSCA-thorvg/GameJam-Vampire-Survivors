@@ -1,0 +1,177 @@
+{
+  "id": "stage.brazier",
+  "bank": {
+    "sourceFile": "verification/issue-84/generation/enemies-stage/stage-001/bank-003/stage-bank.json",
+    "sha256": "eb0c6c42b9b32a4224ae23d1b35c9baf2d3064a6439acdc0673e2061daa98e9d",
+    "originalUtf8": "{\n  \"version\": 1,\n  \"issue\": 84,\n  \"id\": \"stage.brazier\",\n  \"kind\": \"genuine-flameless-stand-plus-four-flame-source-bank\",\n  \"geometry\": {\n    \"canvas\": [\n      48,\n      80\n    ],\n    \"standCap\": [\n      40,\n      48\n    ],\n    \"standFootY\": 72,\n    \"flameCap\": [\n      26,\n      28\n    ],\n    \"cup\": [\n      24,\n      34\n    ]\n  },\n  \"standAlphaSha256\": \"9d6dd95bb5d490cab1e08c1a9ff448c5fde899ceca124069309d6173e08904cf\",\n  \"standProcessing\": {\n    \"sourceSize\": [\n      972,\n      1619\n    ],\n    \"anyAlphaBBox\": [\n      27,\n      228,\n      936,\n      1551\n    ],\n    \"solidAlphaBBox128\": [\n      112,\n      498,\n      847,\n      1449\n    ],\n    \"singleStillScale\": 0.050473186119873815,\n    \"standCap\": [\n      40,\n      48\n    ],\n    \"standFootY\": 72,\n    \"operations\": [\n      \"upstream-tighten_components:solid-alpha>=128\",\n      \"upstream-conform:ONE-still-kCentroid\",\n      \"upstream-binarize_alpha:128\",\n      \"upstream-fixed-foot-placement:ONE-still\"\n    ]\n  },\n  \"flameCommonScale\": 0.0577319587628866,\n  \"canonicalFlameReplay\": {\n    \"rawFile\": \"verification/issue-84/generation/enemies-stage/stage-001/flame-row/raw/flame.png\",\n    \"rawSha256\": \"f83db6b335447676805c09e6ff8069c5784b59bd3194c92c73a18aba5b637e86\",\n    \"rawSize\": [\n      1942,\n      809\n    ],\n    \"layoutGuideFile\": \"verification/issue-84/generation/enemies-stage/stage-001/flame-row/references/layout-guides/flame.png\",\n    \"layoutGuideSha256\": \"90b6807e4a73293e38fe09db359a0a67d747188a9f813000c35b82adcd3a2eee\",\n    \"layoutGuideSize\": [\n      384,\n      160\n    ],\n    \"uniformWholeRasterCalibration\": 1.0,\n    \"referenceRawHeight\": 809,\n    \"componentSizes\": [\n      [\n        74,\n        121\n      ],\n      [\n        77,\n        128\n      ],\n      [\n        77,\n        102\n      ],\n      [\n        77,\n        121\n      ]\n    ],\n    \"rawComponentSizes\": [\n      [\n        288,\n        467\n      ],\n      [\n        299,\n        493\n      ],\n      [\n        299,\n        393\n      ],\n      [\n        298,\n        467\n      ]\n    ],\n    \"rawSolidComponentSizes\": [\n      [\n        280,\n        459\n      ],\n      [\n        291,\n        485\n      ],\n      [\n        291,\n        385\n      ],\n      [\n        290,\n        459\n      ]\n    ],\n    \"officialRowCommonFitScale\": 0.26469712448633465,\n    \"canonicalFrames\": [\n      {\n        \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/flame-row/frames/flame/frame-0.png\",\n        \"sha256\": \"f6ebf865759bb8f8d8f2e14f34c6b4770bc02e123cfa5b6a943232436c33b6ab\"\n      },\n      {\n        \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/flame-row/frames/flame/frame-1.png\",\n        \"sha256\": \"d2c0bcf55cdce11ae17c03278648297bd6bcacf13c2e34509510b7ab60efe423\"\n      },\n      {\n        \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/flame-row/frames/flame/frame-2.png\",\n        \"sha256\": \"a3dccecadc35838f1d4c74cafa1ec3ec4aa50c3eeeda78e1e8bb9ab2c4bd9c22\"\n      },\n      {\n        \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/flame-row/frames/flame/frame-3.png\",\n        \"sha256\": \"67e92364be8b04497173f8a444fb46923a7c0185855cf1cbf3edb0c9742b0c2b\"\n      }\n    ],\n    \"canonicalDecodedPixelReplay\": [\n      true,\n      true,\n      true,\n      true\n    ],\n    \"sourceWarnings\": [],\n    \"sourceErrors\": []\n  },\n  \"rawFlameSource\": {\n    \"rawFile\": \"verification/issue-84/generation/enemies-stage/stage-001/flame-row/raw/flame.png\",\n    \"rawSha256\": \"f83db6b335447676805c09e6ff8069c5784b59bd3194c92c73a18aba5b637e86\",\n    \"rawSize\": [\n      1942,\n      809\n    ],\n    \"layoutGuideFile\": \"verification/issue-84/generation/enemies-stage/stage-001/flame-row/references/layout-guides/flame.png\",\n    \"layoutGuideSha256\": \"90b6807e4a73293e38fe09db359a0a67d747188a9f813000c35b82adcd3a2eee\",\n    \"layoutGuideSize\": [\n      384,\n      160\n    ],\n    \"uniformWholeRasterCalibration\": 1.0,\n    \"referenceRawHeight\": 809,\n    \"componentSizes\": [\n      [\n        280,\n        458\n      ],\n      [\n        291,\n        485\n      ],\n      [\n        290,\n        385\n      ],\n      [\n        290,\n        459\n      ]\n    ]\n  },\n  \"processingChroma\": {\n    \"decontam\": \"palette\",\n    \"fit\": \"still\",\n    \"sourceRequestAndCanonicalOffCacheUnchanged\": true\n  },\n  \"sharedPalette\": {\n    \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/bank-003/palette.lock.json\",\n    \"sha256\": \"e277c2d423abdf868d23734969423137fd568b5833ed0355dd74423cf8964dbb\"\n  },\n  \"records\": [\n    {\n      \"name\": \"stand\",\n      \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/bank-003/stand.png\",\n      \"sha256\": \"3d0c746b8724c4232e678ed25c85ce78b5b8ade892a72659846e2fed34c95af7\",\n      \"size\": [\n        48,\n        80\n      ],\n      \"box\": [\n        5,\n        24,\n        42,\n        72\n      ],\n      \"nonzeroPixels\": 1253,\n      \"alphaSha256\": \"9d6dd95bb5d490cab1e08c1a9ff448c5fde899ceca124069309d6173e08904cf\",\n      \"alphaValues\": [\n        0,\n        255\n      ],\n      \"visibleColors\": 36\n    },\n    {\n      \"name\": \"flame-0\",\n      \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/bank-003/flame-0.png\",\n      \"sha256\": \"444cc2d406fe128e507bc35fb8f3f63b9d8f96d53e2af556ca722c1b71ca11fd\",\n      \"size\": [\n        48,\n        80\n      ],\n      \"box\": [\n        16,\n        8,\n        32,\n        34\n      ],\n      \"nonzeroPixels\": 229,\n      \"alphaSha256\": \"2a01690eb30a36f9064672a1e990893ce8a6d936868ce88f52d315b041a4ec94\",\n      \"alphaValues\": [\n        0,\n        255\n      ],\n      \"visibleColors\": 26\n    },\n    {\n      \"name\": \"flame-1\",\n      \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/bank-003/flame-1.png\",\n      \"sha256\": \"d34f6bc0c7ba60435a056738288bd0d8cd002f8fa6f6cf7b5a3db74211f7e97d\",\n      \"size\": [\n        48,\n        80\n      ],\n      \"box\": [\n        16,\n        6,\n        33,\n        34\n      ],\n      \"nonzeroPixels\": 253,\n      \"alphaSha256\": \"ebaee6af4ac78c81aacaaab52eb2929d06a7c8103a9a10efffc6f6ca8bffa3e4\",\n      \"alphaValues\": [\n        0,\n        255\n      ],\n      \"visibleColors\": 25\n    },\n    {\n      \"name\": \"flame-2\",\n      \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/bank-003/flame-2.png\",\n      \"sha256\": \"832f154d768bc6b34b109afe0174b95574da09a47f459eb0620cb63b531fff69\",\n      \"size\": [\n        48,\n        80\n      ],\n      \"box\": [\n        16,\n        12,\n        33,\n        34\n      ],\n      \"nonzeroPixels\": 200,\n      \"alphaSha256\": \"c1740ad58fca6d052414900a198a96af1a771109bf0c1146885ce4237db779e4\",\n      \"alphaValues\": [\n        0,\n        255\n      ],\n      \"visibleColors\": 25\n    },\n    {\n      \"name\": \"flame-3\",\n      \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/bank-003/flame-3.png\",\n      \"sha256\": \"bd8c590a46b71e8d3600e8186c18caa1a4cb0fdd9c8b6e19ed2bff97eb2e7cb4\",\n      \"size\": [\n        48,\n        80\n      ],\n      \"box\": [\n        15,\n        8,\n        32,\n        34\n      ],\n      \"nonzeroPixels\": 241,\n      \"alphaSha256\": \"d8736b51c6bbfb721b236a2f38cb35a43bbb65c9f89b0f6a3ed1418982ef7aff\",\n      \"alphaValues\": [\n        0,\n        255\n      ],\n      \"visibleColors\": 26\n    }\n  ],\n  \"flameMotionPresence\": 0.01626870149101307,\n  \"hardwareInstances\": 1,\n  \"operations\": [\n    \"upstream-conform:stand-once\",\n    \"upstream-canonical-flame-replay4:original-off-cache\",\n    \"upstream-post-source-chroma-decontam:palette-still-ALL4\",\n    \"upstream-conform:flame-one-row-factor\",\n    \"upstream-fixed-root-flame-placement\",\n    \"upstream-shared-palette:ALL5\",\n    \"binary-alpha\"\n  ],\n  \"quality\": \"pending-five-source-and-native-composition-review\",\n  \"inputProof\": {\n    \"stand\": {\n      \"provider\": \"codex\",\n      \"auth\": \"ChatGPT subscription\",\n      \"sourceFile\": \"verification/issue-84/generation/enemies-stage/stage-001/raw/stand.png\",\n      \"sourceSha256\": \"54b0001060576a118132cedb5d8d31e7779316a1310f0aad676493100130078f\",\n      \"reportFile\": \"verification/issue-84/generation/enemies-stage/stage-001/reports/stand.json\",\n      \"reportSha256\": \"991a96f95e87d0b6701d229989e52cc62028405532529acc766dfffd1393868f\",\n      \"promptSha256\": \"bb91f5b8f929bcbdfeaf17841be5f4409c90e236949f94d1fd9858cf730bced6\",\n      \"sessionId\": \"01a1bb21-d275-71b2-84f7-64a85f9d73d9\",\n      \"references\": [\n        {\n          \"file\": \"verification/issue-84/generation/enemies-stage/inputs/brazier.png\",\n          \"sha256\": \"1ce7a2adad0516cda38959e967f66d811cdc068783a186209599c1fccaf531ca\"\n        }\n      ]\n    },\n    \"flame\": {\n      \"provider\": \"codex\",\n      \"auth\": \"ChatGPT subscription\",\n      \"sourceFile\": \"verification/issue-84/generation/enemies-stage/stage-001/flame-row/raw/flame.png\",\n      \"sourceSha256\": \"f83db6b335447676805c09e6ff8069c5784b59bd3194c92c73a18aba5b637e86\",\n      \"reportFile\": \"verification/issue-84/generation/enemies-stage/stage-001/flame-row/reports/gen-set/flame.json\",\n      \"reportSha256\": \"4986b8edb4775ac03b64ce43e205ec664d4311fd312bbc3d0177e8ace7516023\",\n      \"promptSha256\": \"a5951042cbe1f87b5e23e39667fb98765743519256f1d996a2c82c1177baf609\",\n      \"sessionId\": \"01a1bb28-bda4-7e00-8a71-112f9d010863\",\n      \"references\": [\n        {\n          \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/flame-row/base-source.png\",\n          \"sha256\": \"1ce7a2adad0516cda38959e967f66d811cdc068783a186209599c1fccaf531ca\"\n        },\n        {\n          \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/flame-row/references/layout-guides/flame.png\",\n          \"sha256\": \"90b6807e4a73293e38fe09db359a0a67d747188a9f813000c35b82adcd3a2eee\"\n        }\n      ]\n    },\n    \"geometryFile\": \"verification/issue-84/generation/enemies-stage/stage-001/stage-geometry.json\",\n    \"geometrySha256\": \"ffe547e657177a4485f67bf85e279a856ee30b9fad3de6ba7e25d2e3dc7daec8\",\n    \"geometry\": {\n      \"geometry\": {\n        \"canvas\": [\n          48,\n          80\n        ],\n        \"standCap\": [\n          40,\n          48\n        ],\n        \"standFootY\": 72,\n        \"flameCap\": [\n          26,\n          28\n        ],\n        \"cup\": [\n          24,\n          34\n        ]\n      },\n      \"standSourceSha256\": \"54b0001060576a118132cedb5d8d31e7779316a1310f0aad676493100130078f\",\n      \"preview\": {\n        \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/stand-preview-002/stand-preview.png\",\n        \"sha256\": \"0b6d68f753a71b40ef540348761480d16fbc6a126f76e07119b46a24dc18d716\",\n        \"alphaSha256\": \"9d6dd95bb5d490cab1e08c1a9ff448c5fde899ceca124069309d6173e08904cf\"\n      },\n      \"review\": {\n        \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/stage-geometry-root-review.json\",\n        \"sha256\": \"cf5ce425f0f900d87d72310452ba5f8cf519d95e299664475bff22d59e3d91f3\"\n      }\n    },\n    \"requestSha256\": \"c60d39a80492fbf4336d367bcfcc200d891e11da53e322b5d1a2e5aa05f0d2ba\",\n    \"manifestSha256\": \"6292bacd6be9531f279347f8df7d35a87be89a66227782072916498228af82b0\"\n  },\n  \"runDir\": \"verification/issue-84/generation/enemies-stage/stage-001\",\n  \"upstream\": {\n    \"repository\": \"https://github.com/aldegad/sprite-gen\",\n    \"version\": \"4.3.0\",\n    \"commit\": \"35a27e137bfd72440cc856b080913c66f69c772e\",\n    \"provider\": \"codex\",\n    \"auth\": \"confirmed ChatGPT subscription\",\n    \"codexUnavailable\": \"ask\"\n  },\n  \"contractSha256\": \"99e7b8deea2a8d158e86ba5de6b3e00b099d93eaaf268a54c9dfc6ca720ac8f6\",\n  \"scripts\": [\n    {\n      \"file\": \"scripts/assets/motion_stage_engine.py\",\n      \"sha256\": \"ca42c79df5c6cecea31a4b4db633ad64d1b46ff8e0d0b983c6b19229efd5aefa\"\n    },\n    {\n      \"file\": \"scripts/assets/motion_stage_contract.py\",\n      \"sha256\": \"7c1c053eeaee4f001326f2f1200fecf69c42b881b1ddd270f2aea1b1ae2220c1\"\n    },\n    {\n      \"file\": \"scripts/assets/motion_refine_bank.py\",\n      \"sha256\": \"d4fe98061714a2579d1057b1ef78a1364105349c532c6d7c518ecb53e465e160\"\n    }\n  ]\n}\n"
+  },
+  "approval": {
+    "sourceFile": "verification/issue-84/generation/enemies-stage/stage-001/bank-003/stage-approval.json",
+    "sha256": "f46dcea6558d7543d50e831345ea47bd9ad27960086ac5af4c2ccb70204bdb61",
+    "originalUtf8": "{\n  \"bankSha256\": \"eb0c6c42b9b32a4224ae23d1b35c9baf2d3064a6439acdc0673e2061daa98e9d\",\n  \"reviews\": [\n    {\n      \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/bank-003/producer-review.json\",\n      \"sha256\": \"51ba83b6cbf2b4a572de05c1f58a7ea3903a8fa216229249d7ff1d2199f82f51\"\n    },\n    {\n      \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/bank-003/root-review.json\",\n      \"sha256\": \"135e397bd1c183142f0194b92ee2130797b6fe263299a98b6ca36df51a7af61a\"\n    }\n  ]\n}\n"
+  },
+  "reviews": [
+    {
+      "sourceFile": "verification/issue-84/generation/enemies-stage/stage-001/bank-003/producer-review.json",
+      "sha256": "51ba83b6cbf2b4a572de05c1f58a7ea3903a8fa216229249d7ff1d2199f82f51",
+      "reviewer": "producer-enemies-stage84",
+      "document": {
+        "reviewer": "producer-enemies-stage84",
+        "bankSha256": "eb0c6c42b9b32a4224ae23d1b35c9baf2d3064a6439acdc0673e2061daa98e9d",
+        "status": "pass",
+        "coverage": {
+          "stand": 1,
+          "flame": 4,
+          "nativeLoop": "pass"
+        },
+        "standFlameless": true,
+        "flameOnly": true,
+        "hardwareStatic": true,
+        "sourceWarningsAcknowledged": true,
+        "method": "Independently viewed actual coldstand source, all4 original canonical flame poses, all5 final48x80 resources and enlarged8x composition. Actual owned isolated Chromium played canonical flame/refined flame/staticstand composition twice each with verified160ms GIF preview delays; all12 repeatedphase screenshot hashes match. Browser closed. Native wrapper6fps/op4/5resources with onepersistentstand layer checked through actual stage_document; actual native ThorVG app/runtime verification remains root integration work.",
+        "playbackEvidence": {
+          "file": "verification/issue-84/generation/enemies-stage/stage-001/bank-003/producer-playback/timing.json",
+          "sha256": "969e75a957ece967bb428920caae047a6e68bf19c3e7b4d89b736d3710fd834b"
+        },
+        "stand": "Same intact original bronze/moss bowl and3leg hardware, completely flameless without glow/smoke or oldfire beneath newflame. Bound standalpha andcupgeometry remain exactly the rootreviewed preview002; footY72.",
+        "flame": "All4 are flame-only warm orange/gold/yellow silhouettes with real changing tongues: upright0, curvedhigher1, shorterleftcurl2, return3. No hardware in flame resources, no detached spark/smoke, no green tip remains. Bottomroot stays inside rootfrozen actualbowl[24,34]; no standalonefirebobbing.",
+        "composition": "One identical stand resource under every flame, stablebowl/rim/legs/pixelpositions. Fire tongue changes and3-to0 seamless flicker are visible across bothloops. Native4@6fps retains2/3s; GIF160ms precision is QA-only.",
+        "sourceProcessing": "Registered whole4row unmodifiedupstream palette decontamination applied uniformly as explicit processingChroma separate from immutable original source/canonical-off cache. One common flamefactor and sharedALL5 palette/binaryalpha; no manual recolor, perposefitting, hardwarejitter or oldflamecopy.",
+        "priorHold": "Stage002 remains immutable/held due original greenpixel. This pass binds ONLY final003 hash and freshly repeatedQA.",
+        "strictValidation": {
+          "file": "verification/issue-84/generation/enemies-stage/stage-001/bank-003/producer-strict-validation.json",
+          "sha256": "bf93cc223a1c728a59ebaec0f744bc27fc638b8dc507914c223877365aa3ba05"
+        },
+        "result": "pass"
+      },
+      "originalUtf8": "{\n  \"reviewer\": \"producer-enemies-stage84\",\n  \"bankSha256\": \"eb0c6c42b9b32a4224ae23d1b35c9baf2d3064a6439acdc0673e2061daa98e9d\",\n  \"status\": \"pass\",\n  \"coverage\": {\n    \"stand\": 1,\n    \"flame\": 4,\n    \"nativeLoop\": \"pass\"\n  },\n  \"standFlameless\": true,\n  \"flameOnly\": true,\n  \"hardwareStatic\": true,\n  \"sourceWarningsAcknowledged\": true,\n  \"method\": \"Independently viewed actual coldstand source, all4 original canonical flame poses, all5 final48x80 resources and enlarged8x composition. Actual owned isolated Chromium played canonical flame/refined flame/staticstand composition twice each with verified160ms GIF preview delays; all12 repeatedphase screenshot hashes match. Browser closed. Native wrapper6fps/op4/5resources with onepersistentstand layer checked through actual stage_document; actual native ThorVG app/runtime verification remains root integration work.\",\n  \"playbackEvidence\": {\n    \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/bank-003/producer-playback/timing.json\",\n    \"sha256\": \"969e75a957ece967bb428920caae047a6e68bf19c3e7b4d89b736d3710fd834b\"\n  },\n  \"stand\": \"Same intact original bronze/moss bowl and3leg hardware, completely flameless without glow/smoke or oldfire beneath newflame. Bound standalpha andcupgeometry remain exactly the rootreviewed preview002; footY72.\",\n  \"flame\": \"All4 are flame-only warm orange/gold/yellow silhouettes with real changing tongues: upright0, curvedhigher1, shorterleftcurl2, return3. No hardware in flame resources, no detached spark/smoke, no green tip remains. Bottomroot stays inside rootfrozen actualbowl[24,34]; no standalonefirebobbing.\",\n  \"composition\": \"One identical stand resource under every flame, stablebowl/rim/legs/pixelpositions. Fire tongue changes and3-to0 seamless flicker are visible across bothloops. Native4@6fps retains2/3s; GIF160ms precision is QA-only.\",\n  \"sourceProcessing\": \"Registered whole4row unmodifiedupstream palette decontamination applied uniformly as explicit processingChroma separate from immutable original source/canonical-off cache. One common flamefactor and sharedALL5 palette/binaryalpha; no manual recolor, perposefitting, hardwarejitter or oldflamecopy.\",\n  \"priorHold\": \"Stage002 remains immutable/held due original greenpixel. This pass binds ONLY final003 hash and freshly repeatedQA.\",\n  \"strictValidation\": {\n    \"file\": \"verification/issue-84/generation/enemies-stage/stage-001/bank-003/producer-strict-validation.json\",\n    \"sha256\": \"bf93cc223a1c728a59ebaec0f744bc27fc638b8dc507914c223877365aa3ba05\"\n  },\n  \"result\": \"pass\"\n}\n"
+    },
+    {
+      "sourceFile": "verification/issue-84/generation/enemies-stage/stage-001/bank-003/root-review.json",
+      "sha256": "135e397bd1c183142f0194b92ee2130797b6fe263299a98b6ca36df51a7af61a",
+      "reviewer": "root-independent",
+      "document": {
+        "reviewer": "root-independent",
+        "bankSha256": "eb0c6c42b9b32a4224ae23d1b35c9baf2d3064a6439acdc0673e2061daa98e9d",
+        "status": "pass",
+        "coverage": {
+          "stand": 1,
+          "flame": 4,
+          "nativeLoop": "pass"
+        },
+        "standFlameless": true,
+        "flameOnly": true,
+        "hardwareStatic": true,
+        "sourceWarningsAcknowledged": true,
+        "method": "Root viewed all5 sourcecontact, complete4phase composition and8x actual pixel contact. Producer separately played source/final/composition twice.",
+        "observations": [
+          "Empty cold bowl and unchanged moss/bronze threelegs under all4 flames; no original fire remains.",
+          "Warm yellow/orange varying tongue silhouettes with no green fringe; flame roots remain at frozen actualcup24,34 and hardware pixelidentical.",
+          "Phases3to0 flicker continuously, no crop or position jump; one persistent hardwarelayer and4@6fps contract checked.",
+          "Registered uniform upstream palette decontamination, exact source/replay proof required; previous002 held."
+        ],
+        "limitations": ["Final actual ThorVG corpus probe remains a separate integration gate."]
+      },
+      "originalUtf8": "{\n  \"reviewer\": \"root-independent\",\n  \"bankSha256\": \"eb0c6c42b9b32a4224ae23d1b35c9baf2d3064a6439acdc0673e2061daa98e9d\",\n  \"status\": \"pass\",\n  \"coverage\": {\n    \"stand\": 1,\n    \"flame\": 4,\n    \"nativeLoop\": \"pass\"\n  },\n  \"standFlameless\": true,\n  \"flameOnly\": true,\n  \"hardwareStatic\": true,\n  \"sourceWarningsAcknowledged\": true,\n  \"method\": \"Root viewed all5 sourcecontact, complete4phase composition and8x actual pixel contact. Producer separately played source/final/composition twice.\",\n  \"observations\": [\n    \"Empty cold bowl and unchanged moss/bronze threelegs under all4 flames; no original fire remains.\",\n    \"Warm yellow/orange varying tongue silhouettes with no green fringe; flame roots remain at frozen actualcup24,34 and hardware pixelidentical.\",\n    \"Phases3to0 flicker continuously, no crop or position jump; one persistent hardwarelayer and4@6fps contract checked.\",\n    \"Registered uniform upstream palette decontamination, exact source/replay proof required; previous002 held.\"\n  ],\n  \"limitations\": [\n    \"Final actual ThorVG corpus probe remains a separate integration gate.\"\n  ]\n}\n"
+    }
+  ],
+  "retainedSourcePoses": [
+    {
+      "file": "docs/assets/motion-source-archive84/stage/brazier/stand.png",
+      "sha256": "3d0c746b8724c4232e678ed25c85ce78b5b8ade892a72659846e2fed34c95af7",
+      "sourceFile": "verification/issue-84/generation/enemies-stage/stage-001/bank-003/stand.png",
+      "state": null,
+      "index": null
+    },
+    {
+      "file": "docs/assets/motion-source-archive84/stage/brazier/flame-0.png",
+      "sha256": "444cc2d406fe128e507bc35fb8f3f63b9d8f96d53e2af556ca722c1b71ca11fd",
+      "sourceFile": "verification/issue-84/generation/enemies-stage/stage-001/bank-003/flame-0.png",
+      "state": null,
+      "index": null
+    },
+    {
+      "file": "docs/assets/motion-source-archive84/stage/brazier/flame-1.png",
+      "sha256": "d34f6bc0c7ba60435a056738288bd0d8cd002f8fa6f6cf7b5a3db74211f7e97d",
+      "sourceFile": "verification/issue-84/generation/enemies-stage/stage-001/bank-003/flame-1.png",
+      "state": null,
+      "index": null
+    },
+    {
+      "file": "docs/assets/motion-source-archive84/stage/brazier/flame-2.png",
+      "sha256": "832f154d768bc6b34b109afe0174b95574da09a47f459eb0620cb63b531fff69",
+      "sourceFile": "verification/issue-84/generation/enemies-stage/stage-001/bank-003/flame-2.png",
+      "state": null,
+      "index": null
+    },
+    {
+      "file": "docs/assets/motion-source-archive84/stage/brazier/flame-3.png",
+      "sha256": "bd8c590a46b71e8d3600e8186c18caa1a4cb0fdd9c8b6e19ed2bff97eb2e7cb4",
+      "sourceFile": "verification/issue-84/generation/enemies-stage/stage-001/bank-003/flame-3.png",
+      "state": null,
+      "index": null
+    }
+  ],
+  "inputProof": {
+    "stand": {
+      "provider": "codex",
+      "auth": "ChatGPT subscription",
+      "sourceFile": "verification/issue-84/generation/enemies-stage/stage-001/raw/stand.png",
+      "sourceSha256": "54b0001060576a118132cedb5d8d31e7779316a1310f0aad676493100130078f",
+      "reportFile": "verification/issue-84/generation/enemies-stage/stage-001/reports/stand.json",
+      "reportSha256": "991a96f95e87d0b6701d229989e52cc62028405532529acc766dfffd1393868f",
+      "promptSha256": "bb91f5b8f929bcbdfeaf17841be5f4409c90e236949f94d1fd9858cf730bced6",
+      "sessionId": "01a1bb21-d275-71b2-84f7-64a85f9d73d9",
+      "references": [
+        {
+          "file": "verification/issue-84/generation/enemies-stage/inputs/brazier.png",
+          "sha256": "1ce7a2adad0516cda38959e967f66d811cdc068783a186209599c1fccaf531ca"
+        }
+      ]
+    },
+    "flame": {
+      "provider": "codex",
+      "auth": "ChatGPT subscription",
+      "sourceFile": "verification/issue-84/generation/enemies-stage/stage-001/flame-row/raw/flame.png",
+      "sourceSha256": "f83db6b335447676805c09e6ff8069c5784b59bd3194c92c73a18aba5b637e86",
+      "reportFile": "verification/issue-84/generation/enemies-stage/stage-001/flame-row/reports/gen-set/flame.json",
+      "reportSha256": "4986b8edb4775ac03b64ce43e205ec664d4311fd312bbc3d0177e8ace7516023",
+      "promptSha256": "a5951042cbe1f87b5e23e39667fb98765743519256f1d996a2c82c1177baf609",
+      "sessionId": "01a1bb28-bda4-7e00-8a71-112f9d010863",
+      "references": [
+        {
+          "file": "verification/issue-84/generation/enemies-stage/stage-001/flame-row/base-source.png",
+          "sha256": "1ce7a2adad0516cda38959e967f66d811cdc068783a186209599c1fccaf531ca"
+        },
+        {
+          "file": "verification/issue-84/generation/enemies-stage/stage-001/flame-row/references/layout-guides/flame.png",
+          "sha256": "90b6807e4a73293e38fe09db359a0a67d747188a9f813000c35b82adcd3a2eee"
+        }
+      ]
+    },
+    "geometryFile": "verification/issue-84/generation/enemies-stage/stage-001/stage-geometry.json",
+    "geometrySha256": "ffe547e657177a4485f67bf85e279a856ee30b9fad3de6ba7e25d2e3dc7daec8",
+    "geometry": {
+      "geometry": {
+        "canvas": [48, 80],
+        "standCap": [40, 48],
+        "standFootY": 72,
+        "flameCap": [26, 28],
+        "cup": [24, 34]
+      },
+      "standSourceSha256": "54b0001060576a118132cedb5d8d31e7779316a1310f0aad676493100130078f",
+      "preview": {
+        "file": "verification/issue-84/generation/enemies-stage/stage-001/stand-preview-002/stand-preview.png",
+        "sha256": "0b6d68f753a71b40ef540348761480d16fbc6a126f76e07119b46a24dc18d716",
+        "alphaSha256": "9d6dd95bb5d490cab1e08c1a9ff448c5fde899ceca124069309d6173e08904cf"
+      },
+      "review": {
+        "file": "verification/issue-84/generation/enemies-stage/stage-001/stage-geometry-root-review.json",
+        "sha256": "cf5ce425f0f900d87d72310452ba5f8cf519d95e299664475bff22d59e3d91f3"
+      }
+    },
+    "requestSha256": "c60d39a80492fbf4336d367bcfcc200d891e11da53e322b5d1a2e5aa05f0d2ba",
+    "manifestSha256": "6292bacd6be9531f279347f8df7d35a87be89a66227782072916498228af82b0"
+  },
+  "rawReplay": "Requires exact ignored raw rows, provider reports and referenced inputs named in inputProof. These are not included in a fresh clone; archived final source poses and reviewed hashes remain independently inspectable."
+}

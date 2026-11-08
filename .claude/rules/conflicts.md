@@ -37,6 +37,8 @@ Adapted from the dw plugin's `merge-resolver` agent (the plugin is not needed), 
 | `CLAUDE.md`, `.claude/rules/*.md`, skills                                                                                                                                   | Keep both sides' rules. If they contradict, the newer user decision wins; ask when unsure. Then re-check `docs-sync.md`.                                                                                                                                                                                                                    |
 | `packages/shared/src/protocol.ts`, content data                                                                                                                             | Keep both. Then fix every type error in client and server, because the type checker shows the functional conflicts.                                                                                                                                                                                                                         |
 
+Motion publication (`docs/assets/motion-84.receipt.json` and `docs/assets/motion-source-archive84/`) is generated from the approved immutable source map with `scripts/assets/motion_publish.py`. Never hand-merge hashes or approve a substituted bank; rebuild and verify the exact current graph with both source reviews. Historical `rebuild-76.receipt.json` remains unchanged.
+
 ## Recording
 
 - The PR body gets a short **Conflicts** note: which files conflicted and how each was resolved.

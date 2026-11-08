@@ -1,6 +1,6 @@
 # 0007. Vector-first art behind a swappable asset manifest
 
-- Status: Superseded in part by [0016](0016-generate-raster-art-with-cached-image-lottie.md) (art direction and generation pipeline; logical IDs, caps and other guardrails retained)
+- Status: Superseded in part by [0016](0016-generate-raster-art-with-cached-image-lottie.md) and [0019](0019-render-all-actor-and-effect-motion-with-native-lottie.md) (art direction, motion inventory and measured native actor playback; logical IDs and caps retained)
 - Date: 2026-11-07
 
 ## Context

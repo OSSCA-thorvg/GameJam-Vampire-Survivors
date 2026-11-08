@@ -13,9 +13,10 @@ import {
   VIEW_PICKUP_MAX,
   VIEW_QUANT,
   type DrawableAssetId,
+  type MotionState,
 } from '@vs/shared';
-import type { AssetLibrary } from '../assets/library';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../constants';
+import type { AssetInstance, AssetSource } from '../assets/library';
+import { MAX_STEPS, STEP_MS, VIEW_HEIGHT, VIEW_WIDTH } from '../constants';
 import { createGround } from '../render/ground';
 import { PaintPool } from '../render/pool';
 import { setTransform } from '../render/transform';
@@ -38,7 +39,7 @@ const BAR_GAP = 6;
 
 export interface OpponentViewOptions {
   TVG: Pick<ThorVGNamespace, 'Shape'>;
-  library: Pick<AssetLibrary, 'create'>;
+  library: AssetSource;
   layers: {
     world: Pick<Scene, 'translate'>;
     ground: Pick<Scene, 'add'>;
@@ -52,7 +53,9 @@ export interface OpponentViewOptions {
 
 export interface OpponentView {
   /** Draws the feed as of `nowMs - OPPONENT_RENDER_DELAY_MS`; only the ground at (0, 0) before the first view. */
-  render(feed: OpponentFeed, nowMs: number): void;
+  render(feed: OpponentFeed, nowMs: number, allowPlayback?: boolean): void;
+  /** Freeze visible native poses without releasing their leases. */
+  suspendPlayback(): void;
   /** Hides every entity and the player (a new run, or back to the title); the ground stays. */
   clear(): void;
   /** `created` summed over every pool: constant after boot. */
@@ -75,7 +78,7 @@ interface CappedPool {
 }
 
 function capped(
-  library: Pick<AssetLibrary, 'create'>,
+  library: AssetSource,
   id: DrawableAssetId,
   layer: Pick<Scene, 'add'>,
   cap: number,
@@ -87,18 +90,6 @@ function capped(
     shown: 0,
     used: 0,
   };
-}
-
-/** Places the next paint of `p` at (x, y), acquiring only below its cap; false when the pool is full. */
-function place(p: CappedPool, x: number, y: number, scale: number, flip: boolean): boolean {
-  if (p.used >= p.cap) return false;
-  if (p.used >= p.shown) {
-    p.handles[p.used] = p.pool.acquire();
-    p.shown = p.used + 1;
-  }
-  setTransform(p.pool.get(p.handles[p.used] ?? 0), x, y, 0, scale, flip);
-  p.used++;
-  return true;
 }
 
 /** Releases what was shown last frame beyond this frame's count, then starts the next frame's count. */
@@ -113,6 +104,33 @@ export function createOpponentView({
   layers,
   scale,
 }: OpponentViewOptions): OpponentView {
+  let playbackRunning = false;
+  let playbackAt: number | null = null;
+  /** Acquires only below the pool cap and applies an enemy's pose when its lease begins. */
+  function place(
+    p: CappedPool,
+    x: number,
+    y: number,
+    scale: number,
+    flip: boolean,
+    initialMotion?: MotionState,
+  ): AssetInstance | null {
+    if (p.used >= p.cap) return null;
+    const acquired = p.used >= p.shown;
+    if (acquired) {
+      p.handles[p.used] = p.pool.acquire();
+      p.shown = p.used + 1;
+    }
+    const instance = p.pool.get(p.handles[p.used] ?? 0);
+    if (acquired && initialMotion) {
+      library.setMotionState?.(instance, initialMotion);
+      library.setPlaybackActive?.(instance, playbackRunning, 'presentation');
+    }
+    setTransform(instance, x, y, 0, scale, flip);
+    p.used++;
+    return instance;
+  }
+
   const ground = createGround(library, layers.ground);
   const gemPools = GEM_ASSETS.map((id) => capped(library, id, layers.pickups, VIEW_GEM_MAX));
   const pickupPools = [
@@ -128,6 +146,15 @@ export function createOpponentView({
     ),
   );
   const playerPools = CHARACTERS.map((c) => capped(library, c.spriteId, layers.player, 1));
+  const actors = [...enemyPools, ...playerPools];
+  const setPlaybackRunning = (running: boolean): void => {
+    if (playbackRunning === running) return;
+    playbackRunning = running;
+    playbackAt = null;
+    for (const actor of actors)
+      for (let i = 0; i < actor.shown; i++)
+        library.setPlaybackActive?.(actor.pool.get(actor.handles[i] ?? 0), running, 'presentation');
+  };
   // After the player pools, so the HP bar draws above the sprite in the same layer.
   const barPool = capped(library, 'ui.hpBar', layers.player, 1);
   const fill: Shape = new TVG.Shape();
@@ -153,6 +180,8 @@ export function createOpponentView({
   };
 
   const clear = (): void => {
+    playbackRunning = false;
+    playbackAt = null;
     for (const p of all) {
       p.used = 0;
       settle(p);
@@ -165,9 +194,11 @@ export function createOpponentView({
 
   /** The entry whose entities are drawn and the interpolated player position, for render time `rt`. */
   let drawn: FeedEntry | null = null;
+  let playerMotion: MotionState = 'idle';
   const pick = (entries: readonly FeedEntry[], rt: number): void => {
     const first = entries[0];
     const last = entries[entries.length - 1];
+    playerMotion = 'idle';
     if (!first || !last) return;
     if (rt >= last.atMs) {
       drawn = last;
@@ -177,6 +208,9 @@ export function createOpponentView({
     }
     if (rt <= first.atMs) {
       drawn = first;
+      const next = entries[1];
+      if (next && (first.view.x !== next.view.x || first.view.y !== next.view.y))
+        playerMotion = 'move';
       state.cameraX = first.view.x;
       state.cameraY = first.view.y;
       return;
@@ -188,6 +222,7 @@ export function createOpponentView({
       const span = b.atMs - a.atMs;
       const u = span > 0 ? (rt - a.atMs) / span : 1;
       drawn = b;
+      if (a.view.x !== b.view.x || a.view.y !== b.view.y) playerMotion = 'move';
       state.cameraX = a.view.x + (b.view.x - a.view.x) * u;
       state.cameraY = a.view.y + (b.view.y - a.view.y) * u;
       return;
@@ -195,14 +230,25 @@ export function createOpponentView({
   };
 
   return {
-    render(feed, nowMs) {
-      if (!feed.latest()) {
+    render(feed, nowMs, allowPlayback = true) {
+      const latest = feed.latest();
+      if (!latest) {
         if (drawn) clear();
         drawn = null;
         placeCamera(0, 0);
         return;
       }
-      pick(feed.entries(), nowMs - OPPONENT_RENDER_DELAY_MS);
+      const renderTime = nowMs - OPPONENT_RENDER_DELAY_MS;
+      pick(feed.entries(), renderTime);
+      setPlaybackRunning(allowPlayback && renderTime < latest.atMs);
+      if (playbackRunning) {
+        // The visible peer keeps moving while the local simulation is paused for a dialog or defeat.
+        if (playbackAt !== null)
+          library.tickPresentation?.(
+            Math.min(MAX_STEPS * STEP_MS, Math.max(0, nowMs - playbackAt)) / 1000,
+          );
+        playbackAt = nowMs;
+      }
       const entry = drawn;
       if (!entry) return;
       const { view } = entry;
@@ -222,6 +268,8 @@ export function createOpponentView({
             view.y + (e[i + 2] ?? 0) * VIEW_QUANT,
             (kind & 1) === 1 ? ELITE.scale : 1,
             dx > 0,
+            // The relay gives enemy positions but no identity or velocity.
+            'move',
           )
         )
           enemies++;
@@ -259,7 +307,8 @@ export function createOpponentView({
       const px = state.cameraX;
       const py = state.cameraY;
       const sprite = playerPools[view.c] ?? playerPools[0];
-      if (sprite) place(sprite, px, py, 1, view.f === 1);
+      const player = sprite ? place(sprite, px, py, 1, view.f === 1, 'idle') : null;
+      if (player && playbackRunning) library.setMotionState?.(player, playerMotion);
       const top = py + BAR_GAP;
       place(barPool, px, top + BAR_H / 2, 1, false);
       fillMatrix.e11 = Math.max(0, Math.min(1, view.h / 1000));
@@ -271,6 +320,9 @@ export function createOpponentView({
       state.enemiesShown = enemies;
       state.gemsShown = gems;
       state.pickupsShown = pickups;
+    },
+    suspendPlayback() {
+      setPlaybackRunning(false);
     },
     clear() {
       clear();

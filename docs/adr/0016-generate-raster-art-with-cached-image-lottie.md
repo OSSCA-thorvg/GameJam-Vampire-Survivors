@@ -1,6 +1,6 @@
 # 0016. Generate raster art and preload image-backed Lottie resources
 
-- Status: Accepted
+- Status: Superseded in part by [0019](0019-render-all-actor-and-effect-motion-with-native-lottie.md) (motion inventory and animated-instance lifecycle; approved artwork and provenance retained)
 - Date: 2026-11-08
 - Related issues: #76; partially supersedes ADR 0007's vector-first art direction and ADR 0008's art roster scope
 

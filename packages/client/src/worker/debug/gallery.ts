@@ -1,5 +1,11 @@
 import type { Paint, Scene } from '@thorvg/webcanvas';
-import { ASSET_IDS, ASSET_SIZES, createRng, type DrawableAssetId } from '@vs/shared';
+import {
+  ASSET_IDS,
+  ASSET_SIZES,
+  createRng,
+  type MotionState,
+  type DrawableAssetId,
+} from '@vs/shared';
 import type { Axis } from '../../protocol/worker-messages';
 import type { AssetLibrary } from '../assets/library';
 import { isDrawableId, type AssetInstance } from '../assets/library';
@@ -67,6 +73,8 @@ export interface Gallery {
   /** Shows or hides the speed preview; its Paints are created the first time it opens. */
   togglePreview(): void;
   previewVisible(): boolean;
+  toggleMotion(): void;
+  motionState(): MotionState;
 }
 
 export function buildGallery({ TVG, root }: ThorVGContext, library: AssetLibrary): Gallery {
@@ -76,6 +84,9 @@ export function buildGallery({ TVG, root }: ThorVGContext, library: AssetLibrary
   const ids = ASSET_IDS.filter(isDrawableId);
   let y = 32;
   let animated: AssetInstance | undefined;
+  const gridInstances: AssetInstance[] = [];
+  const oneShots: AssetInstance[] = [];
+  let motion: MotionState = 'idle';
   const label = (text: string, x: number, top: number, size: number): void => {
     const paint = new TVG.Text().font(HUD_FONT).fontSize(size).text(text).fill(230, 234, 245);
     paint.translate(x, top);
@@ -94,6 +105,8 @@ export function buildGallery({ TVG, root }: ThorVGContext, library: AssetLibrary
         const centerX = x + CELL_WIDTH / 2;
         const anchorY = y + (height - 36) / 2;
         const instance = library.create(id);
+        gridInstances.push(instance);
+        if (id === 'fx.hit' || id === 'fx.enemyDeath') oneShots.push(instance);
         const [width] = ASSET_SIZES[id];
         const previewScale = Math.min(1, (CELL_WIDTH - 12) / width);
         setTransform(instance, centerX, anchorY, 0, previewScale);
@@ -138,6 +151,7 @@ export function buildGallery({ TVG, root }: ThorVGContext, library: AssetLibrary
       for (let n = 0; n < PREVIEW_PER_ID; n++) {
         const instance = library.create(id);
         scene.add(instance.paint);
+        library.setMotionState(instance, 'move');
         drifting.push({
           instance,
           x: x + rng.range(-PREVIEW_SPREAD, PREVIEW_SPREAD),
@@ -185,9 +199,17 @@ export function buildGallery({ TVG, root }: ThorVGContext, library: AssetLibrary
       previewOn = !previewOn;
       preview.visible(previewOn);
       container.visible(!previewOn);
+      for (const instance of gridInstances) library.setPlaybackActive(instance, !previewOn);
+      for (const item of drifting) library.setPlaybackActive(item.instance, previewOn);
       placePreview();
     },
     previewVisible: () => previewOn,
+    toggleMotion() {
+      motion = motion === 'idle' ? 'move' : 'idle';
+      for (const instance of gridInstances) library.setMotionState(instance, motion);
+      for (const instance of oneShots) library.resetPlayback(instance);
+    },
+    motionState: () => motion,
     snapshot: () => ({
       ids,
       panX,

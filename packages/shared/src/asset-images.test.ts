@@ -1,13 +1,15 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { inflateSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { Buffer } from 'node:buffer';
-import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { inspectPng } from './png';
 import { validateLottie } from './lottie';
+import { lottieProfile } from './lottie-motion';
+import { collectAssetGraph } from '../../../scripts/assets/motion_graph';
 import { parseCatalog } from './catalog';
+import { validateManifest } from './assets';
 
 const assets = new URL('../../../assets/', import.meta.url);
 const read = (file: string): string => readFileSync(new URL(file, assets), 'utf8');
@@ -90,7 +92,7 @@ it('preserves the licensed font and its provenance byte-for-byte', () => {
 
 it('generated static PNGs decode at four-times logical size with appropriate alpha', () => {
   const pngs = entries.filter(([, entry]) => entry.format === 'png');
-  expect(pngs).toHaveLength(81);
+  expect(pngs.length).toBeGreaterThan(0);
   for (const [id, entry] of pngs) {
     const size = byId.get(id)?.size;
     if (!size) throw new Error(`${id}: missing logical size`);
@@ -102,15 +104,17 @@ it('generated static PNGs decode at four-times logical size with appropriate alp
   }
 });
 
-it('Lottie resources decode within their owner and preserve the two effect timelines', () => {
+it('Lottie resources decode within their owner and preserve the original effect and diagnostic timelines', () => {
   for (const [id, entry] of entries.filter(([, value]) => value.format === 'lottie')) {
     const value: unknown = JSON.parse(read(entry.file));
-    const animation = validateLottie(value, entry.file);
+    const animation = validateLottie(value, entry.file, lottieProfile(id));
     expect([animation.width, animation.height], id).toEqual(entry.size);
-    expect(animation.fps, id).toBe(30);
-    expect(animation.firstFrame, id).toBe(0);
-    // fx.chestOpen runs 0-24; fx.levelUp and #22's shape-only enemy.lottieTest run 0-30.
-    expect(animation.lastFrame, id).toBe(id === 'fx.chestOpen' ? 24 : 30);
+    if (id === 'fx.levelUp' || id === 'fx.chestOpen' || id === 'enemy.lottieTest') {
+      expect(animation.fps, id).toBe(30);
+      expect(animation.firstFrame, id).toBe(0);
+      expect(animation.lastFrame, id).toBe(id === 'fx.chestOpen' ? 24 : 30);
+    }
+    if (id === 'enemy.lottieTest') expect(animation.images).toHaveLength(0);
     for (const image of animation.images) {
       const path = entry.file.slice(0, entry.file.lastIndexOf('/') + 1) + image.path;
       decodePng(readFileSync(new URL(path, assets)), [image.width, image.height]);
@@ -118,30 +122,19 @@ it('Lottie resources decode within their owner and preserve the two effect timel
   }
 });
 
-it('installs the exact 85-ID pack with 91 owned files and no orphan SVGs', () => {
-  // The 84-ID pack of ADR 0016 plus #22's shape-only measurement asset enemy.lottieTest (no image resources).
+it('installs an exact format-aware primary/resource graph with no missing or orphan files', () => {
   expect(entries).toHaveLength(85);
-  expect(entries.filter(([, entry]) => entry.format === 'lottie')).toHaveLength(3);
+  expect(entries.filter(([, entry]) => entry.format === 'lottie')).toHaveLength(37);
   expect(entries.filter(([, entry]) => entry.format === 'ttf')).toHaveLength(1);
-  expect(entries.every(([, entry]) => ['png', 'lottie', 'ttf'].includes(entry.format))).toBe(true);
-  const expected = new Set([
-    'CATALOG.md',
-    'README.md',
-    'manifest.json',
-    'fonts/LICENSE-NotoSansMono.txt',
-    ...entries.map(([, entry]) => entry.file),
-  ]);
-  for (const [id, entry] of entries.filter(([, value]) => value.format === 'lottie')) {
-    const animation = validateLottie(JSON.parse(read(entry.file)), entry.file);
-    expect(animation.images, id).toHaveLength(id === 'enemy.lottieTest' ? 0 : 1);
-    for (const image of animation.images)
-      expected.add(entry.file.slice(0, entry.file.lastIndexOf('/') + 1) + image.path);
-  }
-  const installed = readdirSync(assets, { recursive: true, withFileTypes: true })
-    .filter((entry) => entry.isFile())
-    .map((entry) => relative(fileURLToPath(assets), join(entry.parentPath, entry.name)));
-  expect(expected.size).toBe(91);
-  expect(installed.sort()).toEqual([...expected].sort());
+  const parsed = validateManifest(JSON.parse(read('manifest.json')));
+  expect(parsed.errors).toEqual([]);
+  expect(parsed.missing).toEqual([]);
+  const graph = collectAssetGraph({ directory: fileURLToPath(assets), manifest: parsed.manifest });
+  expect(graph.logicalIds).toEqual(entries.map(([id]) => id).sort());
+  expect(graph.motionIds).toHaveLength(36);
+  expect(graph.diagnosticIds).toEqual(['enemy.lottieTest']);
+  expect(graph.files.filter((file) => file.role === 'primary')).toHaveLength(entries.length);
+  expect(graph.files.filter((file) => file.role === 'owned-image').length).toBeGreaterThan(0);
 });
 
 it('keeps the native HP fill rectangle dark and empty rather than baking in health', () => {

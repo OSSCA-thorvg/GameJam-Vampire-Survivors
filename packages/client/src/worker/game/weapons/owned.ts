@@ -41,7 +41,7 @@ export function addWeapon(world: WeaponsState, id: WeaponId): boolean {
   if (world.weapons.length >= MAX_WEAPON_SLOTS) return false;
   if (world.weapons.some((w) => w.def.id === id)) return false;
   const def = WEAPONS[id];
-  if (import.meta.env.DEV && !PATTERNS[def.pattern])
+  if (typeof import.meta.env !== 'undefined' && import.meta.env.DEV && !PATTERNS[def.pattern])
     throw new Error(`Weapon '${id}' uses pattern '${def.pattern}', which has no module`);
   world.weapons.push({
     def,

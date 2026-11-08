@@ -179,6 +179,8 @@ test('light-sources 1: lights surround a walking player, the Whip breaks one and
   const stop = answerLevelUps(page);
   try {
     await startRun(page);
+    await page.keyboard.press('KeyI'); // precondition only: keep the long brazier traversal alive
+    await waitForSnapshot(page, (s) => s.debugInvulnerable === true, 2_000);
     // Walk right for 20 s, noting the first light that enters the view.
     let seen: { light: Light; player: PlayerSnap } | null = null;
     await page.keyboard.down('ArrowRight');
@@ -388,3 +390,5 @@ test('pickups 3: no Rosary before level 8 and no Orologion before level 4 from b
 - Journey 1 stands still facing the light once it is within the Whip's reach: walking on, the player once collected the drop before the snapshot read it (2026-11-08, #16). Journey 3 still walks between lights and may collect a drop at once (another weapon breaks the light as the player passes), recorded as `drop: null`.
 - Journey 3 can take 1–3 minutes and may die on the way; it presses Enter (Retry, which keeps the character since #14) and keeps counting breaks across runs. Levels stay low (1–2), so it proves the gate for those levels; the Rosary gate at 4–7 and the distribution are level 4 (`light-sources.test.ts`) (2026-11-08, #16).
 - Ring distances, weights, level gates and whether the magnet pulls pickups are initial values, untuned against footage (`docs/reference/gameplay.md` § Pickups kept in this game) (2026-11-08, #16).
+
+- 2026-11-09 (#84): The intact/broken brazier lifecycle journey died at18s before reaching a distant light. It now presses the real I key and confirms debugInvulnerable before its long traversal. The six intact lights, real weapon break, exact drop position and all lifecycle assertions remain unchanged; pickup2 still takes real damage for its Floor Chicken check. Pickup3 completed its original10-break gate checks with recorded real retries, so no extra precondition was changed there.

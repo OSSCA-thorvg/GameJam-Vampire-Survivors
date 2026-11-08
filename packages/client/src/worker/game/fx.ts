@@ -90,7 +90,7 @@ export function spawnFx(
   cols.scale[slot] = scale;
   cols.ttl[slot] = ttl;
   cols.flip[slot] = flipX ? 1 : 0;
-  world.fxBinding?.bind(slot, FX_ASSETS.indexOf(assetId));
+  world.fxBinding?.bind(slot, FX_ASSETS.indexOf(assetId), ttl);
   return slot;
 }
 
