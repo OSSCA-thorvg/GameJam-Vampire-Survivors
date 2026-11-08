@@ -23,6 +23,7 @@ The `issue-finish` skill applies these. Writing conventions are those of `commit
   gh api -X DELETE repos/OSSCA-thorvg/GameJam-Vampire-Survivors/issues/<N>/labels/status:blocked              # remove a label
   ```
 - **Labels:** the same `type:*`, `priority:*`, `area:*` and `phase:*` as the issue, applied when the PR is created (`gh pr create --label`), or later with `gh issue edit <PR>`.
+- **One closing keyword:** the only closing keyword in the body is the final `Closes #N` line. GitHub links `Closes|Fixes|Resolves #N` anywhere in the body, even inside backticks, and closes that issue on merge (PR #38 closed #2 this way). Never write a closing keyword followed by another issue number; rephrase, for example "the closing line for issue 2". CI fails a body that closes more than one issue.
 - **CI enforces the evidence sections:** the `PR rules` job fails unless the body has non-empty `## Impact` and `## Verification` sections. The template's HTML-comment placeholders do not count, so an unfilled template fails.
 - **Gate before merge**, all done before the PR is opened (or before its hold is released), because green CI merges it immediately:
   - every acceptance criterion in the issue is demonstrably met, at the proof level `.claude/rules/verification.md` requires (user-visible criteria run in the real app);

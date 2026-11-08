@@ -27,7 +27,7 @@ Writing rules follow `.claude/rules/commits.md`: a `<prefix>: <imperative summar
    git reset --soft origin/main && git commit -F /tmp/commit-msg.txt
    git log --oneline origin/main..HEAD   # exactly one line
    ```
-   Then move the issue to review, push with `--force-with-lease`, and open the PR with the issue's `type:*`, `priority:*`, `area:*` and `phase:*` labels. Labels are applied at creation, because the workflow may merge the PR, and set `status:done`, within a minute of CI starting. The title is `<prefix>: <same summary as the issue>` with **no** `(#N)` suffix: GitHub appends the PR number to the squash commit, and CI rejects a trailing `(#N)`. The issue link is `Closes #N` in the body, which CI also checks. `.github/pull_request_template.md` has the body's sections:
+   Then move the issue to review, push with `--force-with-lease`, and open the PR with the issue's `type:*`, `priority:*`, `area:*` and `phase:*` labels. Labels are applied at creation, because the workflow may merge the PR, and set `status:done`, within a minute of CI starting. The title is `<prefix>: <same summary as the issue>` with **no** `(#N)` suffix: GitHub appends the PR number to the squash commit, and CI rejects a trailing `(#N)`. The issue link is `Closes #N` in the body, which CI also checks. `Closes #N` must be the only closing keyword in the body: GitHub also acts on quoted ones (even in backticks), so never write `Closes`/`Fixes`/`Resolves` followed by another issue number; CI rejects it. `.github/pull_request_template.md` has the body's sections:
    ```sh
    gh issue edit <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors --remove-label status:in-progress --add-label status:review
    git push --force-with-lease -u origin HEAD
