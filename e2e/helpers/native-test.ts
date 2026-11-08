@@ -5,6 +5,12 @@ import { test as base } from '@playwright/test';
 import { evidencePath } from '../helpers';
 import { waitForOwnedCdpEndpoint } from '../../scripts/verify/native-cdp';
 
+/**
+ * Keeps a window covered by other windows from reporting every tab hidden; activating another tab
+ * still hides the game natively (#108). Timer throttling and renderer backgrounding stay native.
+ */
+const OCCLUSION_FLAG = '--disable-backgrounding-occluded-windows';
+
 /** A fresh task-owned browser, retaining native tab visibility rather than Playwright's focus override. */
 export const test = base.extend({
   context: async ({ playwright, launchOptions }, use, testInfo) => {
@@ -12,6 +18,11 @@ export const test = base.extend({
     const server = await playwright.chromium.launchServer({
       ...launchOptions,
       headless: false,
+      // Keep Playwright's default occlusion flag, which the project's list drops. Adding it to `args`
+      // alone has no effect: Playwright filters `args` through `ignoreDefaultArgs` too.
+      ignoreDefaultArgs: Array.isArray(launchOptions.ignoreDefaultArgs)
+        ? launchOptions.ignoreDefaultArgs.filter((arg) => arg !== OCCLUSION_FLAG)
+        : launchOptions.ignoreDefaultArgs,
       args: [
         ...(launchOptions.args ?? []),
         '--remote-debugging-address=127.0.0.1',
