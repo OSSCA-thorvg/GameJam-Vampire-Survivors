@@ -6,5 +6,5 @@
     "noEmit": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo"
   },
-  "include": ["vite.config.ts", "vitest*.config.ts", "src/build.test.ts"]
+  "include": ["vite.config.ts", "vitest*.config.ts", "csp.ts", "csp.test.ts", "src/build.test.ts"]
 }

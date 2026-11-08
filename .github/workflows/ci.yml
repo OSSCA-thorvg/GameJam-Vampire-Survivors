@@ -196,6 +196,13 @@ jobs:
           user=$(docker exec vs-server-ci id -un)
           [ "$user" = node ] || { echo "::error::container runs as '$user', expected node"; exit 1; }
           echo "user: $user"
+      # The Dockerfile pins the base by digest, which makes Docker ignore the tag (ADR 0017), so the Node major is checked.
+      - name: The image's Node major matches .nvmrc
+        if: steps.changes.outputs.run == 'true'
+        run: |
+          major=$(docker exec vs-server-ci node -p 'process.versions.node.split(".")[0]')
+          [ "$major" = "$(cut -d. -f1 .nvmrc)" ] || { echo "::error::image Node $major does not match .nvmrc $(cat .nvmrc); update NODE_DIGEST in packages/server/Dockerfile"; exit 1; }
+          echo "node major: $major"
       - name: Container logs
         if: failure() && steps.changes.outputs.run == 'true'
         run: docker logs vs-server-ci

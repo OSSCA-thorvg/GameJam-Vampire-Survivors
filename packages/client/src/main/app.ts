@@ -355,10 +355,11 @@ export interface App {
 /** Creates the controller of one versus match; tests pass a fake. */
 export type CreateVersus = (opts: VersusControllerOptions) => VersusController;
 
-/** Creates the multiplayer flow's socket client; tests pass a fake. */
-export type CreateNet = () => NetClient;
+/** Creates the multiplayer flow's socket client, or `null` when the build has no server (ADR 0017); tests pass a fake. */
+export type CreateNet = () => NetClient | null;
 
-const defaultNet: CreateNet = () => new NetClient(SERVER_URL, browserSocket);
+const defaultNet: CreateNet = () =>
+  SERVER_URL === null ? null : new NetClient(SERVER_URL, browserSocket);
 
 const connectionOf = (state: NetState): Connection =>
   state === 'open' ? 'open' : state === 'connecting' ? 'connecting' : 'failed';
@@ -403,9 +404,14 @@ export function createApp(
   /** The running versus match (#20); `null` outside `versusPlaying`, so single player never creates one. */
   let versus: VersusController | null = null;
 
-  const openNet = (): NetClient => {
+  const openNet = (): NetClient | null => {
     if (net) return net;
     const client = createNet();
+    if (!client) {
+      // A production build without VITE_SERVER_URL: the entry says so and no socket is ever opened.
+      connection = 'unconfigured';
+      return null;
+    }
     net = client;
     connection = connectionOf(client.state);
     netOff = [
@@ -431,11 +437,14 @@ export function createApp(
     return client;
   };
   const connect = (): void => {
-    openNet()
-      .connect()
-      .catch(() => {
-        // Shown as "Cannot reach the game server" through the state change.
-      });
+    const client = openNet();
+    if (!client) {
+      show();
+      return;
+    }
+    client.connect().catch(() => {
+      // Shown as "Cannot reach the game server" through the state change.
+    });
   };
   const closeNet = (): void => {
     for (const off of netOff) off();

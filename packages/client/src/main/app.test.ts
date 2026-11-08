@@ -427,6 +427,30 @@ describe('createApp multiplayer flow (happy-dom, fake socket)', () => {
     return { root, app, sockets, created, posted, socket, serverSays };
   }
 
+  it('a build without a server says so on the entry screen and opens no socket (ADR 0017)', () => {
+    document.body.replaceChildren();
+    const root = document.createElement('div');
+    document.body.append(root);
+    const app = createApp(
+      root,
+      () => undefined,
+      () => 1,
+      () => null,
+      () => null,
+    );
+    app.dispatch({ type: 'multiplayer' });
+    app.dispatch({ type: 'confirm' });
+    expect(app.state.name).toBe('multiplayerEntry');
+    expect(root.querySelector('.status')?.textContent).toBe(
+      'Multiplayer is not available: no game server is configured for this site',
+    );
+    expect(button('Retry')?.hidden).toBe(true);
+    expect(button('Create room')?.disabled).toBe(true);
+    expect(button('Join room')?.disabled).toBe(true);
+    key('Escape');
+    expect(app.state.name).not.toBe('multiplayerEntry');
+  });
+
   it('creates no socket in single player', () => {
     const t = setup();
     button('Start')?.click();

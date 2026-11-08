@@ -1,0 +1,31 @@
+# Production game server (ADR 0017): the `runtime` image that .github/workflows/deploy.yml publishes to GHCR, run as
+# exactly one instance on the owner's host. Usage (deploy/server/README.md):
+#   cp .env.example .env    # once, then edit
+#   docker compose pull && docker compose up -d
+services:
+  server:
+    # VS_IMAGE pins a published tag (sha-<commit>, recommended) or follows `main`.
+    image: ${VS_IMAGE:-ghcr.io/ossca-thorvg/gamejam-vampire-survivors-server:main}
+    # Rooms live in memory (ADR 0006): one container, never scaled.
+    container_name: vs-server
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      NODE_ENV: production
+      PORT: '8787'
+    # Published on loopback only: the reverse proxy on the same host terminates TLS and forwards to it.
+    # VS_BIND=0.0.0.0 publishes it on every interface (only for a plain-HTTP trial, see the README).
+    ports: ['${VS_BIND:-127.0.0.1}:${VS_HOST_PORT:-8787}:8787']
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    tmpfs: [/tmp]
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8787/healthz']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '3' }

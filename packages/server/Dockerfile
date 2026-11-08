@@ -1,8 +1,12 @@
 # Game server image (ADR 0010). Build context: the repository root.
 # NODE_VERSION is always passed from .nvmrc by the root scripts and CI; the default only lets the file parse.
 ARG NODE_VERSION=24
+# The base image is pinned by digest (ADR 0011, ADR 0017): the multi-arch index of node:24.22.1-alpine, built
+# 2026-10-21 (at least 7 days old when pinned on 2026-11-09). With a digest, Docker ignores the tag, so CI checks that
+# the image's Node major matches .nvmrc. Bump both together: `docker buildx imagetools inspect node:<version>-alpine`.
+ARG NODE_DIGEST=sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
 
-FROM node:${NODE_VERSION}-alpine AS base
+FROM node:${NODE_VERSION}-alpine@${NODE_DIGEST} AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
 # pnpm comes through Corepack at the version pinned in package.json's packageManager.
 RUN corepack enable
@@ -30,7 +34,7 @@ COPY packages/server packages/server
 RUN pnpm --filter server... build && pnpm deploy --legacy --filter server --prod --ignore-scripts /out
 
 # Runtime: only /out, non-root, no build tools, .env or secrets (ADR 0011). Configuration comes from the environment.
-FROM node:${NODE_VERSION}-alpine AS runtime
+FROM node:${NODE_VERSION}-alpine@${NODE_DIGEST} AS runtime
 ENV NODE_ENV=production PORT=8787
 WORKDIR /app
 COPY --from=build --chown=node:node /out ./

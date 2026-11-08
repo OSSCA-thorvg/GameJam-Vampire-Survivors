@@ -2,29 +2,30 @@
 
 One file per user-facing feature. A PR that adds or changes user-facing behaviour, its entry points or its preconditions updates the feature's file in the same PR (`.claude/rules/docs-sync.md`); a behaviour without an entry here is not verified. The procedure (launch, doctor, drivers, evidence, cleanup) is in `../SKILL.md`.
 
-| File                           | Feature                                                                                               | Since |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------- | ----- |
-| `boot.md`                      | page load, worker start, ThorVG `gl`, the title screen, unsupported browsers                          | #2    |
-| `hidden-tab.md`                | the hidden-tab background policies `'pause'` and `'simulate'`                                         | #2    |
-| `debug-tools.md`               | the dev-only perf overlay and fast-forward, and their absence in builds                               | #2    |
-| `room-server.md`               | the WebSocket room server: rooms, ready, match start, result, limits                                  | #18   |
-| `gallery.md`                   | drawable catalog gallery, anchors, loading, replacements and font fallback                            | #3    |
-| `movement.md`                  | 8-direction movement, facing, stopping, the centred camera and the ground                             | #7    |
-| `enemies.md`                   | wave spawning off-screen, chase, separation, relocation and the enemy cap                             | #8    |
-| `run-flow.md`                  | title, pause on Escape or hidden tab, results, retry, keyboard-only screens                           | #9    |
-| `player-health.md`             | contact damage, invulnerability and blink, death, the ThorVG HUD                                      | #9    |
-| `weapons.md`                   | the Whip, the Magic Wand (`G`), hits, flash, knockback, kills, the cap                                | #10   |
-| `xp-gems.md`                   | gem drops and tiers, the magnet, collection, the XP bar, the merge gem                                | #11   |
-| `level-up.md`                  | the level-up dialog, frozen run, choices, the heal card, the `L` key                                  | #11   |
-| `passives.md`                  | passive cards, the stat block, Candelabrador, Spinach, Pummarola, slots, `P`                          | #12   |
-| `character-select.md`          | the four characters, keyboard and mouse choice, starting weapons and stats, Retry keeps the character | #14   |
-| `chests-and-evolutions.md`     | treasure chests, the reward overlay, the 8 evolutions, the `E` key                                    | #15   |
-| `bosses-and-elites.md`         | bosses (`B`), the boss tether, elites with their marker and chest                                     | #15   |
-| `light-sources-and-pickups.md` | braziers around the player, breaking them, the five pickups, `K`, level gates                         | #16   |
-| `lobby.md`                     | Multiplayer: nickname, create or join by code, errors, ready, host Start, countdown, connection loss  | #19   |
-| `stage-and-finale.md`          | the wave table, timed events, the 15:00 clear, Death, the results with weapon damage, `I`             | #17   |
-| `versus-match.md`              | versus play: same seed, opponent panel, status rate, death, disconnect, AFK, 15:00, Rematch           | #20   |
-| `interference.md`              | versus interference pickups: drop rules, Swarm, Gem Thief, Elite Call, banners, the server cap, `J`   | #21   |
+| File                           | Feature                                                                                                                 | Since |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ----- |
+| `boot.md`                      | page load, worker start, ThorVG `gl`, the title screen, unsupported browsers                                            | #2    |
+| `hidden-tab.md`                | the hidden-tab background policies `'pause'` and `'simulate'`                                                           | #2    |
+| `debug-tools.md`               | the dev-only perf overlay and fast-forward, and their absence in builds                                                 | #2    |
+| `room-server.md`               | the WebSocket room server: rooms, ready, match start, result, limits                                                    | #18   |
+| `gallery.md`                   | drawable catalog gallery, anchors, loading, replacements and font fallback                                              | #3    |
+| `movement.md`                  | 8-direction movement, facing, stopping, the centred camera and the ground                                               | #7    |
+| `enemies.md`                   | wave spawning off-screen, chase, separation, relocation and the enemy cap                                               | #8    |
+| `run-flow.md`                  | title, pause on Escape or hidden tab, results, retry, keyboard-only screens                                             | #9    |
+| `player-health.md`             | contact damage, invulnerability and blink, death, the ThorVG HUD                                                        | #9    |
+| `weapons.md`                   | the Whip, the Magic Wand (`G`), hits, flash, knockback, kills, the cap                                                  | #10   |
+| `xp-gems.md`                   | gem drops and tiers, the magnet, collection, the XP bar, the merge gem                                                  | #11   |
+| `level-up.md`                  | the level-up dialog, frozen run, choices, the heal card, the `L` key                                                    | #11   |
+| `passives.md`                  | passive cards, the stat block, Candelabrador, Spinach, Pummarola, slots, `P`                                            | #12   |
+| `character-select.md`          | the four characters, keyboard and mouse choice, starting weapons and stats, Retry keeps the character                   | #14   |
+| `chests-and-evolutions.md`     | treasure chests, the reward overlay, the 8 evolutions, the `E` key                                                      | #15   |
+| `bosses-and-elites.md`         | bosses (`B`), the boss tether, elites with their marker and chest                                                       | #15   |
+| `light-sources-and-pickups.md` | braziers around the player, breaking them, the five pickups, `K`, level gates                                           | #16   |
+| `lobby.md`                     | Multiplayer: nickname, create or join by code, errors, ready, host Start, countdown, connection loss                    | #19   |
+| `stage-and-finale.md`          | the wave table, timed events, the 15:00 clear, Death, the results with weapon damage, `I`                               | #17   |
+| `versus-match.md`              | versus play: same seed, opponent panel, status rate, death, disconnect, AFK, 15:00, Rematch                             | #20   |
+| `interference.md`              | versus interference pickups: drop rules, Swarm, Gem Thief, Elite Call, banners, the server cap, `J`                     | #21   |
+| `deployed-site.md`             | the GitHub Pages build: base path, CSP meta, single player, the multiplayer entry with or without a server, `smoke.mjs` | #23   |
 
 ## Baseline preconditions
 
