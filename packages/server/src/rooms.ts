@@ -86,7 +86,10 @@ interface Room {
   countdownTimer: TimerHandle | null;
   decideTimer: TimerHandle | null;
   resetTimer: TimerHandle | null;
-  /** Ends the match at `startAt + time limit + MATCH_DEADLINE_GRACE_S` (#60); cleared by any earlier result. */
+  /**
+   * Ends the match at `startAt + time limit + MATCH_DEADLINE_GRACE_S` (#60), where disconnected players lose
+   * (ADR 0014); cleared by any earlier result.
+   */
   deadlineTimer: TimerHandle | null;
 }
 
@@ -475,12 +478,17 @@ export class RoomRegistry {
 
   private eliminate(room: Room, player: Player, reason: EliminationReason): void {
     if (player.eliminated || (room.phase !== 'countdown' && room.phase !== 'playing')) return;
+    this.markEliminated(room, player, reason);
+    this.evaluate(room);
+  }
+
+  /** Records a death at `now()` and announces it, without deciding; callers run `evaluate` afterwards. */
+  private markEliminated(room: Room, player: Player, reason: EliminationReason): void {
     player.eliminated = true;
     player.eliminatedAt = this.now();
     this.clearPlayerTimers(player);
     this.onEvent('player_eliminated', { code: room.code, reason });
     this.broadcast(room, { type: 'playerEliminated', playerId: player.id, reason });
-    this.evaluate(room);
   }
 
   /**
@@ -510,13 +518,23 @@ export class RoomRegistry {
   }
 
   /**
-   * The match deadline passed (#60): every player still alive who has not reported `survived` is treated as
-   * survived with the kills last relayed in `status`, including one disconnected less than `DISCONNECT_GRACE_MS`
-   * ago (not dead yet, ADR 0006). The unchanged ADR 0005 rule then decides; if a last-alive decision is already
-   * pending (a death within the last 100 ms), that decision runs and sees everyone else as survived.
+   * The match deadline passed (#60). First, every player still alive whose socket is closed, even inside the
+   * `DISCONNECT_GRACE_MS` grace, dies at the deadline instant with reason `disconnected` (ADR 0014), so dropping
+   * the connection can never protect a lead. Then every remaining player who has not reported `survived` is treated
+   * as survived with the kills last relayed in `status`. All of this happens before one decision: the ADR 0005 rule
+   * then decides, including the 100 ms simultaneous-death window (disconnected players share one death time, so two
+   * of them as the last alive draw); a last-alive decision already pending (a death within the last 100 ms) runs and
+   * sees the new state.
    */
   private deadline(room: Room): void {
     if (room.phase !== 'countdown' && room.phase !== 'playing') return;
+    let disconnected = 0;
+    for (const p of room.players) {
+      if (!p.eliminated && !p.connected) {
+        this.markEliminated(room, p, 'disconnected');
+        disconnected += 1;
+      }
+    }
     let forced = 0;
     for (const p of room.players) {
       if (!p.eliminated && !p.survived) {
@@ -524,7 +542,7 @@ export class RoomRegistry {
         forced += 1;
       }
     }
-    this.onEvent('match_deadline', { code: room.code, forced });
+    this.onEvent('match_deadline', { code: room.code, forced, disconnected });
     this.evaluate(room);
   }
 
