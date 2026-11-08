@@ -109,6 +109,7 @@ pnpm --filter shared test -- src/content    # one package, one path
 pnpm --filter client exec vitest run -t "spawns enemies"   # single test by name
 pnpm --filter client exec vitest run src/worker/loop.test.ts   # one client test file
 pnpm build
+sh scripts/make-hud-font.sh   # rebuild assets/fonts/hud.ttf (ADR 0013); needs fonttools 4.68.0 (pipx install fonttools==4.68.0), not a project dependency
 ```
 
 ## Architecture
@@ -128,7 +129,7 @@ Read the ADR for the full reasoning.
   - Never create or dispose Paints per frame.
   - Do not use the `/thread` build.
   - `worker/render/thorvg.ts` `initThorVG` returns `{ TVG, canvas, root }`; later layers go under the scaled `root` scene. `thorvg.wasm` is served from `/thorvg/thorvg.wasm` by the `copyThorvgWasm` plugin in `vite.config.ts`.
-  - Every ThorVG `Text` uses `text.font(HUD_FONT)` (`'default'`, the font built into `@thorvg/webcanvas`; no font file is fetched). ThorVG text stays ASCII (numbers, English labels), and the built-in font covers only letters, digits, space and `( ) + - . =` (no `/`, `:`, `%` or other punctuation; verified in #2); Korean text and every nickname are DOM text set with `textContent` (ADR 0009).
+  - Every ThorVG `Text` uses `text.font(HUD_FONT)`, read after `initThorVG` resolves (ADR 0013). `initThorVG` fetches `fonts/hud.ttf` (`assets/fonts/hud.ttf`, asset ID `font.hud`: Noto Sans Mono Regular subset to printable ASCII `U+0020`–`U+007E`, OFL, under 15 KB) and registers it as `'hud'`; if that fails it logs one warning and `HUD_FONT` stays `'default'`, the built-in font, which lacks `:`, `/`, `%` and most punctuation. ThorVG text stays printable ASCII (numbers, English labels); Korean text and every nickname are DOM text set with `textContent` (ADR 0009). Rebuild the subset only with `scripts/make-hud-font.sh`.
 - **Simulation (ADR 0004):**
   - Fixed 60 Hz step with an accumulator, at most 5 steps per frame.
   - In a hidden tab, a `setTimeout` loop keeps simulating without rendering (cap of 120 steps per tick). In single player, hiding the tab pauses the game instead.

@@ -17,7 +17,8 @@ Every piece of art the game uses, by logical ID (ADR 0007). Code and content dat
   - `weapon.<weaponId>` for the in-world projectile or effect, `icon.weapon.<weaponId>` for the UI icon;
   - `icon.passive.<passiveId>`;
   - `pickup.<pickupId>`, `pickup.interference.<id>`;
-  - `gem.<tier>`, `fx.<name>`, `stage.<name>`, `ui.<name>`.
+  - `gem.<tier>`, `fx.<name>`, `stage.<name>`, `ui.<name>`;
+  - `font.<name>` for fonts drawn by ThorVG.
 
   The ID suffixes are the content IDs in `packages/shared/src/content/`.
 
@@ -129,3 +130,11 @@ Used by the level-up choice, the character select screen and the HUD inventory. 
 | `ui.xpBar` | 400×12 | svg | XP bar frame along the top | C6 | needed |
 | `ui.hpBar` | 40×6 | svg | HP bar under the player | C4 | needed |
 | `ui.skull` | 16×16 | svg | Kill counter icon | C4 | needed |
+
+## Fonts drawn by ThorVG — `assets/fonts/`
+
+Licensed, not original: each font keeps its license and source record next to it. Korean text stays in the DOM (ADR 0009), so ThorVG fonts carry printable ASCII only.
+
+| ID | File | Format | Original role | Used by | Status |
+|---|---|---|---|---|---|
+| `font.hud` | `fonts/hud.ttf` | ttf | HUD text: timer `MM:SS`, counters, perf overlay. Noto Sans Mono Regular, `U+0020`–`U+007E`, 9400 bytes, OFL 1.1 (`fonts/LICENSE-NotoSansMono.txt`, ADR 0013). Loaded from the fixed path until the manifest exists (#3) | #9, #17, #20 | final |

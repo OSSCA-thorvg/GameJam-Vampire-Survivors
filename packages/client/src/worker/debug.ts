@@ -87,9 +87,8 @@ export function installWorkerDebugTools(opts: WorkerDebugOptions): WorkerDebugHo
   let lastOverlay = 0;
   let hiddenAt: { steps: number; renders: number; time: number } | null = null;
 
-  // The built-in font has letters, digits, space and ( ) + - . = only; '/' and ':' do not render (CLAUDE.md).
   const overlayText = (): string => {
-    const lines = [`fps ${fps.toFixed(0)}`, `steps per s ${stepsPerSecond.toFixed(0)}`];
+    const lines = [`fps ${fps.toFixed(0)}`, `steps/s ${stepsPerSecond.toFixed(0)}`];
     for (const stat of perfStats) lines.push(`${stat.label} ${String(stat.read())}`);
     return lines.join('\n');
   };
