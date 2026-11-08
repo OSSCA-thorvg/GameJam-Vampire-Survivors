@@ -2,8 +2,8 @@
   "version": 1,
   "assets": {
     "ui.placeholder": {
-      "file": "ui/placeholder.svg",
-      "format": "svg",
+      "file": "ui/placeholder.png",
+      "format": "png",
       "size": [
         64,
         64
@@ -11,11 +11,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "enemy.bat": {
-      "file": "enemies/bat.svg",
-      "format": "svg",
+      "file": "enemies/bat.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -23,7 +24,8 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "fx.levelUp": {
       "file": "fx/level-up.json",
@@ -35,11 +37,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "loop": true
     },
     "ui.favicon": {
-      "file": "ui/favicon.svg",
-      "format": "svg",
+      "file": "ui/favicon.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -47,15 +50,16 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "font.hud": {
       "file": "fonts/hud.ttf",
       "format": "ttf"
     },
     "boss.death": {
-      "file": "bosses/death.svg",
-      "format": "svg",
+      "file": "bosses/death.png",
+      "format": "png",
       "size": [
         128,
         128
@@ -63,11 +67,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "boss.reaper10": {
-      "file": "bosses/reaper10.svg",
-      "format": "svg",
+      "file": "bosses/reaper10.png",
+      "format": "png",
       "size": [
         112,
         112
@@ -75,11 +80,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "boss.reaper5": {
-      "file": "bosses/reaper5.svg",
-      "format": "svg",
+      "file": "bosses/reaper5.png",
+      "format": "png",
       "size": [
         96,
         96
@@ -87,11 +93,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "enemy.brute": {
-      "file": "enemies/brute.svg",
-      "format": "svg",
+      "file": "enemies/brute.png",
+      "format": "png",
       "size": [
         56,
         56
@@ -99,11 +106,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "enemy.ghoul": {
-      "file": "enemies/ghoul.svg",
-      "format": "svg",
+      "file": "enemies/ghoul.png",
+      "format": "png",
       "size": [
         36,
         40
@@ -111,11 +119,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "enemy.skeleton": {
-      "file": "enemies/skeleton.svg",
-      "format": "svg",
+      "file": "enemies/skeleton.png",
+      "format": "png",
       "size": [
         36,
         44
@@ -123,11 +132,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "enemy.wisp": {
-      "file": "enemies/wisp.svg",
-      "format": "svg",
+      "file": "enemies/wisp.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -135,11 +145,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "enemy.wraith": {
-      "file": "enemies/wraith.svg",
-      "format": "svg",
+      "file": "enemies/wraith.png",
+      "format": "png",
       "size": [
         64,
         64
@@ -147,7 +158,8 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "fx.chestOpen": {
       "file": "fx/chest-open.json",
@@ -159,11 +171,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "loop": true
     },
     "fx.enemyDeath": {
-      "file": "fx/enemy-death.svg",
-      "format": "svg",
+      "file": "fx/enemy-death.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -171,11 +184,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "fx.freeze": {
-      "file": "fx/freeze.svg",
-      "format": "svg",
+      "file": "fx/freeze.png",
+      "format": "png",
       "size": [
         64,
         64
@@ -183,11 +197,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "fx.hit": {
-      "file": "fx/hit.svg",
-      "format": "svg",
+      "file": "fx/hit.png",
+      "format": "png",
       "size": [
         24,
         24
@@ -195,11 +210,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "fx.warning": {
-      "file": "fx/warning.svg",
-      "format": "svg",
+      "file": "fx/warning.png",
+      "format": "png",
       "size": [
         48,
         48
@@ -207,11 +223,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "gem.blue": {
-      "file": "pickups/gem-blue.svg",
-      "format": "svg",
+      "file": "pickups/gem-blue.png",
+      "format": "png",
       "size": [
         12,
         16
@@ -219,11 +236,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "gem.green": {
-      "file": "pickups/gem-green.svg",
-      "format": "svg",
+      "file": "pickups/gem-green.png",
+      "format": "png",
       "size": [
         12,
         16
@@ -231,11 +249,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "gem.red": {
-      "file": "pickups/gem-red.svg",
-      "format": "svg",
+      "file": "pickups/gem-red.png",
+      "format": "png",
       "size": [
         14,
         18
@@ -243,11 +262,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.passive.bracer": {
-      "file": "icons/passive-bracer.svg",
-      "format": "svg",
+      "file": "icons/passive-bracer.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -255,11 +275,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.passive.candelabrador": {
-      "file": "icons/passive-candelabrador.svg",
-      "format": "svg",
+      "file": "icons/passive-candelabrador.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -267,11 +288,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.passive.clover": {
-      "file": "icons/passive-clover.svg",
-      "format": "svg",
+      "file": "icons/passive-clover.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -279,11 +301,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.passive.emptyTome": {
-      "file": "icons/passive-empty-tome.svg",
-      "format": "svg",
+      "file": "icons/passive-empty-tome.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -291,11 +314,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.passive.hollowHeart": {
-      "file": "icons/passive-hollow-heart.svg",
-      "format": "svg",
+      "file": "icons/passive-hollow-heart.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -303,11 +327,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.passive.pummarola": {
-      "file": "icons/passive-pummarola.svg",
-      "format": "svg",
+      "file": "icons/passive-pummarola.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -315,11 +340,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.passive.spellbinder": {
-      "file": "icons/passive-spellbinder.svg",
-      "format": "svg",
+      "file": "icons/passive-spellbinder.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -327,11 +353,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.passive.spinach": {
-      "file": "icons/passive-spinach.svg",
-      "format": "svg",
+      "file": "icons/passive-spinach.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -339,11 +366,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.weapon.axe": {
-      "file": "icons/weapon-axe.svg",
-      "format": "svg",
+      "file": "icons/weapon-axe.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -351,11 +379,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.weapon.bloodyTear": {
-      "file": "icons/weapon-bloody-tear.svg",
-      "format": "svg",
+      "file": "icons/weapon-bloody-tear.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -363,11 +392,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.weapon.cross": {
-      "file": "icons/weapon-cross.svg",
-      "format": "svg",
+      "file": "icons/weapon-cross.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -375,11 +405,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.weapon.deathSpiral": {
-      "file": "icons/weapon-death-spiral.svg",
-      "format": "svg",
+      "file": "icons/weapon-death-spiral.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -387,11 +418,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.weapon.fireWand": {
-      "file": "icons/weapon-fire-wand.svg",
-      "format": "svg",
+      "file": "icons/weapon-fire-wand.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -399,11 +431,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.weapon.garlic": {
-      "file": "icons/weapon-garlic.svg",
-      "format": "svg",
+      "file": "icons/weapon-garlic.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -411,11 +444,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.weapon.heavenSword": {
-      "file": "icons/weapon-heaven-sword.svg",
-      "format": "svg",
+      "file": "icons/weapon-heaven-sword.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -423,11 +457,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.weapon.hellfire": {
-      "file": "icons/weapon-hellfire.svg",
-      "format": "svg",
+      "file": "icons/weapon-hellfire.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -435,11 +470,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.weapon.holyWand": {
-      "file": "icons/weapon-holy-wand.svg",
-      "format": "svg",
+      "file": "icons/weapon-holy-wand.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -447,11 +483,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.weapon.kingBible": {
-      "file": "icons/weapon-king-bible.svg",
-      "format": "svg",
+      "file": "icons/weapon-king-bible.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -459,11 +496,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.weapon.knife": {
-      "file": "icons/weapon-knife.svg",
-      "format": "svg",
+      "file": "icons/weapon-knife.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -471,11 +509,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.weapon.magicWand": {
-      "file": "icons/weapon-magic-wand.svg",
-      "format": "svg",
+      "file": "icons/weapon-magic-wand.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -483,11 +522,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.weapon.soulEater": {
-      "file": "icons/weapon-soul-eater.svg",
-      "format": "svg",
+      "file": "icons/weapon-soul-eater.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -495,11 +535,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.weapon.thousandEdge": {
-      "file": "icons/weapon-thousand-edge.svg",
-      "format": "svg",
+      "file": "icons/weapon-thousand-edge.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -507,11 +548,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.weapon.unholyVespers": {
-      "file": "icons/weapon-unholy-vespers.svg",
-      "format": "svg",
+      "file": "icons/weapon-unholy-vespers.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -519,11 +561,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "icon.weapon.whip": {
-      "file": "icons/weapon-whip.svg",
-      "format": "svg",
+      "file": "icons/weapon-whip.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -531,11 +574,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "pickup.chest": {
-      "file": "pickups/chest.svg",
-      "format": "svg",
+      "file": "pickups/chest.png",
+      "format": "png",
       "size": [
         32,
         28
@@ -543,11 +587,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "pickup.floorChicken": {
-      "file": "pickups/floor-chicken.svg",
-      "format": "svg",
+      "file": "pickups/floor-chicken.png",
+      "format": "png",
       "size": [
         24,
         24
@@ -555,11 +600,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "pickup.interference.eliteCall": {
-      "file": "pickups/interference-elite-call.svg",
-      "format": "svg",
+      "file": "pickups/interference-elite-call.png",
+      "format": "png",
       "size": [
         28,
         28
@@ -567,11 +613,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "pickup.interference.gemThief": {
-      "file": "pickups/interference-gem-thief.svg",
-      "format": "svg",
+      "file": "pickups/interference-gem-thief.png",
+      "format": "png",
       "size": [
         28,
         28
@@ -579,11 +626,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "pickup.interference.swarm": {
-      "file": "pickups/interference-swarm.svg",
-      "format": "svg",
+      "file": "pickups/interference-swarm.png",
+      "format": "png",
       "size": [
         28,
         28
@@ -591,11 +639,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "pickup.littleClover": {
-      "file": "pickups/little-clover.svg",
-      "format": "svg",
+      "file": "pickups/little-clover.png",
+      "format": "png",
       "size": [
         24,
         24
@@ -603,11 +652,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "pickup.orologion": {
-      "file": "pickups/orologion.svg",
-      "format": "svg",
+      "file": "pickups/orologion.png",
+      "format": "png",
       "size": [
         24,
         24
@@ -615,11 +665,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "pickup.rosary": {
-      "file": "pickups/rosary.svg",
-      "format": "svg",
+      "file": "pickups/rosary.png",
+      "format": "png",
       "size": [
         24,
         24
@@ -627,11 +678,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "pickup.vacuum": {
-      "file": "pickups/vacuum.svg",
-      "format": "svg",
+      "file": "pickups/vacuum.png",
+      "format": "png",
       "size": [
         24,
         24
@@ -639,11 +691,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "player.ember": {
-      "file": "characters/ember.svg",
-      "format": "svg",
+      "file": "characters/ember.png",
+      "format": "png",
       "size": [
         48,
         48
@@ -651,11 +704,12 @@
       "anchor": [
         0.5,
         0.9
-      ]
+      ],
+      "filter": "nearest"
     },
     "player.swift": {
-      "file": "characters/swift.svg",
-      "format": "svg",
+      "file": "characters/swift.png",
+      "format": "png",
       "size": [
         48,
         48
@@ -663,11 +717,12 @@
       "anchor": [
         0.5,
         0.9
-      ]
+      ],
+      "filter": "nearest"
     },
     "player.warden": {
-      "file": "characters/warden.svg",
-      "format": "svg",
+      "file": "characters/warden.png",
+      "format": "png",
       "size": [
         48,
         48
@@ -675,11 +730,12 @@
       "anchor": [
         0.5,
         0.9
-      ]
+      ],
+      "filter": "nearest"
     },
     "portrait.ember": {
-      "file": "characters/portrait-ember.svg",
-      "format": "svg",
+      "file": "characters/portrait-ember.png",
+      "format": "png",
       "size": [
         128,
         128
@@ -687,11 +743,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "portrait.swift": {
-      "file": "characters/portrait-swift.svg",
-      "format": "svg",
+      "file": "characters/portrait-swift.png",
+      "format": "png",
       "size": [
         128,
         128
@@ -699,11 +756,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "portrait.warden": {
-      "file": "characters/portrait-warden.svg",
-      "format": "svg",
+      "file": "characters/portrait-warden.png",
+      "format": "png",
       "size": [
         128,
         128
@@ -711,11 +769,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "stage.brazier": {
-      "file": "stage/brazier.svg",
-      "format": "svg",
+      "file": "stage/brazier.png",
+      "format": "png",
       "size": [
         24,
         40
@@ -723,11 +782,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "stage.brazierBroken": {
-      "file": "stage/brazier-broken.svg",
-      "format": "svg",
+      "file": "stage/brazier-broken.png",
+      "format": "png",
       "size": [
         24,
         20
@@ -735,11 +795,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "stage.ground": {
-      "file": "stage/ground.svg",
-      "format": "svg",
+      "file": "stage/ground.png",
+      "format": "png",
       "size": [
         128,
         128
@@ -747,11 +808,12 @@
       "anchor": [
         0,
         0
-      ]
+      ],
+      "filter": "nearest"
     },
     "ui.hpBar": {
-      "file": "ui/hp-bar.svg",
-      "format": "svg",
+      "file": "ui/hp-bar.png",
+      "format": "png",
       "size": [
         40,
         6
@@ -759,11 +821,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "ui.skull": {
-      "file": "ui/skull.svg",
-      "format": "svg",
+      "file": "ui/skull.png",
+      "format": "png",
       "size": [
         16,
         16
@@ -771,11 +834,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "ui.xpBar": {
-      "file": "ui/xp-bar.svg",
-      "format": "svg",
+      "file": "ui/xp-bar.png",
+      "format": "png",
       "size": [
         400,
         12
@@ -783,11 +847,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "weapon.axe": {
-      "file": "weapons/axe.svg",
-      "format": "svg",
+      "file": "weapons/axe.png",
+      "format": "png",
       "size": [
         28,
         28
@@ -795,11 +860,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "weapon.bloodyTear": {
-      "file": "weapons/bloody-tear.svg",
-      "format": "svg",
+      "file": "weapons/bloody-tear.png",
+      "format": "png",
       "size": [
         180,
         44
@@ -807,11 +873,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "weapon.cross": {
-      "file": "weapons/cross.svg",
-      "format": "svg",
+      "file": "weapons/cross.png",
+      "format": "png",
       "size": [
         28,
         28
@@ -819,11 +886,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "weapon.deathSpiral": {
-      "file": "weapons/death-spiral.svg",
-      "format": "svg",
+      "file": "weapons/death-spiral.png",
+      "format": "png",
       "size": [
         36,
         36
@@ -831,11 +899,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "weapon.fireWand": {
-      "file": "weapons/fire-wand.svg",
-      "format": "svg",
+      "file": "weapons/fire-wand.png",
+      "format": "png",
       "size": [
         20,
         20
@@ -843,11 +912,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "weapon.garlic": {
-      "file": "weapons/garlic.svg",
-      "format": "svg",
+      "file": "weapons/garlic.png",
+      "format": "png",
       "size": [
         100,
         100
@@ -855,11 +925,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "weapon.heavenSword": {
-      "file": "weapons/heaven-sword.svg",
-      "format": "svg",
+      "file": "weapons/heaven-sword.png",
+      "format": "png",
       "size": [
         32,
         32
@@ -867,11 +938,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "weapon.hellfire": {
-      "file": "weapons/hellfire.svg",
-      "format": "svg",
+      "file": "weapons/hellfire.png",
+      "format": "png",
       "size": [
         40,
         40
@@ -879,11 +951,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "weapon.holyWand": {
-      "file": "weapons/holy-wand.svg",
-      "format": "svg",
+      "file": "weapons/holy-wand.png",
+      "format": "png",
       "size": [
         14,
         14
@@ -891,11 +964,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "weapon.kingBible": {
-      "file": "weapons/king-bible.svg",
-      "format": "svg",
+      "file": "weapons/king-bible.png",
+      "format": "png",
       "size": [
         24,
         28
@@ -903,11 +977,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "weapon.knife": {
-      "file": "weapons/knife.svg",
-      "format": "svg",
+      "file": "weapons/knife.png",
+      "format": "png",
       "size": [
         20,
         6
@@ -915,11 +990,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "weapon.magicWand": {
-      "file": "weapons/magic-wand.svg",
-      "format": "svg",
+      "file": "weapons/magic-wand.png",
+      "format": "png",
       "size": [
         12,
         12
@@ -927,11 +1003,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "weapon.soulEater": {
-      "file": "weapons/soul-eater.svg",
-      "format": "svg",
+      "file": "weapons/soul-eater.png",
+      "format": "png",
       "size": [
         140,
         140
@@ -939,11 +1016,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "weapon.thousandEdge": {
-      "file": "weapons/thousand-edge.svg",
-      "format": "svg",
+      "file": "weapons/thousand-edge.png",
+      "format": "png",
       "size": [
         22,
         6
@@ -951,11 +1029,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "weapon.unholyVespers": {
-      "file": "weapons/unholy-vespers.svg",
-      "format": "svg",
+      "file": "weapons/unholy-vespers.png",
+      "format": "png",
       "size": [
         26,
         30
@@ -963,11 +1042,12 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
     },
     "weapon.whip": {
-      "file": "weapons/whip.svg",
-      "format": "svg",
+      "file": "weapons/whip.png",
+      "format": "png",
       "size": [
         160,
         40
@@ -975,7 +1055,34 @@
       "anchor": [
         0.5,
         0.5
-      ]
+      ],
+      "filter": "nearest"
+    },
+    "player.aurelia": {
+      "size": [
+        48,
+        48
+      ],
+      "anchor": [
+        0.5,
+        0.9
+      ],
+      "file": "characters/aurelia.png",
+      "format": "png",
+      "filter": "nearest"
+    },
+    "portrait.aurelia": {
+      "size": [
+        128,
+        128
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ],
+      "file": "characters/portrait-aurelia.png",
+      "format": "png",
+      "filter": "nearest"
     }
   }
 }

@@ -1,6 +1,6 @@
 # 0007. Vector-first art behind a swappable asset manifest
 
-- Status: Accepted
+- Status: Superseded in part by [0016](0016-generate-raster-art-with-cached-image-lottie.md) (art direction and generation pipeline; logical IDs, caps and other guardrails retained)
 - Date: 2026-11-07
 
 ## Context

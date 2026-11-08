@@ -13,7 +13,7 @@ Use Node 24: `nvm use`, `corepack enable`, `pnpm install`.
 - `pnpm format`, `pnpm lint:fix`: fixes. `pnpm test`: unit suites. `pnpm test:changed`: only tests affected since `origin/main` (the whole suite when `assets/`, a config or the lockfile changed). The pre-commit hook also runs the tests related to staged files; `pnpm check` and CI run the full suite. `pnpm test:build`: requires built artifacts.
 - `pnpm verify:e2e --issue <N>`: browser smoke/native hidden-tab tests and cleanup (`--project chromium` selects headless smoke).
 
-Add asset IDs to `assets/CATALOG.md`, run `pnpm assets:sync`, then add the file (style guide and naming rule in `assets/README.md`) and manifest entry; `/?gallery` in development previews drawable IDs and anchors, and `V` there previews mass art at game speed. Fonts remain non-drawable manifest entries with their source/license records.
+Add asset IDs to `assets/CATALOG.md`, run `pnpm assets:sync`, then add the file (style guide and naming rule in `assets/README.md`) and manifest entry; `/?gallery` in development previews drawable IDs and anchors, and `V` there previews mass art at game speed. Fonts remain non-drawable manifest entries with their source/license records. Follow ADR 0016 and `docs/assets/README.md` for generated four-times PNGs, nearest filtering, provenance receipts and cached same-owner image Lottie. New art IDs do not imply gameplay stats or selector support.
 
 Engine state lives in `worker/ecs/`; `render/pool.ts` exports paint pools/bindings. Unbind before removing a slot; new runs release all pools before clearing stores. Use `createRng`, since worker/shared code forbids `Math.random`.
 

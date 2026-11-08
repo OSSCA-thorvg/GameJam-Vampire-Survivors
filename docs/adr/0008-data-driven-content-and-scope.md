@@ -1,6 +1,6 @@
 # 0008. Data-driven game content and the content scope
 
-- Status: Accepted
+- Status: Accepted; art roster scope extended by [0016](0016-generate-raster-art-with-cached-image-lottie.md), gameplay roster integration deferred to #14
 - Date: 2026-11-07
 
 ## Context

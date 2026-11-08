@@ -6,6 +6,13 @@ import {
   type DrawableAssetId,
   type ManifestValidation,
 } from '@vs/shared';
+import {
+  createCachedLottie,
+  preloadLottie,
+  readImageBytes,
+  validatePngDecode,
+  type CachedLottie,
+} from './image-lottie';
 
 export interface AssetInstance {
   paint: Paint;
@@ -20,7 +27,7 @@ interface StaticMaster {
 }
 interface AnimatedMaster {
   kind: 'lottie';
-  json: string;
+  source: CachedLottie;
   entry: DrawableAssetEntry;
   fps: number;
   frames: number;
@@ -73,22 +80,27 @@ async function loadMaster(
   if (!response.ok) throw new Error(`HTTP ${String(response.status)}`);
   if (entry.format === 'lottie') {
     const json = await response.text();
-    JSON.parse(json);
-    const animation = new TVG.LottieAnimation();
+    const source = await preloadLottie(json, entry.file, baseUrl);
+    const animation = createCachedLottie(TVG, source);
     try {
-      animation.load(json);
       const info = animation.info();
       const size = animation.picture?.size();
       if (
         !info ||
+        !Number.isFinite(info.totalFrames) ||
         info.totalFrames <= 0 ||
+        !Number.isFinite(info.fps) ||
         info.fps <= 0 ||
+        !Number.isFinite(info.duration) ||
+        info.duration <= 0 ||
         !size ||
+        !Number.isFinite(size.width) ||
         size.width <= 0 ||
+        !Number.isFinite(size.height) ||
         size.height <= 0
       )
         throw new Error('invalid Lottie animation');
-      return { kind: 'lottie', json, entry, fps: info.fps, frames: info.totalFrames };
+      return { kind: 'lottie', source, entry, fps: info.fps, frames: info.totalFrames };
     } finally {
       animation.dispose();
     }
@@ -99,6 +111,10 @@ async function loadMaster(
       const svg = await response.text();
       if (!/<svg(?:\s|>)/i.test(svg)) throw new Error('response is not an SVG');
       picture.load(svg, { type: 'svg' });
+    } else if (entry.format === 'png') {
+      const bytes = await readImageBytes(response);
+      await validatePngDecode(bytes);
+      picture.load(bytes, { type: 'png' });
     } else picture.load(new Uint8Array(await response.arrayBuffer()), { type: entry.format });
     const size = picture.size();
     if (size.width <= 0 || size.height <= 0) throw new Error('picture has zero size');
@@ -170,7 +186,7 @@ export class AssetLibrary {
     const offsetX = -anchor[0] * size[0];
     const offsetY = -anchor[1] * size[1];
     if (master.kind === 'static') return { paint: master.paint.duplicate(), offsetX, offsetY };
-    const lottie = new this.TVG.LottieAnimation().load(master.json);
+    const lottie = createCachedLottie(this.TVG, master.source);
     const paint = lottie.picture;
     if (!paint) {
       lottie.dispose();

@@ -18,6 +18,8 @@ Each row is one GitHub issue, and the issue is the source of truth for scope and
 | F5                                              | #46   | Bundle a HUD font subset with the missing ASCII glyphs                 | F2             | high     |
 | F6                                              | #48   | Serve a favicon so runs log no 404                                     | F2             | low      |
 | A1                                              | #5    | Create the starter vector asset pack from the asset catalog            | F3             | high     |
+| A2                                              | #76   | Rebuild drawable art with sprite-gen and cached image Lottie           | F3, A1, C1     | high     |
+| A3                                              | #84   | Animate all actors and effects with native Lottie playback             | A2             | high     |
 | **Phase 1: core loop (playable single player)** |       |                                                                        |                |          |
 | C1                                              | #6    | Add entity storage, a spatial grid and paint pools                     | F3, V1         | high     |
 | C2                                              | #7    | Move the player with keyboard input and a following camera             | C1, V1, A1     | high     |
@@ -44,7 +46,7 @@ Each row is one GitHub issue, and the issue is the source of truth for scope and
 
 ## Assets
 
-`assets/CATALOG.md` lists every asset ID with its status. A1 produces rough placeholder art for all of them; later content issues add rows to the catalog first, and final art replaces files without code changes.
+`assets/CATALOG.md` lists every asset ID with its status. A1 supplied the original placeholder pack; A2 (#76) rebuilds its81 drawable entries with generated pixel art and adds Aurelia player/portrait artwork. The resulting84 IDs retain logical sizes/anchors, cached rendering and the protected font. The user-selected art roster is male Warden/Ember and female elf Swift/paladin Aurelia. G3 (#14, original three-character title) must integrate all four approved characters and selection/stats when its gameplay dependencies are complete; #76 adds no selector or invented stats. A3 (#84) adds native idle/walk for13 actors and visual cycles for16 weapons,6 effects and1 brazier (36 existing IDs), after A2 merges. #76 supplies the artwork and original two native effects; it does not implement the new motion inventory. Later content issues add catalog rows first.
 
 ## Parallel tracks
 

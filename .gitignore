@@ -42,3 +42,7 @@ Thumbs.db
 # Claude Code: keep shared project config, ignore personal and runtime state
 .claude/settings.local.json
 .claude/worktrees/
+
+# Offline Python authoring tools
+__pycache__/
+*.py[cod]

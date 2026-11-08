@@ -1,7 +1,21 @@
-import type { ThorVGNamespace } from '@thorvg/webcanvas';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ASSET_IDS, validateManifest } from '@vs/shared';
+import type { AssetResolver, Paint, ThorVGNamespace } from '@thorvg/webcanvas';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ASSET_IDS, inspectPng, validateManifest } from '@vs/shared';
 import { AssetLibrary } from './library';
+import { Buffer } from 'node:buffer';
+const pngBytes = Uint8Array.from(
+  Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAL0lEQVR4nGNgGGjACGNo3Pn/H5uC6yULsWvckADWy0SpC5hGDWAYDQOGQRAGAw8A6PoGGEpWSQkAAAAASUVORK5CYII=',
+    'base64',
+  ),
+);
+const lottieJson = JSON.stringify({ v: '5.7.4', fr: 30, ip: 0, op: 30, w: 96, h: 96, layers: [] });
+beforeEach(() => {
+  vi.stubGlobal('createImageBitmap', async (blob: Blob) => {
+    const info = inspectPng(new Uint8Array(await blob.arrayBuffer()));
+    return { width: info.width, height: info.height, close: vi.fn() };
+  });
+});
 
 const calls = { load: 0, duplicate: 0, filters: [] as number[], animations: 0 };
 class FakePaint {
@@ -32,6 +46,11 @@ class FakePaint {
   }
 }
 class FakePicture extends FakePaint {
+  resolve: AssetResolver | null = null;
+  resolver(callback: AssetResolver | null) {
+    this.resolve = callback;
+    return this;
+  }
   load() {
     calls.load++;
     return this;
@@ -50,7 +69,10 @@ class FakeAnimation {
   constructor() {
     calls.animations++;
   }
-  load() {
+  load(json: string) {
+    const data = JSON.parse(json) as { assets?: { p: string }[] };
+    for (const asset of data.assets ?? [])
+      this.picture.resolve?.(new FakePicture() as unknown as Paint, '/' + asset.p);
     return this;
   }
   info() {
@@ -95,7 +117,10 @@ describe('AssetLibrary', () => {
     'duplicates 1000 %s instances without fetching or parsing again',
     async (format) => {
       vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-      const fetch = fetchOk();
+      const fetch =
+        format === 'png'
+          ? vi.fn<typeof globalThis.fetch>(() => Promise.resolve(new Response(pngBytes)))
+          : fetchOk();
       vi.stubGlobal('fetch', fetch);
       const library = await AssetLibrary.load(
         TVG,
@@ -149,7 +174,7 @@ describe('AssetLibrary', () => {
   });
   it('uses nearest filtering for raster data and clones the cached picture', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    vi.stubGlobal('fetch', fetchOk());
+    vi.stubGlobal('fetch', () => Promise.resolve(new Response(pngBytes)));
     const library = await AssetLibrary.load(
       TVG,
       'https://example.test/',
@@ -162,7 +187,7 @@ describe('AssetLibrary', () => {
   });
   it('keeps independent Lottie times, wraps loops, holds nonloops and stops released instances', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const fetch = vi.fn<typeof globalThis.fetch>(() => Promise.resolve(new Response('{}')));
+    const fetch = vi.fn<typeof globalThis.fetch>(() => Promise.resolve(new Response(lottieJson)));
     vi.stubGlobal('fetch', fetch);
     const entry = {
       file: 'fx/level-up.json',
@@ -239,4 +264,85 @@ it('rejects HTML returned with HTTP 200 before invoking Picture.load', async () 
   expect(warn.mock.calls.filter(([message]) => String(message).includes('enemy.bat'))).toHaveLength(
     1,
   );
+});
+
+it.each([
+  { totalFrames: Infinity, fps: 30, duration: 1 },
+  { totalFrames: 30, fps: NaN, duration: 1 },
+  { totalFrames: 30, fps: 30, duration: Infinity },
+])('falls back when native Lottie metadata is not finite: %j', async (info) => {
+  vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  vi.spyOn(FakeAnimation.prototype, 'info').mockReturnValue(info);
+  vi.stubGlobal('fetch', () => Promise.resolve(new Response(lottieJson)));
+  const library = await AssetLibrary.load(
+    TVG,
+    'https://example.test/',
+    () => undefined,
+    manifest({
+      'fx.levelUp': {
+        file: 'fx/level-up.json',
+        format: 'lottie',
+        size: [96, 96],
+        anchor: [0.5, 0.5],
+      },
+    }),
+  );
+  expect(library.isPlaceholder('fx.levelUp')).toBe(true);
+  expect(library.create('fx.levelUp').lottie).toBeUndefined();
+  expect(() => {
+    library.tick(1 / 60);
+  }).not.toThrow();
+});
+
+it('reuses preloaded image bytes while image-backed instances advance independently', async () => {
+  vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  const json = JSON.stringify({
+    v: '5.7.4',
+    fr: 30,
+    ip: 0,
+    op: 30,
+    w: 96,
+    h: 96,
+    assets: [{ id: 'art', w: 16, h: 16, u: '', p: 'level-up/art.png', e: 0 }],
+    layers: [{ ty: 2, refId: 'art', ks: {} }],
+  });
+  const fetch = vi.fn<typeof globalThis.fetch>((input) =>
+    Promise.resolve(
+      new Response(
+        (typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url
+        ).endsWith('.png')
+          ? pngBytes
+          : json,
+      ),
+    ),
+  );
+  vi.stubGlobal('fetch', fetch);
+  const library = await AssetLibrary.load(
+    TVG,
+    'https://example.test/',
+    () => undefined,
+    manifest({
+      'fx.levelUp': {
+        file: 'fx/level-up.json',
+        format: 'lottie',
+        size: [96, 96],
+        anchor: [0.5, 0.5],
+      },
+    }),
+  );
+  expect(library.isPlaceholder('fx.levelUp')).toBe(false);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  const first = library.create('fx.levelUp');
+  library.tick(0.5);
+  const second = library.create('fx.levelUp');
+  library.tick(0.25);
+  expect(first.lottie?.frame()).toBe(22.5);
+  expect(second.lottie?.frame()).toBe(7.5);
+  expect(first.paint).not.toBe(second.paint);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(calls.filters).toEqual([0, 0, 0]);
 });
