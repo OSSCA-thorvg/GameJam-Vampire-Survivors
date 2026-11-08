@@ -9,7 +9,7 @@ Code for an issue is written only after this skill has run. If the user asks to 
 
 ## Steps
 
-1. Read the full issue thread, not just the body: later comments may revise the plan. Always pass `--json`; plain `gh issue view` uses a deprecated API. If the repository is not found (404 or "Could not resolve"), your `gh` account (`gh auth status`) lacks access: stop and ask the user, do not work around it.
+1. Read the full issue thread: the body **and every comment**, in order, including the newest. Later comments may revise the plan, add findings from earlier PRs, or record user decisions. Where a comment changes the body, the comment wins: note the change in your start comment, and update the body if the change is lasting. Always pass `--json`; plain `gh issue view` uses a deprecated API. If the repository is not found (404 or "Could not resolve"), your `gh` account (`gh auth status`) lacks access: stop and ask the user, do not work around it.
 
    ```sh
    gh issue view <N> -R OSSCA-thorvg/GameJam-Vampire-Survivors \

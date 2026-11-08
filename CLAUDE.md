@@ -22,9 +22,12 @@ Current state: the toolchain exists (pnpm workspace with `@vs/client`, `@vs/serv
 
 ## Workflow (mandatory)
 
+- **Problems found while implementing:**
+  - Ask the user right away if the problem blocks the issue or needs a decision.
+  - Otherwise, create a follow-up issue to the readiness standard (or comment on the existing issue that covers it), list it under `## Follow-ups` in the PR, and finish the current issue without widening it (`.claude/rules/issues.md`).
 - **Prerequisite gate:** before starting an issue, `issue-start` checks its "Depends on" issues. If any is open, or an artifact it promised is missing on `main`, stop, comment, and set `status:blocked`. CI also fails a PR whose issue still has open dependencies.
 - **Delegate to subagents by default** (requested by the user):
-  - Implement each issue in a subagent, briefed with the issue body, the ADRs it cites and this file.
+  - Implement each issue in a subagent, briefed with the issue body **and all its comments**, the ADRs it cites, and this file. Comments can change the plan, so the brief tells the subagent to read the thread in full and to re-read it before finishing.
   - Run independent issues (for example, parallel roadmap tracks) in parallel subagents, each in its own git worktree.
   - Delegate research, reviews and the `security-check` pass the same way.
   - The main session plans, briefs, verifies the subagent's result against the acceptance criteria, and runs `issue-finish`.

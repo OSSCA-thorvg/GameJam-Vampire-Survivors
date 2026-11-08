@@ -21,8 +21,26 @@ The `issue-create`, `issue-start` and `issue-finish` skills apply these. Label m
   - The prerequisite gate in `issue-start` is mandatory. Do not start an issue while any of them is open, or while an artifact they promised is missing on `main`. In that case, stop, comment, and set `status:blocked`.
   - Never work around a missing prerequisite by implementing it inside another issue.
   - CI enforces the same rule on PRs: the `PR rules` job fails while the linked issue has an open dependency.
+- **Read the whole thread:** whoever implements an issue reads the body and every comment before starting, and again before the PR. A comment that revises the plan overrides the body.
 - **Plan changes:** when implementation reveals that the plan was wrong, update the issue body (or add a comment saying what changed and why) before the PR. Later issues are written against what was merged, not the old plan.
 - **Roadmap:** `docs/roadmap.md` maps roadmap IDs to issue numbers. Update it when issues are added, split or dropped.
+
+## Problems found during implementation
+
+Triage every problem noticed while implementing an issue before the PR is opened:
+
+- **Blocking, or needs a user decision:** stop and ask the user. Record the answer in the issue, or in an ADR if it binds later work (`adr-new`).
+- **Not needed for this issue's acceptance criteria, and not urgent:** create a follow-up issue with `issue-create`:
+  - it meets the readiness standard below;
+  - it cites the issue and PR where the problem was found;
+  - its priority reflects the impact;
+  - it is `status:ready` or `status:blocked` per its dependencies.
+
+  Do not widen the current PR to fix it.
+
+- **Already covered by another open issue:** comment on that issue with the finding and the PR link, instead of creating a duplicate.
+
+The PR lists what was created or commented on under `## Follow-ups`, as plain `#N` references, never after a closing keyword (`pull-requests.md`).
 
 ## Readiness standard
 
