@@ -66,6 +66,17 @@ const stats = (s: GameSnapshot) => s.stats as Record<string, number>;
 const dealt = (s: GameSnapshot) => s.damageDealt as { hits: number; total: number };
 const passiveLevel = (s: GameSnapshot, id: string) =>
   passives(s).find((p) => p.id === id)?.level ?? 0;
+/** The live enemy closest to the player, from `enemyPositions` (`[uid, type, x, y]`, #8). */
+const nearestEnemy = (s: GameSnapshot) => {
+  const p = player(s);
+  let best: [number, number, number, number] | undefined;
+  let bestD = Infinity;
+  for (const row of s.enemyPositions as [number, number, number, number][]) {
+    const d = Math.hypot(row[2] - p.x, row[3] - p.y);
+    if (d < bestD) [best, bestD] = [row, d];
+  }
+  return best;
+};
 
 /** The passive data (`packages/shared/src/content/passives.ts`) as the cards show it. */
 const PASSIVE = {
@@ -434,9 +445,25 @@ test('passives 4: with Pummarola, HP rises over time after a hit and stops at ma
     // No new weapons (#13): six of them kill everything before it reaches the player.
     const log = await takePassive(page, 'pummarola', 5, noNewWeapon);
     const stop = autoAnswer(page, noNewWeapon);
-    const hit = await waitForSnapshot(page, (s) => player(s).hp < player(s).maxHp, 30_000);
+    // Since #105 bats are slower than the Warden and the weapons kill most of them before contact, so the journey
+    // walks toward the nearest enemy (real arrow keys) until the first hit lands.
+    let hit = await snapshot(page);
+    for (let i = 0; i < 120 && player(hit).hp >= player(hit).maxHp; i++) {
+      if (hit.state === 'playing') {
+        const [, , ex, ey] = nearestEnemy(hit) ?? [0, 0, player(hit).x + 1, player(hit).y];
+        const dx = ex - player(hit).x;
+        const dy = ey - player(hit).y;
+        const keys = [
+          ...(Math.abs(dx) > 20 ? [dx > 0 ? 'ArrowRight' : 'ArrowLeft'] : []),
+          ...(Math.abs(dy) > 20 ? [dy > 0 ? 'ArrowDown' : 'ArrowUp'] : []),
+        ];
+        await holdKeys(page, keys.length ? keys : ['ArrowRight'], 250);
+      } else await page.waitForTimeout(250);
+      hit = await snapshot(page);
+    }
+    expect(player(hit).hp).toBeLessThan(player(hit).maxHp);
     await ev.shot('hit');
-    // Precondition only (#17): bats (140 units/s) outrun the player, so `I` stops further hits while HP climbs at
+    // Precondition only (#17): crowds still catch a player who zigzags, so `I` stops further hits while HP climbs at
     // stats.recovery per second.
     await page.keyboard.press('i');
     await waitForSnapshot(page, (n) => n.debugInvulnerable === true, 2_000);
@@ -614,6 +641,7 @@ test('passives 7: with Clover at level 5 (luck 1.5) a 4th card shows up about ha
 ## Gotchas
 
 - Journey 4 walked away from the crowd so that HP could climb, which worked while bats (100) were slower than the player. Since #17 bats fly at 140, and two runs ended at 114 of 200 HP still taking hits; after the first hit the journey now presses `I` so only Pummarola changes HP (2026-11-08, #17).
+- Since #105 bats are slower than the Warden (119 against 133 units/s). Standing still for the first hit then failed in two of three runs: the weapons killed every bat before contact (154 kills in 31 s, no hit in 30 s). Journey 4 now walks toward the nearest enemy with the arrow keys until the first hit, and still presses `I` after it because the zigzag walk meets new spawns (2026-11-09, #105).
 - Since #17 ghouls spawn from minute 0 (3:1 with bats) and `I` keeps the player alive, so journey 3 checks the kill time live without fast-forwarding: after Spinach 5 it watches until 3 ghouls seen in the strike box are gone and at least 10 hits landed, and requires one kill per hit (2026-11-08, #17). Before #17: the issue's journey 3 planned to press `]` three times to reach minute 3, where ghouls (15 HP) first appeared, and to see a ghoul die from one Spinach-boosted Whip strike. That could not be driven: the fast-forward stops advancing at the first level-up (`world.step` does nothing while a choice is pending, #11), and a player standing still at minute 0 dies within about 15–60 s. At minute 0 every enemy is a bat (5 HP), which the Whip kills in one hit with or without Spinach. So the journey measures the damage per hit through the read-only `damageDealt` field (level 5: 10 → 15), and "a ghoul dies in one strike instead of two" is proven at level 4 by `stats.test.ts` with a real ghoul. Upgrade it to a live kill-time journey once #17's invulnerability key `KeyI` lets the player stand until minute 3 (2026-11-08, #12).
 - The Whip arc shows for only 0.15 s; journeys 2 screenshots it with the `weapons.md` method (wait in the page for the strike step, then shoot). The arc is the same art scaled by `stats.area`, so area 1.5 draws it 1.5 times as wide (2026-11-08, #12).
 - When no offered card is acceptable for a journey's measurement, `answer` takes the first card that is not a Whip upgrade: journey 2 then may own Spinach or other passives too, which does not change the arc size; Whip levels 1–3 keep area 1 (2026-11-08, #12).
