@@ -13,7 +13,7 @@ export interface WeaponVisuals {
     readonly x: Float32Array;
     readonly y: Float32Array;
   };
-  /** Garlic: shown around the player while owned, at `scale` (the 100×100 art is a 50-unit radius at scale 1). */
+  /** Garlic: shown around the player while owned, at `scale` (`garlicDrawScale`: the art's visible ring is the hit radius). */
   readonly garlic: { shown: boolean; scale: number };
 }
 

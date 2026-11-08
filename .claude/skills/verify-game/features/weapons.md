@@ -14,7 +14,7 @@ The weapon system (#10, #13, ADR 0008): owned weapons fire on their own cooldown
 - **Cross (`G` four times):** every 2 s a spinning cross (`weapon.cross`) flies at the nearest enemy within 900 units (else along the last movement direction), slows, turns about 120 units out after 0.6 s and flies back past the player, accelerating, until it leaves the view; it hits an enemy once on the way out and once on the way back. 1 → 2 crosses, area 1 → 1.2 (bigger art), speed 400 → 600, damage 50 → 70.
 - **King Bible (`G` five times):** after its 3 s cooldown, books (`weapon.kingBible`) orbit the player at 75 units × area, 180°/s, evenly spaced, for 3 s, then vanish for the 3 s cooldown (the visible gap); an enemy touching a book loses 10 HP at most once per 0.5 s and is pushed out. 1 → 4 books, area 1 → 1.5, 180 → 270°/s, out 3 → 4 s, damage 10 → 30.
 - **Fire Wand (card):** every 3 s three fireballs (`weapon.fireWand`) fly at random enemies inside the view (each shot draws its own), or along the last movement direction with none on screen, at 375 → 600 units/s; damage 20 → 90.
-- **Garlic (card):** a translucent ring (`weapon.garlic`, 100×100 at area 1, drawn under the enemies) is always centred on the player while owned; every 1.3 s (1.1 s at L8) every enemy overlapping the 50 × area unit circle loses 5 → 9 HP and is pushed out. Area 1 → 1.8 at L8, so the ring grows by 1.8×.
+- **Garlic (card):** a translucent ring (`weapon.garlic`, drawn under the enemies) is always centred on the player while owned; every 1.3 s (1.1 s at L8) every enemy overlapping the 50 × area unit circle loses 5 → 9 HP and is pushed out. The art is drawn at `area / 0.78` (#91), so the ring's visible outer edge is that hit circle: 50 px from the player at area 1, 75 px at area 1.5. An enemy is hit exactly when it touches the drawn ring. Area 1 → 1.8 at L8, so the ring grows by 1.8×.
 - **Stats (#12):** every new weapon reads the level after the player's stats: Spinach raises damage, Candelabrador the projectile radius, the drawn size of crosses, axes, knives, fireballs and books, the book orbit and the garlic ring; Empty Tome shortens cooldowns (and the King Bible's gap), Bracer speeds projectiles and the book orbit, Spellbinder lengthens lifetimes and the books' time out.
 - **Cap and expiry:** `snapshot().projectiles` (live bolts) never exceeds `PROJECTILE_CAP` 600; a bolt is removed after its hit (pierce 1) or after 2 s.
 - **Results:** at death the results screen's Kills equal the last `kills` and the HUD counter (`run-flow.md`, `player-health.md`).
@@ -38,6 +38,7 @@ Open the game URL, press Enter on "Start" and Enter on the character select (the
 7. `gif_creator` `stop_recording`, `export` `{ download: true, filename: "issue-<N>-weapons.gif" }`; `tabs_close_mcp` on the tab.
 8. The six weapons of #13, one fresh run each (new tab, `navigate`, Enter twice): press `g` the weapon's number of times (Knife 2, Axe 3, Cross 4, King Bible 5) or, for Fire Wand and Garlic, press `l` and the number of their card whenever offered (another passive card otherwise) until `JSON.stringify((await window.__vsTest.snapshot()).weapons)` lists it; `gif_creator` `start_recording`, wait 10 s answering each level-up with a passive card, take `screenshot`s about every 100 ms for 2 s → its motion as described above; then press `l` and its upgrade card until it shows `level: 8` → more knives, axes, crosses or books, faster fireballs, a larger ring; `gif_creator` `stop_recording`, `export`.
 9. Garlic and Cross with Candelabrador and Spinach: in each weapon's run at level 8, take Candelabrador and Spinach to 5 through `l` and their cards; `javascript_tool` `(await window.__vsTest.snapshot()).stats` → `area` and `might` 1.5; `screenshot` → the garlic ring (or the crosses) 1.5 times as large as before.
+10. Garlic ring = hit radius (#91): in a fresh run take Garlic at level 1 (no Candelabrador); `screenshot`s every 150 ms and `zoom` the player → the ring's outer edge 50 px from the player's centre; bats crossing the ring vanish on the next tick (every 1.3 s), bats still outside it keep flying in. With Candelabrador at 5 (`area` 1.5) the edge is 75 px. The exact inside/outside split needs journey 15.
 
 The timed strike capture, the knockback measurement, journey 5, the fps measurement and the paint count need the Playwright journeys below.
 
@@ -794,6 +795,238 @@ test('weapons 14: the paint count stays flat across runs with every new weapon f
 });
 ```
 
+#### Garlic ring and hit radius (#91, journey 15)
+
+Save the spec as `verification/issue-<N>/journeys/garlic-ring.spec.ts` and run it like the ones above with `-g "weapons 15"`. Four fresh runs (area 1 twice, area 1.5 twice; area 1.5 comes from Candelabrador at 5 taken before Garlic). Each samples snapshots back to back inside the page for 30 s while standing still, finds the garlic ticks (a step whose new damage is all 5 × might hits, compared with the step right before), and classifies every enemy whose circle edge was within 15 units of the hit radius: hit when it is gone (a bat dies to the L1 tick) or farther from the player 80 ms later, not hit when it kept coming closer. Evidence: `garlic-ring/area<1|15>-run<1|2>/` (`state.json` with the cards taken and `stats`, `ticks.json` with every tick, each classified enemy's `edge` and `after`, and the `inside`, `outside` and `betweenOldAndNew` counts; `ring-*.png`). Measure the drawn ring in the frames with a radial lavender-pixel profile around the player (the issue's run used `verification/issue-91/ring-screenshot.py`): the outer edge where at least half the pixels on the circle are lavender is 49–50 px at area 1 and 74–75 px at area 1.5.
+
+```ts
+// Feature-map journey 15 for .claude/skills/verify-game/features/weapons.md (#91): the Garlic ring drawn on screen equals its hit radius. Enemies whose circle reaches inside the drawn ring at a
+// garlic tick are hit (a bat dies to the 5-damage L1 tick, anything else is pushed out); enemies just outside are not.
+import { expect, test, type Page } from '@playwright/test';
+import {
+  pageErrors,
+  snapshot,
+  startEvidence,
+  startRun,
+  waitForSnapshot,
+  type GameSnapshot,
+} from '../../../e2e/helpers';
+
+type Item = { id: string; level: number };
+type Card = { kind: string | null; name: string };
+type Row = {
+  t: number;
+  state: string;
+  px: number;
+  py: number;
+  e: [number, number, number, number][];
+  hits: number;
+  total: number;
+};
+const ENEMY_RADIUS = [12, 16]; // bat, ghoul (ENEMY_LIST order)
+const level = (s: GameSnapshot, id: string) =>
+  [...(s.weapons as Item[]), ...(s.passives as Item[])].find((w) => w.id === id)?.level ?? 0;
+
+async function cards(page: Page): Promise<Card[]> {
+  return page.locator('[role="dialog"][aria-label="Level up"] button.card').evaluateAll((els) =>
+    els.map((el) => ({
+      kind: el.getAttribute('data-kind'),
+      name: el.querySelector('.card-name')?.textContent ?? '',
+    })),
+  );
+}
+
+/** Answers one dialog: a wanted card, else a passive that is not avoided, else anything that adds no weapon. */
+async function answer(page: Page, want: string[], avoid: string[]) {
+  const before = await snapshot(page);
+  const shown = await cards(page);
+  let pick = shown.findIndex((c) => want.includes(c.name));
+  // Upgrades first, so the passive slots stay free for Candelabrador.
+  for (const kind of ['upgradePassive', 'upgradeWeapon', 'newPassive'])
+    if (pick < 0) pick = shown.findIndex((c) => c.kind === kind && !avoid.includes(c.name));
+  if (pick < 0)
+    pick = shown.findIndex(
+      (c) => c.kind !== 'newWeapon' && !avoid.includes(c.name) && c.name !== 'Whip',
+    );
+  if (pick < 0) pick = shown.findIndex((c) => !avoid.includes(c.name));
+  if (pick < 0) pick = 0;
+  await page.keyboard.press(String(pick + 1));
+  const lv = (before.player as { level: number }).level;
+  await waitForSnapshot(
+    page,
+    (n) => n.state !== 'levelUp' || (n.player as { level: number }).level !== lv,
+    3_000,
+  );
+  return shown[pick]?.name;
+}
+
+async function levelUntil(
+  page: Page,
+  done: (s: GameSnapshot) => boolean,
+  want: string[],
+  avoid: string[],
+) {
+  const taken: unknown[] = [];
+  for (let i = 0; i < 150; i++) {
+    let s = await snapshot(page);
+    if (done(s)) return taken;
+    if (s.state === 'playing') {
+      await page.keyboard.press('l'); // precondition only
+      s = await waitForSnapshot(page, (n) => n.state !== 'playing', 3_000);
+    }
+    if (s.state === 'levelUp') taken.push(await answer(page, want, avoid));
+  }
+  const last = await snapshot(page);
+  throw new Error(
+    `precondition not reached: ${JSON.stringify({ state: last.state, weapons: last.weapons, passives: last.passives, taken: taken.slice(-5) })}`,
+  );
+}
+
+/** Samples snapshots back to back inside the page for `ms` (or until a level-up), as compact rows. */
+async function sample(page: Page, ms: number): Promise<Row[]> {
+  return page.evaluate(async (ms) => {
+    const api = (
+      globalThis as unknown as { __vsTest: { snapshot(): Promise<Record<string, unknown>> } }
+    ).__vsTest;
+    const rows: unknown[] = [];
+    const end = performance.now() + ms;
+    let lastT = -1;
+    while (performance.now() < end) {
+      const s = await api.snapshot();
+      if (s.timeS === lastT && s.state === 'playing') continue;
+      lastT = s.timeS as number;
+      const p = s.player as { x: number; y: number };
+      const d = s.damageDealt as { hits: number; total: number };
+      rows.push({
+        t: s.timeS,
+        state: s.state,
+        px: p.x,
+        py: p.y,
+        e: s.enemyPositions,
+        hits: d.hits,
+        total: d.total,
+      });
+      if (s.state !== 'playing') break;
+    }
+    return rows;
+  }, ms) as Promise<Row[]>;
+}
+
+/** Finds garlic ticks (a step whose new damage is all `dmg`-sized hits) and classifies every enemy near the ring. */
+function ticks(rows: Row[], hitRadius: number, dmg: number) {
+  const out: {
+    t: number;
+    hits: number;
+    enemies: { uid: number; edge: number; hit: boolean; after: number | string }[];
+  }[] = [];
+  for (let i = 1; i + 6 < rows.length; i++) {
+    const a = rows[i - 1]!;
+    const b = rows[i]!;
+    const dh = b.hits - a.hits;
+    if (dh <= 0 || Math.abs(b.total - a.total - dh * dmg) > 1e-6 || b.t - a.t > 0.02) continue;
+    const later = rows.slice(i, i + 8).find((r) => r.t - b.t >= 0.08) ?? rows[i + 6]!;
+    const enemies = a.e.flatMap(([uid, type, x, y]) => {
+      const d0 = Math.hypot(x - a.px, y - a.py);
+      const edge = d0 - (ENEMY_RADIUS[type] ?? 12);
+      if (edge < hitRadius - 15 || edge > hitRadius + 15) return [];
+      const next = later.e.find((r) => r[0] === uid);
+      // Hit: killed (gone) or pushed out (farther from the player 80+ ms later); a chasing enemy only comes closer.
+      const d1 = next ? Math.hypot(next[2] - later.px, next[3] - later.py) : null;
+      const hit = d1 === null || d1 > d0 + 2;
+      return [
+        {
+          uid,
+          edge: Math.round(edge * 10) / 10,
+          hit,
+          after: d1 === null ? 'gone' : Math.round(d1 - d0),
+        },
+      ];
+    });
+    out.push({ t: b.t, hits: dh, enemies });
+  }
+  return out;
+}
+
+async function phase(page: Page, hitRadius: number, dmg: number, avoid: string[], seconds: number) {
+  const rows: Row[] = [];
+  const endAt = Date.now() + seconds * 1000;
+  while (Date.now() < endAt) {
+    const s = await snapshot(page);
+    if (s.state === 'results') break; // died: analyse what was sampled
+    if (s.state === 'levelUp') await answer(page, [], avoid);
+    rows.push(...(await sample(page, 2_000)));
+  }
+  const found = ticks(rows, hitRadius, dmg);
+  const all = found.flatMap((k) => k.enemies);
+  const inside = all.filter((e) => e.edge <= hitRadius - 3);
+  const outside = all.filter((e) => e.edge >= hitRadius + 3);
+  // Inside the hit radius but outside where the art's ring edge was drawn before #91 (0.78 of it).
+  const betweenOldAndNew = inside.filter((e) => e.edge > hitRadius * 0.78);
+  return {
+    hitRadius,
+    ticks: found,
+    inside: { n: inside.length, hit: inside.filter((e) => e.hit).length },
+    outside: { n: outside.length, hit: outside.filter((e) => e.hit).length },
+    betweenOldAndNew: {
+      n: betweenOldAndNew.length,
+      hit: betweenOldAndNew.filter((e) => e.hit).length,
+    },
+    samples: rows.length,
+  };
+}
+
+for (const target of [1, 1.5]) {
+  for (const run of [1, 2]) {
+    test(`weapons 15: garlic ring, area ${String(target)} run ${String(run)}`, async ({ page }) => {
+      test.setTimeout(180_000);
+      const name = `area${String(target).replace('.', '')}-run${String(run)}`;
+      const ev = startEvidence(page, `garlic-ring/${name}`);
+      try {
+        await startRun(page);
+        const taken: unknown[] = [];
+        // Precondition (`L` and real card picks): Candelabrador to 5 first for area 1.5, then Garlic.
+        if (target > 1)
+          taken.push(
+            ...(await levelUntil(
+              page,
+              (n) => n.state === 'playing' && level(n, 'candelabrador') === 5,
+              ['Candelabrador'],
+              ['Spinach', 'Garlic'],
+            )),
+          );
+        taken.push(
+          ...(await levelUntil(
+            page,
+            (n) => n.state === 'playing' && level(n, 'garlic') === 1,
+            ['Garlic'],
+            ['Candelabrador', 'Spinach'],
+          )),
+        );
+        const s = await snapshot(page);
+        const stats = s.stats as { area: number; might: number };
+        ev.json('state', { taken, weapons: s.weapons, passives: s.passives, stats });
+        const avoid = ['Candelabrador', 'Spinach', 'Garlic'];
+        await page.waitForTimeout(1_000);
+        while ((await snapshot(page)).state === 'levelUp') await answer(page, [], avoid);
+        for (let f = 0; f < 4; f++) {
+          await ev.shot(`ring-${String(f)}`);
+          await page.waitForTimeout(150);
+        }
+        const r = await phase(page, 50 * stats.area, 5 * stats.might, avoid, 30);
+        ev.json('ticks', { area: stats.area, ...r });
+        expect(stats.area).toBeCloseTo(target, 5);
+        expect(r.ticks.length).toBeGreaterThan(3);
+        expect(r.outside.hit).toBe(0);
+        expect(r.inside.hit).toBe(r.inside.n);
+        expect(pageErrors(ev)).toEqual([]);
+      } finally {
+        ev.flush();
+      }
+    });
+  }
+}
+```
+
 ## Gotchas
 
 - The arc shows for only 0.15 s, so journey 1 waits in the page for the step a strike happens (run time a multiple of 1.35 s), screenshots at once, then checks that the snapshot taken after the screenshot is still inside the 0.15 s; otherwise it retries the next strike. Pausing with Escape to freeze the arc does not help: the pause dialog covers the player (2026-11-08, #10).
@@ -804,8 +1037,9 @@ test('weapons 14: the paint count stays flat across runs with every new weapon f
 - Since #13 a second `G` grants the Knife, not nothing: journey 3 checks the third weapon instead (2026-11-08, #13).
 - Snapshots carry no per-projectile positions, so the motion of each #13 weapon is shown by 100 ms frame sequences, with the exact paths proven at level 4 by the pattern tests in `packages/client/src/worker/game/weapons/` (knife along `lastDir`, axe arc, cross return and double hit, book radius and hit cooldown, fire-wand on-screen targets, garlic radius) (2026-11-08, #13).
 - Fire Wand and Garlic are last in `WEAPON_LIST`, so `G` never reaches them with the Whip and four others owned; the journeys take their cards through `L`, keeping new passives out so the passive slots stay free for journeys 11 and 12. Journeys that answer level-ups for a while also take other weapons when a hand offers nothing else, so frames often show more than the weapon under test (2026-11-08, #13).
-- At minute 0 bats die to almost anything, so kills per second are limited by spawns and barely change with Spinach; journeys 11 and 12 record them, but the area change is shown by the garlic ring's radius in the frames (about 70 px at area 1, 105 px at area 1.5) and the damage change by `stats` and the unit tests (2026-11-08, #13).
-- The garlic art's visible ring edge sits at about 0.78 of the 50-unit hit radius, so enemies just outside the drawn ring are still hit (2026-11-08, #13).
+- At minute 0 bats die to almost anything, so kills per second are limited by spawns and barely change with Spinach; journeys 11 and 12 record them, but the area change is shown by the garlic ring's radius in the frames (its visible edge at 50 px at area 1, 75 px at area 1.5 since #91) and the damage change by `stats` and the unit tests (2026-11-08, #13).
+- The garlic art's visible ring edge sits at 0.78 of its 50-unit half-size (alpha profile of `assets/weapons/garlic.png`: 50% of peak at r = 156 of 200 px), so before #91 enemies just outside the drawn ring were still hit (2026-11-08, #13). Since #91 the art is drawn at `area / GARLIC_ART_RING_RATIO`, so the ring's edge is the hit radius; new garlic art must keep that ratio or update the constant in `patterns/garlic.ts` (2026-11-08, #91).
+- Journey 15 compares positions from the step right before a garlic tick (at most 1.7 units old for a bat): with snapshots up to three steps old, bats 3–4 units outside the radius were wrongly counted as hit. Back-to-back snapshots still skip most steps, so a 30 s window catches only 4–15 ticks, and near-ring enemies are few at minute 0; repeat the runs when a window has none (2026-11-08, #91).
 - Fast-forwarding to minute 14 (`]`) stops at each level-up until it is answered; journey 13 alternates `]` and answers. The first fps samples after the jump are low (20–49) because the one-second fps window still holds the fast-forward frame; the median over 30 s is 60 on an Apple M4 Pro (headed Chrome) (2026-11-08, #13).
 - `debug.paintsCreated` grows while a journey presses `L` dozens of times within seconds (`fx.levelUp` is prewarmed to 2, so overlapping rings grow it), and would grow if more than 200 blue gems lay on the ground (`gem.blue`'s prewarm); neither is a weapon pool. So journey 14 measures the count right before and after 8 s of six level-8 weapons firing (flat in both runs: 1577 → 1577 with the G weapons, and with Fire Wand and Garlic), and checks that a run ends on the paints the next one starts with; `all-weapons.test.ts` checks every projectile pool stays at its prewarm with six weapons at level 8 for 60 s (2026-11-08, #13).
 - Weapon numbers of #13 are the issue's initial values, untuned against footage (`docs/reference/gameplay.md` § Weapons) (2026-11-08, #13).
