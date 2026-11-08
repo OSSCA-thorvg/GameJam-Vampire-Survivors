@@ -1,37 +1,23 @@
-import type { Scene } from '@thorvg/webcanvas';
 import { createRng, type Rng } from '@vs/shared';
-import type { Axis } from '../../protocol/worker-messages';
-import type { AssetInstance, AssetLibrary } from '../assets/library';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../constants';
-import { createGround, type Ground } from '../render/ground';
-import { PaintPool } from '../render/pool';
-import { setTransform } from '../render/transform';
-import { cameraSystem, createCamera, snapToPixel, type Camera } from './camera';
+import type { Axis, RunStats } from '../../protocol/worker-messages';
+import type { PaintPool } from '../render/pool';
+import { cameraSystem, createCamera, type Camera } from './camera';
 import { createEnemyState, type EnemyState } from './enemies';
+import { createEventQueue, type EventQueue } from './events';
 import { createPlayer, playerMovementSystem, type PlayerState } from './player';
+import { contactDamageSystem } from './systems/contact-damage';
 import { enemyMovementSystem } from './systems/enemy-movement';
 import { enemyRelocateSystem } from './systems/enemy-relocate';
 import { spawnerSystem } from './systems/spawner';
-
-/** What the world draws into: #6's layers, the asset library and the current device-pixel scale. */
-export interface WorldView {
-  library: Pick<AssetLibrary, 'create'>;
-  layers: {
-    world: Pick<Scene, 'translate'>;
-    ground: Pick<Scene, 'add'>;
-    enemies: Pick<Scene, 'add'>;
-    player: Pick<Scene, 'add'>;
-  };
-  /** Device pixels per logical unit (#2's `init`/`resize` scale), read every frame. */
-  scale: () => number;
-}
 
 export interface WorldOptions {
   seed: number;
   /** Stored, unused until #14. */
   characterId?: string;
-  /** Omitted in unit tests: the world then only simulates. */
-  view?: WorldView;
+  /** The view's enemy pools (`GameView.enemyPools`, #9). Omitted in unit tests: the world then only simulates. */
+  enemyPools?: readonly PaintPool[];
+  /** Called once, with the final stats, in the step where HP reaches 0. */
+  onGameOver?: (stats: RunStats) => void;
 }
 
 /** All state for one run. Later issues add their state here. */
@@ -58,10 +44,14 @@ export interface World extends EnemyState {
   readonly relocateRng: Rng;
   /** Seconds until the next relocation pass. */
   relocateTimer: number;
-  /** Runs `SYSTEMS` in order, then advances `time`. */
+  /** This step's events (#9): cleared before the first system, so each event lives for exactly one step. */
+  readonly events: EventQueue;
+  /** Set to `'dead'` by the contact damage system when HP reaches 0; that step ends early and a dead world no longer steps. */
+  state: 'running' | 'dead';
+  /** Shown on the results screen. `kills` rises from #10, `level` from #11; `timeSec` mirrors `time`. */
+  readonly stats: RunStats;
+  /** Runs `SYSTEMS` in order, then advances `time`; calls `onGameOver` in the step that ends dead. Does nothing once dead. */
   step(dt: number): void;
-  /** Syncs the ground, the enemies, then the player. Does not call `canvas.update()`/`render()`; the worker does that once. */
-  render(alpha: number): void;
 }
 
 export type System = (world: World, dt: number) => void;
@@ -83,17 +73,18 @@ export const SYSTEMS: readonly System[] = [
   spawnerSystem,
   enemyMovementSystem,
   enemyRelocateSystem,
+  contactDamageSystem,
 ];
 
-export function createWorld({ seed, characterId = 'warden', view }: WorldOptions): World {
-  let ground: Ground | null = null;
-  let playerSprite: AssetInstance | null = null;
-  if (view) {
-    ground = createGround(view.library, view.layers.ground);
-    const playerPool = new PaintPool(view.library, 'player.warden', view.layers.player, 1);
-    playerSprite = playerPool.get(playerPool.acquire());
-  }
+export function createWorld({
+  seed,
+  characterId = 'warden',
+  enemyPools,
+  onGameOver,
+}: WorldOptions): World {
   const rng = createRng(seed);
+  // A function, so TypeScript does not narrow `state` across the systems that may change it.
+  const dead = (): boolean => world.state === 'dead';
   const world: World = {
     seed,
     characterId,
@@ -103,34 +94,25 @@ export function createWorld({ seed, characterId = 'warden', view }: WorldOptions
     moveInput: { dx: 0, dy: 0 },
     player: createPlayer(),
     camera: createCamera(),
-    ...createEnemyState(view && { library: view.library, layer: view.layers.enemies }),
+    ...createEnemyState(enemyPools),
     spawnRng: rng.fork('spawn'),
     spawnTimer: 0,
     spawnQueue: 0,
     relocateRng: rng.fork('relocate'),
     relocateTimer: 0,
+    events: createEventQueue(),
+    state: 'running',
+    stats: { timeSec: 0, kills: 0, level: 1 },
     step(dt) {
-      for (const system of SYSTEMS) system(world, dt);
+      if (dead()) return;
+      world.events.clear();
+      for (const system of SYSTEMS) {
+        system(world, dt);
+        if (dead()) break;
+      }
       world.time += dt;
-    },
-    render() {
-      if (!view) return;
-      const scale = view.scale();
-      const { camera, player } = world;
-      view.layers.world.translate(
-        snapToPixel(VIEW_WIDTH / 2 - camera.x, scale),
-        snapToPixel(VIEW_HEIGHT / 2 - camera.y, scale),
-      );
-      ground?.sync(camera.x, camera.y);
-      const { enemies } = world;
-      world.enemyBinding?.sync(
-        enemies,
-        enemies.cols.x,
-        enemies.cols.y,
-        undefined,
-        enemies.cols.flip,
-      );
-      if (playerSprite) setTransform(playerSprite, player.x, player.y, 0, 1, player.facingX < 0);
+      world.stats.timeSec = world.time;
+      if (dead()) onGameOver?.({ ...world.stats });
     },
   };
   return world;

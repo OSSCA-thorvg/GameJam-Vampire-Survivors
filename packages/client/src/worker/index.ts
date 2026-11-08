@@ -21,7 +21,8 @@ import { HUD_FONT, initThorVG, type ThorVGContext } from './render/thorvg';
 import { loadManifest } from './assets/manifest';
 import { AssetLibrary } from './assets/library';
 import { createLayers } from './render/layers';
-import { createWorld, type World } from './game/world';
+import { createGameView } from './game/view';
+import { createSession, type Session } from './game/session';
 import { readEnemyPositions, readPlayerSnapshot } from './game/snapshot';
 import { buildGallery, type Gallery } from './debug/gallery';
 import { noteFrame, registerSnapshotField, takeSnapshot } from './test-bridge';
@@ -49,8 +50,11 @@ let size = { width: 0, height: 0, scale: 1 };
 /** Simulation steps since boot, for the test bridge's `steps` (and `timeS` when no run exists). */
 let stepCount = 0;
 
-/** The current run (#7); `null` in `?gallery` and `?stress`. #9 replaces the auto-start with `startRun`. */
-let world: World | null = null;
+/**
+ * The runs on the game view, whose paints are created once at boot (#9); `null` in `?gallery` and `?stress`.
+ * `session.world` is the current run, `null` on the title screen.
+ */
+let session: Session | null = null;
 let library: AssetLibrary | null = null;
 let gallery: Gallery | null = null;
 let stress: StressScene | null = null;
@@ -62,24 +66,26 @@ const assetState = {
   font: 'default',
 };
 
-const describeScene = (): string =>
-  world
+const describeScene = (): string => {
+  const world = session?.world;
+  return world
     ? `run ${world.time.toFixed(2)} s, player (${world.player.x.toFixed(0)}, ${world.player.y.toFixed(0)})`
     : `steps ${String(stepCount)}`;
+};
 
 function step(dtSec: number): void {
   stepCount++;
   library?.tick(dtSec);
   gallery?.step(inputX, inputY, dtSec);
   if (import.meta.env.DEV || import.meta.env.MODE === 'perf') stress?.step(dtSec);
-  world?.step(dtSec);
+  session?.world?.step(dtSec);
   if (import.meta.env.DEV) debugHooks?.onStep();
 }
 
-function render(alpha: number): void {
+function render(): void {
   if (!ctx) return;
   if (import.meta.env.DEV || import.meta.env.MODE === 'perf') stress?.render();
-  world?.render(alpha);
+  session?.render();
   if (import.meta.env.DEV) debugHooks?.onRender();
   if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') noteFrame(performance.now());
   ctx.canvas.update();
@@ -159,20 +165,27 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
       }
     }
     if (!gallery && !stress) {
-      const layers = createLayers(context.root);
-      const run = createWorld({
-        seed: Date.now() >>> 0,
-        characterId: 'warden',
-        view: { library, layers, scale: () => size.scale },
+      const gameView = createGameView({
+        TVG: context.TVG,
+        library,
+        layers: createLayers(context.root),
+        scale: () => size.scale,
       });
-      run.input.dx = inputX;
-      run.input.dy = inputY;
-      world = run;
+      const runs = createSession(gameView, (stats) => {
+        paused = true;
+        loop?.pause();
+        post({ type: 'gameOver', stats });
+      });
+      session = runs;
       if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
-        registerSnapshotField('timeS', () => run.time);
-        registerSnapshotField('player', () => readPlayerSnapshot(run));
-        registerSnapshotField('enemies', () => run.enemies.count);
-        registerSnapshotField('enemyPositions', () => readEnemyPositions(run));
+        registerSnapshotField('timeS', () => runs.world?.time ?? 0);
+        registerSnapshotField('player', () => (runs.world ? readPlayerSnapshot(runs.world) : null));
+        registerSnapshotField('enemies', () => runs.world?.enemies.count ?? 0);
+        registerSnapshotField('enemyPositions', () =>
+          runs.world ? readEnemyPositions(runs.world) : [],
+        );
+        registerSnapshotField('kills', () => runs.world?.stats.kills ?? 0);
+        registerSnapshotField('debug', () => ({ paintsCreated: gameView.countPaints() }));
       }
     }
     assetState.placeholders = [...library.placeholders];
@@ -205,6 +218,31 @@ function applySize(): void {
   ctx.root.scale(size.scale);
 }
 
+/**
+ * Replaces the current run with a fresh world (#9). The view's pools are released and reused, so no Paint is created
+ * or disposed; the world's typed-array stores are new. Unpauses the loop.
+ */
+function startRun(seed: number, characterId: string): void {
+  if (!session || !loop) {
+    console.warn('[worker] startRun before the game view is ready; ignored');
+    return;
+  }
+  const run = session.start(seed, characterId);
+  run.input.dx = inputX;
+  run.input.dy = inputY;
+  paused = false;
+  loop.resume();
+  if (import.meta.env.DEV) console.warn(`[worker] run started, seed ${String(seed)}`);
+}
+
+/** Clears the run and draws one empty frame (#9); the loop keeps running under the screens. */
+function endRun(): void {
+  session?.end();
+  paused = false;
+  loop?.resume();
+  render();
+}
+
 /** Answers the test bridge (dev and e2e builds only; every call is behind that guard). */
 function answerSnapshot(message: TestSnapshotRequest): void {
   post({
@@ -234,9 +272,9 @@ function handle(message: GameMainToWorker): void {
     case 'input':
       inputX = message.dx;
       inputY = message.dy;
-      if (world) {
-        world.input.dx = message.dx;
-        world.input.dy = message.dy;
+      if (session?.world) {
+        session.world.input.dx = message.dx;
+        session.world.input.dy = message.dy;
       }
       break;
     case 'pause':
@@ -256,6 +294,12 @@ function handle(message: GameMainToWorker): void {
       policy = message.policy;
       loop?.setBackgroundPolicy(message.policy);
       if (import.meta.env.DEV) console.warn(`[worker] background policy: ${message.policy}`);
+      break;
+    case 'startRun':
+      startRun(message.seed, message.characterId);
+      break;
+    case 'endRun':
+      endRun();
       break;
     case 'debug':
       if (import.meta.env.DEV) dispatchDebug(message.command);

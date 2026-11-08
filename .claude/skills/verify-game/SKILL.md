@@ -54,7 +54,7 @@ Pick the driver, then follow the feature file's **Driving it** section for that 
     pnpm exec playwright test -c e2e/playwright.config.ts [<feature>]
   ```
   The config reads the URL from `client.json` when `VERIFY_URL` is unset.
-- Helpers (`e2e/helpers.ts`): `openGame(page)`, `snapshot(page)`, `waitForSnapshot(page, predicate, ms)`, `holdKeys(page, keys, ms)` (real `keyboard.down`/`up`), `startEvidence(page, journey)` (page and worker console, numbered screenshots, JSON), `pageErrors(ev)`.
+- Helpers (`e2e/helpers.ts`): `openGame(page)`, `startRun(page)` (title, Enter, `playing`; #9), `snapshot(page)`, `waitForSnapshot(page, predicate, ms)`, `holdKeys(page, keys, ms)` (real `keyboard.down`/`up`), `startEvidence(page, journey)` (page and worker console, numbered screenshots, JSON), `pageErrors(ev)`.
 - DOM: ARIA roles and names (`getByRole`) for screens (ADR 0009, from #9 on); until then, `#app` text. The canvas belongs to the worker (ADR 0004): never assert on canvas pixels through the DOM, read `__vsTest` instead.
 
 **Both drivers:** state is read only through `__vsTest` (it never sets gameplay state); gameplay is driven only with real keyboard input. Debug keys and `__vsDebug.post` only reach preconditions, and the report says which were used.

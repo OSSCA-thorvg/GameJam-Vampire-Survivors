@@ -10,7 +10,7 @@ import {
   waitForSnapshot,
 } from './helpers';
 
-test('boot: the worker starts ThorVG with gl, the run steps and the keyboard moves the player', async ({
+test('boot: the worker starts ThorVG with gl, Enter on the title starts a run that steps, and the keyboard moves the player', async ({
   page,
 }, testInfo) => {
   const ev = startEvidence(page, 'boot');
@@ -20,12 +20,20 @@ test('boot: the worker starts ThorVG with gl, the run steps and the keyboard mov
     await ev.shot('ready');
     ev.json('snapshot-ready', ready);
     expect(ready.renderer).toBe('gl');
-    expect(ready.state).toBe('running');
     await expect(page.locator('#app canvas')).toHaveCount(1);
 
+    // The title screen (#9): Start is focused, and Enter starts the run.
+    const atTitle = await waitForSnapshot(page, (s) => s.state === 'title', 5_000);
+    expect(atTitle.player).toBeNull();
+    await expect(page.getByRole('button', { name: 'Start' })).toBeFocused();
+    await ev.shot('title');
+    await page.keyboard.press('Enter');
+    const started = await waitForSnapshot(page, (s) => s.state === 'playing', 5_000);
+    await expect(page.getByRole('button', { name: 'Start' })).toHaveCount(0);
+
     // The simulation steps and the run's clock advances.
-    const later = await waitForSnapshot(page, (s) => s.steps >= ready.steps + 30, 10_000);
-    expect(later.timeS).toBeGreaterThan(ready.timeS);
+    const later = await waitForSnapshot(page, (s) => s.steps >= started.steps + 30, 10_000);
+    expect(later.timeS).toBeGreaterThan(started.timeS);
     await ev.shot('stepping');
 
     // Real keyboard input moves the player right (#7).

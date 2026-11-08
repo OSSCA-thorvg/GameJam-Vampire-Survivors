@@ -15,14 +15,14 @@ Enemies spawn just outside the view from the per-minute wave table (`STAGE.waves
 
 ## How to get to it (user POV)
 
-Open the game URL: the run starts by itself (#9 replaces the auto-start with the title screen) and enemies start arriving at once. Stand still or hold arrow keys. Later minutes are reached only with `]` (fast-forward 60 s, dev and e2e builds), as a precondition. No server is needed.
+Open the game URL and press Enter on the title screen's "Start" (#9): enemies start arriving at once. Stand still or hold arrow keys. Later minutes are reached only with `]` (fast-forward 60 s, dev and e2e builds), as a precondition. No server is needed.
 
 ## Driving it
 
 ### Claude in Chrome
 
 1. `tabs_context_mcp` `{ createIfEmpty: true }`, use the group's new empty tab; `gif_creator` `start_recording`.
-2. `navigate` to `http://localhost:5180/`; `javascript_tool` `JSON.stringify((await window.__vsTest.waitFor((s) => s.ready, 30000)).enemies)` → 15 or a little more; `computer` `screenshot` every second for a few seconds → bats enter from the view edges, none appear inside the view.
+2. `navigate` to `http://localhost:5180/`; `javascript_tool` `await window.__vsTest.waitFor((s) => s.state === 'title', 30000)`; `computer` `key` `Enter` (Start, #9); `javascript_tool` `JSON.stringify((await window.__vsTest.waitFor((s) => s.state === 'playing', 5000)).enemies)` → 15 or a little more; `computer` `screenshot` every second for a few seconds → bats enter from the view edges, none appear inside the view.
 3. Wait 60 s, `screenshot` → a crowd around the player, sprites not stacked on one point; `javascript_tool` reading `enemyPositions` → no two rows at the same `x`, `y`.
 4. `computer` `key` `]` with `repeat: 5`; read `enemies` every 500 ms for 10 s → at most 400.
 5. `computer` `key` `ArrowRight` with `repeat: 60`, `screenshot` → enemies still arrive from the edges; the long run that triggers relocation needs Playwright (Gotchas).
@@ -39,10 +39,10 @@ Save the spec as `verification/issue-<N>/journeys/enemies.spec.ts`. After `pnpm 
 import { expect, test, type Page } from '@playwright/test';
 import {
   noteEvidence,
-  openGame,
   pageErrors,
   snapshot,
   startEvidence,
+  startRun,
   waitForSnapshot,
   type GameSnapshot,
 } from '../../../e2e/helpers';
@@ -98,7 +98,7 @@ test('enemies 1: spawn just outside the view and close in', async ({ page }, tes
   const ev = startEvidence(page, 'enemies-1-spawn');
   noteEvidence(testInfo, ev);
   try {
-    const ready = await openGame(page);
+    const ready = await startRun(page);
     expect(ready.renderer).toBe('gl');
     const minAlive = Number(process.env.VERIFY_MIN_ALIVE ?? 15);
     const result = await watchSpawns(page, 10_000, 100, async (_s, i) => {
@@ -131,7 +131,7 @@ test('enemies 2: standing still for 60 s, the crowd surrounds the player without
   const ev = startEvidence(page, 'enemies-2-crowd');
   noteEvidence(testInfo, ev);
   try {
-    await openGame(page);
+    await startRun(page);
     await page.waitForTimeout(60_000);
     const end = await snapshot(page);
     await ev.shot('after-60s');
@@ -167,7 +167,7 @@ test('enemies 3: at minute 5 the count reaches 100 and never exceeds 400', async
   const ev = startEvidence(page, 'enemies-3-cap');
   noteEvidence(testInfo, ev);
   try {
-    await openGame(page);
+    await startRun(page);
     const at5 = await fastForward(page, 5); // precondition only: `]` × 5
     const counts: number[] = [];
     for (let i = 0; i <= 20; i++) {
@@ -191,7 +191,7 @@ test('enemies 4: running right for 20 s strands no enemies; relocated ones reapp
   const ev = startEvidence(page, 'enemies-4-relocate');
   noteEvidence(testInfo, ev);
   try {
-    await openGame(page);
+    await startRun(page);
     await waitForSnapshot(page, (s) => (s.enemies as number) >= 15, 15_000);
     const last = new Map<number, [number, number]>();
     const relocations: { uid: number; from: [number, number]; to: [number, number]; px: number }[] =
@@ -237,7 +237,7 @@ test('enemies 6: fps at minute 14 with about 300 enemies', async ({ page }, test
   const ev = startEvidence(page, 'enemies-6-fps');
   noteEvidence(testInfo, ev);
   try {
-    await openGame(page);
+    await startRun(page);
     await fastForward(page, 14); // precondition only: `]` × 14
     await page.waitForTimeout(3000);
     const samples: { fps: number; enemies: number }[] = [];
@@ -260,6 +260,7 @@ test('enemies 6: fps at minute 14 with about 300 enemies', async ({ page }, test
 
 ## Gotchas
 
+- Since #9 enemies hurt the player, and a standing player dies in 15–30 s: journeys 2 (60 s standing), 3 and 6 (`]` fast-forwards past the death) end on the results screen and cannot pass until an invulnerability precondition exists (`KeyI`, `toggleInvulnerable`, #17). Journeys 1 and 4 still fit inside a life. Do not weaken them; report them as skipped until #17 (2026-11-08, #9).
 - The extension's `key` presses are instant down and up, so it cannot hold `ArrowRight` for 20 s; relocation needs the Playwright hold (2026-11-08, #8).
 - Nothing kills enemies before #10, so the count keeps growing past `minAlive` with each batch, and `]` × 5 fills the cap with minute 0–2 bats; at minute 5 and 14 the field holds 400 enemies, almost all bats, instead of the wave's mix. The fps journey therefore measures 400 enemies, a harder case than the issue's "about 300" (2026-11-08, #8).
 - Pop-in is checked per UID between samples 100 ms apart; an enemy moves at most about 30 units (speed plus separation push) between its spawn and the sample, inside the 64-unit spawn margin (2026-11-08, #8).

@@ -1,18 +1,19 @@
 # Hidden tab
 
-When the tab is hidden, the worker follows its background policy: `'pause'` (default, single player) stops simulation, while `'simulate'` (versus) keeps stepping on a timer without rendering (ADR 0004, #2).
+When the tab is hidden, the worker follows its background policy: `'pause'` (default, single player) stops simulation, while `'simulate'` (versus) keeps stepping on a timer without rendering (ADR 0004, #2). A single-player run hidden mid-game comes back under the pause overlay (#9).
 
 ## Sub-features
 
 - **Native visibility:** `document.visibilityState` becomes `'hidden'` after another task-owned tab is activated, and the worker snapshot's `hidden` becomes `true` through the real `visibilitychange` listener. Showing the game restores both states.
 - **`'pause'` (default):** over a three-second hidden interval, `steps` and `renders` remain equal. The worker's visible-again log reports `steps while hidden 0, renders while hidden 0`.
 - **`'simulate'`:** after setting the policy as a precondition, hidden `steps` advance while `renders` stays equal. The visible-again worker log reports positive steps and zero renders. Do not require exactly 180 steps: native timer throttling affects when the final tick arrives.
+- **Single-player run (#9):** hiding the tab while `state` is `'playing'` pauses the run: over three hidden seconds `timeS` and `steps` stay equal and `paused` is `true`. On return the pause dialog (`role=dialog`, name "Paused") is shown with "Resume" focused, and `timeS` still does not advance until Enter resumes; it then continues from the same value (less than 0.5 s later). The policy journeys above run on the title screen, where no run exists and the loop's `steps` still count.
 - **Resume:** after showing the game, both `steps` and `renders` increase. `renders` is the read-only cumulative render-hook counter registered by `worker/debug.ts`; the previous-window `fps` rate cannot prove zero renders.
 - **Ownership and cleanup:** only a newly launched BrowserServer process, its generated temporary profile, its loopback CDP endpoint and its recorded game/blank targets are used. The helper closes its blank target and restores the game on success and failure; fixture cleanup stops the owned process and removes its profile. The regular headless smoke fixture stays separate.
 
 ## How to get to it (user POV)
 
-Switch to another browser tab while the game runs, wait three seconds, and come back. `'simulate'` has no player entry point until versus play (#20); reach only that precondition with `__vsDebug.post({ type: 'setBackgroundPolicy', policy: 'simulate' })`. The visibility behavior itself must be native, never a posted worker visibility message.
+Switch to another browser tab while the game runs, wait three seconds, and come back. The policy journeys stay on the title screen; the run journey first presses Enter on "Start" (#9). `'simulate'` has no player entry point until versus play (#20); reach only that precondition with `__vsDebug.post({ type: 'setBackgroundPolicy', policy: 'simulate' })`. The visibility behavior itself must be native, never a posted worker visibility message.
 
 ## Driving it
 
@@ -140,6 +141,58 @@ test('hidden tab: native visibility pauses or simulates without rendering, then 
   }
 });
 
+test('hidden tab: a single-player run pauses while hidden and shows the pause overlay on return', async ({
+  page,
+  context,
+  baseURL,
+}, testInfo) => {
+  const ev = startEvidence(page, 'hidden-tab-run-pause');
+  noteEvidence(testInfo, ev);
+  let visibility;
+  try {
+    expect((await openGame(page, baseURL)).renderer).toBe('gl');
+    await waitForSnapshot(page, (s) => s.state === 'title', 5_000);
+    await page.keyboard.press('Enter');
+    await waitForSnapshot(page, (s) => s.state === 'playing' && s.timeS >= 1, 10_000);
+    await ev.shot('playing');
+    visibility = await hidePage(page);
+    ev.json('ownership', visibility.ownership);
+    const before = await sample(page);
+    await page.waitForTimeout(3_000);
+    const after = await sample(page);
+    expect(before.document).toBe('hidden');
+    expect(after.document).toBe('hidden');
+    expect(after.snapshot.timeS).toBe(before.snapshot.timeS);
+    expect(after.snapshot.steps).toBe(before.snapshot.steps);
+    expect(after.snapshot.paused).toBe(true);
+    await visibility.show();
+    const dialog = page.getByRole('dialog', { name: 'Paused' });
+    await expect(dialog).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Resume' })).toBeFocused();
+    await ev.shot('overlay-on-return');
+    // The overlay holds the run paused after the tab is visible again.
+    await page.waitForTimeout(1_000);
+    const held = await sample(page);
+    expect(held.document).toBe('visible');
+    expect(held.snapshot.state).toBe('playing');
+    expect(held.snapshot.timeS).toBe(before.snapshot.timeS);
+    await page.keyboard.press('Enter');
+    await expect(dialog).toHaveCount(0);
+    const resumed = await waitForSnapshot(page, (s) => s.timeS > before.snapshot.timeS, 3_000);
+    ev.json('snapshots', { before, after, held, resumed });
+    expect(resumed.timeS - before.snapshot.timeS).toBeLessThan(0.5);
+    await ev.shot('resumed');
+    expect(pageErrors(ev)).toEqual([]);
+  } finally {
+    try {
+      await visibility?.dispose();
+      if (!page.isClosed()) await expect.poll(() => context.pages().length).toBe(1);
+    } finally {
+      ev.flush();
+    }
+  }
+});
+
 test('hidden tab: owned target is disposed after an intentional journey failure', async ({
   page,
   context,
@@ -178,6 +231,7 @@ test('hidden tab: owned target is disposed after an intentional journey failure'
 
 ## Gotchas
 
+- **2026-11-08, #9:** the first journey now runs on the title screen (no run): the app pauses a run on hide (`main/app.ts` posts `pause`), which would freeze `steps` under `'simulate'` too. The policy itself is a loop property and is unchanged; the run behaviour is the second journey.
 - **2026-11-08, #72:** `launchServer` can resolve before Linux finishes writing the generated profile's `DevToolsActivePort`. The native fixture waits up to five seconds for both a valid port and complete `/devtools/browser/<UUID>` path, checking the owned child before and after reads. Missing/partial writes retry only within that deadline; non-regular files (including FIFOs and symlinks), child exit and non-transient read failures fail closed. Reads are aborted at the remaining deadline and opened file handles are closed. Timeout still runs the same process/profile cleanup. This is startup readiness, never a retry of a failed visibility journey or a fallback to another browser.
 - **2026-11-08, #52:** normal Playwright Chromium pages receive a focus-emulation override from their original session. Disabling it through a second public CDP session still left the page visible; the first genuine headed journey failed and was retained as evidence. The public `noDefaults` connection to a newly task-launched process's existing context avoids that override and produced native `hidden` then `visible`. Do not re-enable focus emulation in helper cleanup.
 - **2026-11-08, #52:** genuine hidden proof requires headed Chromium and a desktop display; Linux CI uses Xvfb and SwiftShader. Missing display support and native-hidden timeouts fail the journey. They never turn into a synthetic visibility fallback or a level-5 claim.

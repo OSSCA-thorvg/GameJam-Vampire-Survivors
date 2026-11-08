@@ -34,6 +34,10 @@ export const ENEMY_POOL_PREWARM = 200;
 /** Per-type speed and radius, indexed like `type`, so per-enemy loops read numbers instead of objects. */
 export const ENEMY_SPEED = Float32Array.from(ENEMY_LIST, (id) => ENEMIES[id].speed);
 export const ENEMY_RADIUS = Float32Array.from(ENEMY_LIST, (id) => ENEMIES[id].radius);
+export const ENEMY_CONTACT_DAMAGE = Float32Array.from(
+  ENEMY_LIST,
+  (id) => ENEMIES[id].contactDamage,
+);
 
 export interface EnemyState {
   enemies: EnemyStore;
@@ -43,16 +47,19 @@ export interface EnemyState {
   enemyBinding: RenderBinding<typeof ENEMY_SCHEMA> | null;
 }
 
-export function createEnemyState(view?: {
-  library: Pick<AssetLibrary, 'create'>;
-  layer: Pick<Scene, 'add'>;
-}): EnemyState {
+/** One prewarmed pool per enemy type, indexed like `ENEMY_LIST`. Created once per worker and reused by every run (#9). */
+export function createEnemyPools(
+  library: Pick<AssetLibrary, 'create'>,
+  layer: Pick<Scene, 'add'>,
+): PaintPool[] {
+  return ENEMY_LIST.map(
+    (id) => new PaintPool(library, ENEMIES[id].assetId, layer, ENEMY_POOL_PREWARM),
+  );
+}
+
+/** A run's enemy store and grid; with `pools` (from `createEnemyPools`), a binding that draws through them. */
+export function createEnemyState(pools?: readonly PaintPool[]): EnemyState {
   const enemies = createStore(ENEMY_SCHEMA, ENEMY_CAP);
-  const pools = view
-    ? ENEMY_LIST.map(
-        (id) => new PaintPool(view.library, ENEMIES[id].assetId, view.layer, ENEMY_POOL_PREWARM),
-      )
-    : null;
   return {
     enemies,
     // Cells of 64 units cover the largest separation query (2 × radius 16) in at most 4 cells.
