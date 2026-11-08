@@ -81,7 +81,8 @@ export function spawnerSystem(world: World, dt: number): void {
   while (world.spawnQueue > 0 && spawned < MAX_SPAWNS_PER_STEP && enemies.count < ENEMY_CAP) {
     const enemyId = pickEnemy(wave, world.spawnRng);
     ringPoint(world.camera, world.spawnRng, point);
-    spawnEnemy(world, enemyId, point.x, point.y);
+    if (spawnEnemy(world, enemyId, point.x, point.y) >= 0)
+      world.spawnLog?.record(enemyId, world.time);
     world.spawnQueue--;
     spawned++;
   }

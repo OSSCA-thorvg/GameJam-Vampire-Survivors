@@ -1,5 +1,5 @@
 import { createRng, type CharacterId, type ChestReward, type Rng } from '@vs/shared';
-import type { Axis, Finale, RunStats, RunSummary } from '../../protocol/worker-messages';
+import type { Axis, Finale, RunMode, RunStats, RunSummary } from '../../protocol/worker-messages';
 import type { PaintPool } from '../render/pool';
 import { cameraSystem, createCamera, type Camera } from './camera';
 import { chestDropSystem, createChestState, type ChestState } from './chests';
@@ -27,6 +27,7 @@ import { lightSourceSystem } from './systems/light-sources';
 import { pickupSystem } from './systems/pickups';
 import { recoverySystem } from './systems/recovery';
 import { spawnerSystem } from './systems/spawner';
+import type { SpawnLog } from './spawn-log';
 import { stageEventSystem } from './systems/stage-events';
 import { createWeaponContext, type WeaponContext } from './weapons/context';
 import { type WeaponsState } from './weapons/owned';
@@ -51,6 +52,10 @@ export interface WorldOptions {
   chestPool?: PaintPool;
   /** What the time limit does (#17); `'death'` when omitted. */
   finale?: Finale;
+  /** Who the run is for (#20); `'single'` when omitted. */
+  mode?: RunMode;
+  /** Dev and e2e builds (#20): records the first spawner spawns for the `spawnLog` snapshot field. */
+  spawnLog?: SpawnLog;
   /**
    * Called once, with the run's summary, in the step where HP reaches 0 or a `finale: 'end'` run reaches the time
    * limit.
@@ -121,6 +126,10 @@ export interface World
   state: 'running' | 'dead' | 'ended';
   /** What the time limit does (#17). */
   readonly finale: Finale;
+  /** Who the run is for (#20): a `'versus'` run reports its status to the main thread. */
+  readonly mode: RunMode;
+  /** The spawner's log (#20), or `null` (production builds and unit tests that pass none). */
+  readonly spawnLog: SpawnLog | null;
   /** The next entry of `STAGE.events` to fire (#17); also the number fired so far. */
   nextEventIndex: number;
   /** Set once `time` reaches `STAGE.durationSec` (#17): the spawner and the stage events stop. */
@@ -195,6 +204,8 @@ export function createWorld({
   pickupPools,
   chestPool,
   finale = 'death',
+  mode = 'single',
+  spawnLog,
   onGameOver,
 }: WorldOptions): World {
   const rng = createRng(seed);
@@ -239,7 +250,10 @@ export function createWorld({
     pendingLevelUps: 0,
     events: createEventQueue(),
     state: 'running',
-    finale,
+    // A versus run never spawns Death (ADR 0005): the time limit ends it.
+    finale: mode === 'versus' ? 'end' : finale,
+    mode,
+    spawnLog: spawnLog ?? null,
     nextEventIndex: 0,
     cleared: false,
     damageDealt: { hits: 0, total: 0 },

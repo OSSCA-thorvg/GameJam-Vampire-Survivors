@@ -38,6 +38,23 @@ export interface RunSummary extends RunStats {
  */
 export type Finale = 'death' | 'end';
 
+/** Who a run is for (#20): `'single'` player, or a `'versus'` match, which always runs with `finale: 'end'` (ADR 0005). */
+export type RunMode = 'single' | 'versus';
+
+/**
+ * #20: the local player's state, posted by a `'versus'` run every 250 ms of simulated time and once more on death;
+ * the main thread relays it as the protocol's `status` (`PlayerStatus`). `hp` is clamped to `0..maxHp`.
+ */
+export interface WorkerStatus {
+  type: 'status';
+  hp: number;
+  maxHp: number;
+  level: number;
+  kills: number;
+  alive: boolean;
+  elapsedMs: number;
+}
+
 /** One card of the level-up choice (#11; passives #12). Text and icon come from content data only. */
 export type LevelUpOption =
   | { kind: 'newWeapon'; weaponId: WeaponId; name: string; description: string; iconId: AssetId }
@@ -84,9 +101,11 @@ export type MainToWorker =
   | { type: 'setBackgroundPolicy'; policy: BackgroundPolicy }
   /**
    * #9: clears the previous run and starts a fresh one (unpaused). The worker starts no run on boot. `finale` (#17)
-   * defaults to `'death'`.
+   * defaults to `'death'`; `mode` (#20) defaults to `'single'`, and a `'versus'` run always uses `finale: 'end'`.
    */
-  | { type: 'startRun'; seed: number; characterId: string; finale?: Finale }
+  | { type: 'startRun'; seed: number; characterId: string; finale?: Finale; mode?: RunMode }
+  /** #20: the versus match is decided; the loop stops and the last frame stays on the canvas until the next run. */
+  | { type: 'forceEnd'; reason: 'matchOver' }
   /** #9: clears the run and draws an empty frame (back to the title). */
   | { type: 'endRun' }
   /** #11: the option chosen on the open level-up screen, an index into its `options`. */
@@ -111,6 +130,7 @@ export type WorkerToMain =
   | { type: 'levelUp'; level: number; options: LevelUpOption[] }
   /** #15: a chest opened and its rewards are already applied; the worker has paused the run until `chestClosed`. */
   | { type: 'chestOpened'; rewards: ChestReward[] }
+  | WorkerStatus
   | TestSnapshotReply;
 
 /**
@@ -181,6 +201,6 @@ export type GameSnapshot = WorkerSnapshot & {
   ready: boolean;
   /** Git revision the client was served from (`__VS_BUILD_REV__`). */
   buildRev: string;
-  /** `'booting'` until `ready`; then the screen from `main/app.ts` (#9): `'title'`, `'playing'`, `'levelUp'` (#11), `'chest'` (#15) or `'results'`. */
+  /** `'booting'` until `ready`; then the screen from `main/app.ts` (#9): `'title'`, `'playing'`, `'levelUp'` (#11), `'chest'` (#15), `'results'`, `'versusPlaying'` or `'versusResult'` (#20). */
   state: string;
 };

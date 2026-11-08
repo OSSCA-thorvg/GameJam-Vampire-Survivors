@@ -6,6 +6,7 @@ import type {
   BackgroundPolicy,
   Finale,
   GameMainToWorker,
+  RunMode,
   MainToWorker,
   TestSnapshotRequest,
   WorkerToMain,
@@ -22,6 +23,9 @@ import { HUD_FONT, initThorVG, type ThorVGContext } from './render/thorvg';
 import { loadManifest } from './assets/manifest';
 import { AssetLibrary } from './assets/library';
 import { createLayers } from './render/layers';
+import { createDefeatOverlay, type DefeatOverlay } from './render/defeat';
+import { createStatusEmitter } from './game/status';
+import { createSpawnLog } from './game/spawn-log';
 import { createGameView } from './game/view';
 import { createSession, type Session } from './game/session';
 import { createLevelUpFlow, xpForNextLevel } from './game/level';
@@ -98,6 +102,10 @@ const chests = createChestFlow({
     loop?.resume();
   },
 });
+/** A versus run's `status` messages (#20); single-player runs post none. */
+const statuses = createStatusEmitter(post);
+/** The dimmed world and its line after a versus death (#20); `null` in `?gallery` and `?stress`. */
+let defeat: DefeatOverlay | null = null;
 /** The `E` debug key's next pair in `EVOLUTIONS`, kept across runs (dev builds only). */
 let evolutionIndex = 0;
 let library: AssetLibrary | null = null;
@@ -126,6 +134,7 @@ function step(dtSec: number): void {
   const world = session?.world;
   if (world) {
     world.step(dtSec);
+    statuses.afterStep(world, dtSec);
     levelUps.afterStep(world);
     chests.afterStep(world);
   }
@@ -215,19 +224,37 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
       }
     }
     if (!gallery && !stress) {
+      const layers = createLayers(context.root);
       const gameView = createGameView({
         TVG: context.TVG,
         library,
-        layers: createLayers(context.root),
+        layers,
         scale: () => size.scale,
       });
-      const runs = createSession(gameView, (stats) => {
-        paused = true;
-        loop?.pause();
-        post({ type: 'gameOver', stats });
-      });
+      const overlay = createDefeatOverlay(context.TVG, context.root, [layers.world, layers.hud]);
+      defeat = overlay;
+      const spawnLog =
+        import.meta.env.DEV || import.meta.env.MODE === 'e2e' ? createSpawnLog() : undefined;
+      const runs = createSession(
+        gameView,
+        (stats) => {
+          paused = true;
+          loop?.pause();
+          const world = session?.world;
+          // A versus death (#20): one last status, then the frozen world dims under the defeat line.
+          if (world) {
+            statuses.final(world);
+            if (world.mode === 'versus' && world.state === 'dead') overlay.setVisible(true);
+          }
+          post({ type: 'gameOver', stats });
+        },
+        spawnLog,
+      );
       session = runs;
       if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
+        if (spawnLog) registerSnapshotField('spawnLog', () => spawnLog.read());
+        registerSnapshotField('mode', () => runs.world?.mode ?? null);
+        registerSnapshotField('defeated', () => overlay.visible);
         registerSnapshotField('timeS', () => runs.world?.time ?? 0);
         registerSnapshotField('player', () => (runs.world ? readPlayerSnapshot(runs.world) : null));
         registerSnapshotField('enemies', () => runs.world?.enemies.count ?? 0);
@@ -342,18 +369,22 @@ function applySize(): void {
  * Replaces the current run with a fresh world (#9). The view's pools are released and reused, so no Paint is created
  * or disposed; the world's typed-array stores are new. Unpauses the loop.
  */
-function startRun(seed: number, characterId: string, finale: Finale): void {
+function startRun(seed: number, characterId: string, finale: Finale, mode: RunMode): void {
   if (!session || !loop) {
     console.warn('[worker] startRun before the game view is ready; ignored');
     return;
   }
   levelUps.reset();
   chests.reset();
-  const run = session.start(seed, characterId, finale);
+  statuses.reset();
+  defeat?.setVisible(false);
+  const run = session.start(seed, characterId, finale, mode);
   run.input.dx = inputX;
   run.input.dy = inputY;
   paused = false;
   loop.resume();
+  // After a `forceEnd` (#20) the loop was stopped.
+  loop.start();
   if (import.meta.env.DEV) console.warn(`[worker] run started, seed ${String(seed)}`);
 }
 
@@ -362,9 +393,18 @@ function endRun(): void {
   levelUps.reset();
   chests.reset();
   session?.end();
+  defeat?.setVisible(false);
   paused = false;
   loop?.resume();
+  loop?.start();
   render();
+}
+
+/** The versus match is decided (#20): stop stepping and rendering, so the last frame stays on the canvas. */
+function forceEnd(): void {
+  paused = true;
+  loop?.pause();
+  loop?.stop();
 }
 
 /** Answers the test bridge (dev and e2e builds only; every call is behind that guard). */
@@ -420,7 +460,15 @@ function handle(message: GameMainToWorker): void {
       if (import.meta.env.DEV) console.warn(`[worker] background policy: ${message.policy}`);
       break;
     case 'startRun':
-      startRun(message.seed, message.characterId, message.finale ?? 'death');
+      startRun(
+        message.seed,
+        message.characterId,
+        message.finale ?? 'death',
+        message.mode ?? 'single',
+      );
+      break;
+    case 'forceEnd':
+      forceEnd();
       break;
     case 'endRun':
       endRun();
