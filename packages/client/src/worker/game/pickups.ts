@@ -1,10 +1,13 @@
 import type { Scene } from '@thorvg/webcanvas';
-import { PICKUPS, type Rng } from '@vs/shared';
+import { INTERFERENCE, INTERFERENCE_RULES, PICKUPS, type Rng } from '@vs/shared';
 import type { AssetLibrary } from '../assets/library';
 import { createStore, type Store } from '../ecs/store';
 import { PaintPool, RenderBinding } from '../render/pool';
 
-/** Pickup columns (#16). `defIdx` indexes `PICKUPS`; `family` 0 is a light-source pickup, 1 is reserved for #21. */
+/**
+ * Pickup columns (#16). `family` 0 is a light-source pickup (`defIdx` indexes `PICKUPS`), 1 an interference item (#21,
+ * `defIdx` indexes `INTERFERENCE`).
+ */
 export const PICKUP_SCHEMA = {
   x: 'f32',
   y: 'f32',
@@ -19,23 +22,39 @@ export type PickupStore = Store<typeof PICKUP_SCHEMA>;
 export const PICKUP_CAP = 32;
 /** A pickup dropped by a light source (`PICKUPS`). */
 export const PICKUP_FAMILY_LIGHT = 0;
-/** Reserved for the multiplayer interference items (#21). */
+/** A multiplayer interference item (#21); `defIdx` indexes `INTERFERENCE`. */
 export const PICKUP_FAMILY_INTERFERENCE = 1;
 
 export interface PickupState {
   pickups: PickupStore;
-  /** `null` when the world only simulates (unit tests). Pool `i` draws `PICKUPS[i].assetId`. */
+  /**
+   * `null` when the world only simulates (unit tests). Pool `i` draws `PICKUPS[i].assetId`, then pool
+   * `PICKUPS.length + k` draws `INTERFERENCE[k].assetId` (#21, `pickupPoolIndex`).
+   */
   pickupBinding: RenderBinding<typeof PICKUP_SCHEMA> | null;
   /** `rng.fork('pickups')`: drop rolls only, so drops never shift the spawn stream. */
   readonly pickupRng: Rng;
 }
 
-/** One pool per `PICKUPS` entry in the `pickups` layer, prewarmed to `PICKUP_CAP`. Created once by the game view. */
+/**
+ * One pool per `PICKUPS` entry in the `pickups` layer, prewarmed to `PICKUP_CAP`, then one per `INTERFERENCE` entry
+ * (#21), prewarmed to `INTERFERENCE_RULES.maxOnGround`. Created once by the game view.
+ */
 export function createPickupPools(
   library: Pick<AssetLibrary, 'create'>,
   layer: Pick<Scene, 'add'>,
 ): PaintPool[] {
-  return PICKUPS.map((def) => new PaintPool(library, def.assetId, layer, PICKUP_CAP));
+  return [
+    ...PICKUPS.map((def) => new PaintPool(library, def.assetId, layer, PICKUP_CAP)),
+    ...INTERFERENCE.map(
+      (def) => new PaintPool(library, def.assetId, layer, INTERFERENCE_RULES.maxOnGround),
+    ),
+  ];
+}
+
+/** The pickup pool that draws `defIdx` of `family` (#21). */
+export function pickupPoolIndex(family: number, defIdx: number): number {
+  return family === PICKUP_FAMILY_INTERFERENCE ? PICKUPS.length + defIdx : defIdx;
 }
 
 export function createPickupState(rng: Rng, pools?: readonly PaintPool[]): PickupState {
@@ -62,7 +81,7 @@ export function spawnPickup(
   cols.y[slot] = y;
   cols.defIdx[slot] = defIdx;
   cols.family[slot] = family;
-  world.pickupBinding?.bind(slot, defIdx);
+  world.pickupBinding?.bind(slot, pickupPoolIndex(family, defIdx));
   return slot;
 }
 

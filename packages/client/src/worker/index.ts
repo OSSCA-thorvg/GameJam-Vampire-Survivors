@@ -33,6 +33,7 @@ import { createChestFlow } from './game/systems/chest-open';
 import { spawnBoss } from './game/systems/bosses';
 import { forceEvolution, nextEvolution } from './game/debug-evolution';
 import {
+  countElites,
   readBosses,
   readChestPositions,
   readEnemyPositions,
@@ -45,11 +46,18 @@ import { grantNextPassive } from './game/passives';
 import { readLights } from './game/light-sources';
 import { readPickups, spawnDebugPickup } from './game/pickups';
 import { isFrozen } from './game/systems/freeze';
+import {
+  drainCollected,
+  interferenceOnGround,
+  queueInterference,
+  spawnDebugInterference,
+} from './game/systems/interference';
 import { recomputeStats } from './game/stats';
 import { grantNextWeapon } from './game/weapons/owned';
 import { buildGallery, type Gallery } from './debug/gallery';
 import { noteFrame, registerSnapshotField, takeSnapshot } from './test-bridge';
 import type { StressScene } from './debug/stress';
+import { INTERFERENCE } from '@vs/shared';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -119,6 +127,12 @@ const assetState = {
   font: 'default',
 };
 
+/** #21: an interference pickup was collected; the main thread sends it to the server. */
+const postCollected = (index: number): void => {
+  const def = INTERFERENCE[index];
+  if (def) post({ type: 'interferenceCollected', kind: def.kind });
+};
+
 const describeScene = (): string => {
   const world = session?.world;
   return world
@@ -134,6 +148,7 @@ function step(dtSec: number): void {
   const world = session?.world;
   if (world) {
     world.step(dtSec);
+    drainCollected(world, postCollected);
     statuses.afterStep(world, dtSec);
     levelUps.afterStep(world);
     chests.afterStep(world);
@@ -285,6 +300,10 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         registerSnapshotField('cleared', () => runs.world?.cleared ?? false);
         registerSnapshotField('eventsFired', () => runs.world?.nextEventIndex ?? 0);
         registerSnapshotField('debugInvulnerable', () => runs.world?.debugInvulnerable ?? false);
+        registerSnapshotField('interferenceOnGround', () =>
+          runs.world ? interferenceOnGround(runs.world) : 0,
+        );
+        registerSnapshotField('elites', () => (runs.world ? countElites(runs.world) : 0));
         // An unsupported `?stress` value falls back to this view, but it is still a stress boot: no `debug` field (#92).
         if (!message.debug?.stress)
           registerSnapshotField('debug', () => ({ paintsCreated: gameView.countPaints() }));
@@ -305,6 +324,11 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         registerDebugHandler('spawnPickup', () => {
           const id = runs.world ? spawnDebugPickup(runs.world) : null;
           console.warn(`[debug] spawnPickup: ${id ?? 'nothing spawned'}`);
+        });
+      if (import.meta.env.DEV)
+        registerDebugHandler('spawnInterference', () => {
+          const kind = runs.world ? spawnDebugInterference(runs.world) : null;
+          console.warn(`[debug] spawnInterference: ${kind ?? 'nothing spawned'}`);
         });
       if (import.meta.env.DEV)
         registerDebugHandler('forceEvolution', () => {
@@ -478,6 +502,9 @@ function handle(message: GameMainToWorker): void {
       break;
     case 'chestClosed':
       if (session?.world) chests.close(session.world);
+      break;
+    case 'applyInterference':
+      if (session?.world) queueInterference(session.world, message.kind);
       break;
     case 'debug':
       if (import.meta.env.DEV) dispatchDebug(message.command);

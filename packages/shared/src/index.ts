@@ -78,3 +78,10 @@ export { CHARACTERS, findCharacter } from './content/characters.js';
 export type { CharacterDef, CharacterId } from './content/characters.js';
 export { PICKUPS, LIGHT_SOURCE, PICKUP_COLLECT_RADIUS } from './content/pickups.js';
 export type { PickupDef, PickupEffect } from './content/pickups.js';
+export {
+  INTERFERENCE,
+  INTERFERENCE_RULES,
+  INTERFERENCE_SEND_LIMIT,
+  interferenceIndex,
+} from './content/interference.js';
+export type { InterferenceDef, InterferenceEffect } from './content/interference.js';

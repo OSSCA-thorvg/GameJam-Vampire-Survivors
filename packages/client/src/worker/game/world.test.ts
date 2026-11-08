@@ -20,12 +20,18 @@ import { finaleSystem } from './systems/finale';
 import { spawnerSystem } from './systems/spawner';
 import { stageEventSystem } from './systems/stage-events';
 import { weaponSystem } from './weapons/system';
+import {
+  interferenceApplySystem,
+  interferenceCollectSystem,
+  interferenceDropSystem,
+} from './systems/interference';
 import { inputSystem, SYSTEMS } from './world';
 import { createBaseWorld } from './base-world';
 
-it('runs input, movement, camera, the spawner, enemy movement, relocation, contact damage, recovery, the combat systems, then gems and levels', () => {
+it('runs input, incoming interference (#21), movement, camera, the spawner, enemy movement, relocation, contact damage, recovery, the combat systems, interference collection and drops, then gems and levels', () => {
   expect(SYSTEMS).toEqual([
     inputSystem,
+    interferenceApplySystem,
     playerMovementSystem,
     cameraSystem,
     lightSourceSystem,
@@ -40,9 +46,11 @@ it('runs input, movement, camera, the spawner, enemy movement, relocation, conta
     weaponSystem,
     projectileSystem,
     pickupSystem,
+    interferenceCollectSystem,
     fxSystem,
     cleanupSystem,
     chestDropSystem,
+    interferenceDropSystem,
     gemDropSystem,
     gemSystem,
     levelSystem,
