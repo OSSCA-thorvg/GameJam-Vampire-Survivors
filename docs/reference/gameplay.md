@@ -42,6 +42,12 @@ Things to measure from footage and write down here: player move speed (screen wi
 - At the time limit, the stage is cleared and a very strong final enemy ("Death") appears. **[Wikipedia]**
 - One wiki source mentions a hard cap of about 500 enemies alive. This game's caps are in ADR 0007. **[Fandom wiki; low confidence]**
 
+### On-screen counts and this game's wave table (#8)
+
+- **Not yet measured from footage.** The issue asks for the number of enemies on screen at minutes 1, 5 and 10 of the original, from footage with a source and timestamp. The session that implemented #8 could not watch video, and the project owner decided not to tune against footage for now, so these counts are **[unverified]**: measure them from a long unedited run (video section above) and record minute, count, source and timestamp here.
+- **This game, untuned initial values** (`packages/shared/src/content/stage.ts`, #8): `minAlive` is 15 at minute 0, 25 at minute 1, 100 at minute 5, 240 at minute 10 and 300 at minute 14, with a batch of 3 to 20 every 2.0 to 0.5 s; bats only until minute 3, then bats and ghouls 3:1, then 1:1 from minute 6. Enemies spawn on the view's perimeter expanded by 64 units and are relocated ahead of the player beyond 1360 units.
+- **Observed in this game** (source: `verify-game` `features/enemies.md`, issue #8 verification, 2026-11-08): with nothing killing enemies yet, standing still for 60 s gathers about 100 bats in a disc of about 150 units around the player, and the count reaches the 400 cap by minute 5 of fast-forwarded time. Compare with footage once #10 kills enemies, because the live count then depends on the kill rate.
+
 ## Experience gems
 
 - Gems come in blue (1 XP), green (5 XP) and red (10+ XP); stronger enemies drop higher tiers. **[Namu Wiki §7.1]**

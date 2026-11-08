@@ -1,11 +1,21 @@
 import { expect, it } from 'vitest';
 import { cameraSystem } from './camera';
 import { playerMovementSystem } from './player';
-import { readPlayerSnapshot } from './snapshot';
+import { readEnemyPositions, readPlayerSnapshot } from './snapshot';
+import { enemyMovementSystem } from './systems/enemy-movement';
+import { enemyRelocateSystem } from './systems/enemy-relocate';
+import { spawnerSystem } from './systems/spawner';
 import { createWorld, inputSystem, SYSTEMS } from './world';
 
-it('runs input, movement, then camera', () => {
-  expect(SYSTEMS).toEqual([inputSystem, playerMovementSystem, cameraSystem]);
+it('runs input, movement, camera, then the spawner, enemy movement and relocation', () => {
+  expect(SYSTEMS).toEqual([
+    inputSystem,
+    playerMovementSystem,
+    cameraSystem,
+    spawnerSystem,
+    enemyMovementSystem,
+    enemyRelocateSystem,
+  ]);
 });
 
 it('stores the seed and character, seeds the root stream and reports the player snapshot', () => {
@@ -40,6 +50,7 @@ it('renders through the view: the world layer follows the camera, snapped to dev
           translate: (x: number, y: number) => (translations.push([x, y]), undefined as never),
         },
         ground: { add: () => undefined as never },
+        enemies: { add: () => undefined as never },
         player: { add: () => undefined as never },
       },
       scale: () => 2,
@@ -51,8 +62,23 @@ it('renders through the view: the world layer follows the camera, snapped to dev
   world.render(0);
   expect(created.filter((id) => id === 'stage.ground')).toHaveLength(96);
   expect(created.filter((id) => id === 'player.warden')).toHaveLength(1);
-  expect(created).toHaveLength(97);
+  expect(created.filter((id) => id === 'enemy.bat')).toHaveLength(200);
+  expect(created.filter((id) => id === 'enemy.ghoul')).toHaveLength(200);
+  expect(created).toHaveLength(497);
   const [x, y] = translations[0] ?? [NaN, NaN];
   expect(x * 2).toBe(Math.round((640 - world.player.x) * 2));
   expect(y).toBe(360);
+});
+
+it('reports live enemies as [uid, type, x, y] with rounded positions', () => {
+  const world = createWorld({ seed: 3 });
+  world.step(1 / 60);
+  const rows = readEnemyPositions(world);
+  expect(rows).toHaveLength(world.enemies.count);
+  expect(rows[0]).toEqual([
+    world.enemies.uid[0],
+    0,
+    Math.round(world.enemies.cols.x[0] ?? NaN),
+    Math.round(world.enemies.cols.y[0] ?? NaN),
+  ]);
 });
