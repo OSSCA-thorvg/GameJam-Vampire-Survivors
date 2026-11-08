@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test as base } from '@playwright/test';
 import { evidencePath } from '../helpers';
+import { waitForOwnedCdpEndpoint } from '../../scripts/verify/native-cdp';
 
 /** A fresh task-owned browser, retaining native tab visibility rather than Playwright's focus override. */
 export const test = base.extend({
@@ -26,10 +27,10 @@ export const test = base.extend({
     let tracingStarted = false;
     try {
       if (!profile) throw new Error('Owned BrowserServer did not report its generated profile');
-      const port = readFileSync(join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0];
-      if (!port || !/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535)
-        throw new Error('Owned browser did not report a valid local CDP port');
-      const endpoint = `http://127.0.0.1:${port}`;
+      const endpoint = await waitForOwnedCdpEndpoint({
+        profile,
+        isAlive: () => child.exitCode === null && child.signalCode === null,
+      });
       writeFileSync(
         join(dir, 'ownership.json'),
         JSON.stringify({ pid: child.pid, profile, endpoint }, null, 2),

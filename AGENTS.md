@@ -8,7 +8,7 @@ Use Node 24: `nvm use`, `corepack enable`, `pnpm install`.
 
 - `pnpm assets:sync`: regenerate shared asset IDs/sizes after catalog edits.
 - `pnpm dev`: client on :5173. `pnpm server:up`: Docker server on :8787.
-- `pnpm check`: format, lint, typecheck, Vitest, verify-CLI argument tests, build, then `test:build`.
+- `pnpm check`: format, lint, typecheck, Vitest, verification harness tests, build, then `test:build`.
 - `pnpm format`, `pnpm lint:fix`: fixes. `pnpm test`: unit suites. `pnpm test:build`: requires built artifacts.
 - `pnpm verify:e2e --issue <N>`: browser smoke/native hidden-tab tests and cleanup (`--project chromium` selects headless smoke).
 

@@ -12,6 +12,7 @@ Each row is one GitHub issue, and the issue is the source of truth for scope and
 | F1                                              | #1    | Set up the pnpm monorepo with lint, format, tests and CI               | —              | high     |
 | F2                                              | #2    | Boot ThorVG in a game worker on an OffscreenCanvas                     | F1             | high     |
 | V1                                              | #31   | Create the verify-game skill and Playwright harness                    | F2             | high     |
+| V2                                              | #72   | Wait for the owned browser CDP endpoint to become ready                | #52            | high     |
 | F3                                              | #3    | Load art through the asset manifest with placeholder assets            | F2, V1         | high     |
 | F4                                              | #4    | Run the server in Docker with docker compose                           | F1             | high     |
 | F5                                              | #46   | Bundle a HUD font subset with the missing ASCII glyphs                 | F2             | high     |
