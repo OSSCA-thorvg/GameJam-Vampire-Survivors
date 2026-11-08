@@ -2,7 +2,7 @@
 // mounts the new one and tells the worker. The DOM never reads game state; what it shows arrives as messages (ADR 0004).
 import { CHARACTERS, type CharacterId, type ChestReward, type PlayerInfo } from '@vs/shared';
 import { assertNever } from '../protocol/assert-never';
-import type { LevelUpOption, MainToWorker, RunStats } from '../protocol/worker-messages';
+import type { LevelUpOption, MainToWorker, RunSummary } from '../protocol/worker-messages';
 import { browserSocket } from './net/browser-socket';
 import { NetClient, type NetState } from './net/client';
 import { SERVER_URL } from './net/config';
@@ -43,7 +43,7 @@ export type AppState =
   | { name: 'levelUp'; level: number; options: LevelUpOption[] }
   /** #15: the worker paused the run while the chest overlay shows its rewards. */
   | { name: 'chest'; rewards: ChestReward[] }
-  | { name: 'results'; stats: RunStats };
+  | { name: 'results'; stats: RunSummary };
 
 export type AppEvent =
   | { type: 'start' }
@@ -63,7 +63,7 @@ export type AppEvent =
   | { type: 'back' }
   | { type: 'pauseToggle' }
   | { type: 'quitToTitle' }
-  | { type: 'gameOver'; stats: RunStats }
+  | { type: 'gameOver'; stats: RunSummary }
   | { type: 'retry' }
   | { type: 'hidden' }
   /** #11: from the worker; a level-up choice is waiting. */

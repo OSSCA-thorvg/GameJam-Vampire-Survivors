@@ -1,6 +1,11 @@
-import { ELITE, EVOLUTION_MIN_TIME_S, EVOLUTIONS, MAX_WEAPON_SLOTS } from '@vs/shared';
+import { ELITE, ENEMIES, EVOLUTION_MIN_TIME_S, EVOLUTIONS, MAX_WEAPON_SLOTS } from '@vs/shared';
 import { expect, it } from 'vitest';
-import { forceEvolution, FORCED_ELITE_OFFSET, nextEvolution } from './debug-evolution';
+import {
+  forceEvolution,
+  FORCED_ELITE_ENEMY,
+  FORCED_ELITE_OFFSET,
+  nextEvolution,
+} from './debug-evolution';
 import { ENEMY_FLAG_ELITE } from './enemies';
 import { readPassives, readWeapons } from './snapshot';
 import { availableEvolution } from './systems/chest-open';
@@ -21,7 +26,8 @@ it('sets up each pair: maxed weapon, passive, 5:00 and an elite in front of the 
     expect(world.enemies.count).toBe(1);
     expect((flags[0] ?? 0) & ENEMY_FLAG_ELITE).toBe(ENEMY_FLAG_ELITE);
     expect(x[0]).toBe(world.player.x + FORCED_ELITE_OFFSET);
-    expect(hp[0]).toBe(5 * ELITE.hp);
+    expect(hp[0]).toBe(ENEMIES[FORCED_ELITE_ENEMY].maxHp * ELITE.hp);
+    expect(FORCED_ELITE_ENEMY).toBe('bat');
   }
   expect(nextEvolution(EVOLUTIONS.length)).toBe(EVOLUTIONS[0]);
 });

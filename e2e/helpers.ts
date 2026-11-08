@@ -175,3 +175,30 @@ export function answerLevelUps(page: Page): () => Promise<number> {
     return answered;
   };
 }
+
+/**
+ * Fast-forwards the run with `]` (the dev-only `fastForward` key, a precondition only) until `timeS >= targetS`,
+ * answering each level-up with `1` and closing each chest with Enter on the way (#17): a fast-forward stops advancing
+ * at the first pending choice, so one press may cover less than 60 s. Long runs need invulnerability first (`I`, #17).
+ * Calls `onPress` with the snapshot after each press; resolves with the first snapshot at or past `targetS`, or on the
+ * results screen.
+ */
+export async function forwardTo(
+  page: Page,
+  targetS: number,
+  onPress: (s: GameSnapshot) => Promise<void> | void = () => undefined,
+): Promise<GameSnapshot> {
+  for (let i = 0; i < 1000; i++) {
+    const s = await snapshot(page);
+    if (s.timeS >= targetS || s.state === 'results') return s;
+    if (s.state === 'levelUp') await page.keyboard.press('1');
+    else if (s.state === 'chest') await page.keyboard.press('Enter');
+    else {
+      await page.keyboard.press(']');
+      await page.waitForTimeout(150);
+      await onPress(await snapshot(page));
+    }
+    await page.waitForTimeout(50);
+  }
+  throw new Error(`forwardTo: could not reach ${String(targetS)} s`);
+}

@@ -14,6 +14,7 @@ export const AXE_LAUNCH_VY = -600;
 
 const opts: ProjectileOptions = {
   damage: 0,
+  weaponSlot: 0,
   knockback: 0,
   radius: 0,
   pierce: 1,
@@ -35,6 +36,7 @@ export const axe: WeaponPatternModule = {
   fire(ctx, w, lv, shot) {
     const { x, y } = ctx.player;
     opts.damage = lv.damage;
+    opts.weaponSlot = w.slot;
     opts.knockback = lv.knockback;
     opts.radius = AXE_RADIUS * lv.area;
     opts.scale = lv.area;

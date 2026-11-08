@@ -9,6 +9,7 @@ export const CROSS_RANGE = 900;
 
 const opts: ProjectileOptions = {
   damage: 0,
+  weaponSlot: 0,
   knockback: 0,
   radius: 0,
   pierce: 1,
@@ -28,6 +29,7 @@ export const cross: WeaponPatternModule = {
     const { x, y } = ctx.player;
     const dir = aimAt(ctx, ctx.nearest(x, y, CROSS_RANGE));
     opts.damage = lv.damage;
+    opts.weaponSlot = w.slot;
     opts.knockback = lv.knockback;
     opts.radius = CROSS_RADIUS * lv.area;
     opts.scale = lv.area;

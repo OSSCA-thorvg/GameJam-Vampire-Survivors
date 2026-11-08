@@ -1,5 +1,10 @@
 import { ELITE, HIT_INVULN_SEC, MAX_ENEMY_RADIUS, PLAYER_RADIUS } from '@vs/shared';
-import { ENEMY_CONTACT_DAMAGE, ENEMY_FLAG_ELITE, enemyRadius } from '../enemies';
+import {
+  ENEMY_CONTACT_DAMAGE,
+  ENEMY_FLAG_ELITE,
+  ENEMY_IGNORES_ARMOR,
+  enemyRadius,
+} from '../enemies';
 import type { World } from '../world';
 import { isFrozen } from './freeze';
 
@@ -13,8 +18,9 @@ const EPSILON = 1e-6;
  * `PLAYER_RADIUS + radius`) deals `max(1, contactDamage - armor)`, then the player is invulnerable for
  * `HIT_INVULN_SEC`, so a crowd lands one hit per window. Pushes a `playerHit` event. At 0 HP it sets `world.state` to
  * `'dead'`; `world.step` then stops and reports the game over once. Deals nothing while frozen (#16). An elite deals
- * `ELITE.damage` times its type's damage (#15). Does nothing while the dev-only `world.debugInvulnerable` is set (#15,
- * #17). Reads `world.enemyGrid`, rebuilt this step by the movement system.
+ * `ELITE.damage` times its type's damage (#15); an `ignoresArmor` enemy (Death, #17) skips the armor subtraction.
+ * Does nothing while the dev-only `world.debugInvulnerable` is set (`I` key, #15, #17). Reads `world.enemyGrid`,
+ * rebuilt this step by the movement system.
  */
 export function contactDamageSystem(world: World, dt: number): void {
   const { player } = world;
@@ -35,6 +41,7 @@ export function contactDamageSystem(world: World, dt: number): void {
     touching,
   );
   let damage = 0;
+  let ignoresArmor = false;
   for (let n = 0; n < found; n++) {
     const i = touching[n] ?? 0;
     const t = type[i] ?? 0;
@@ -43,10 +50,13 @@ export function contactDamageSystem(world: World, dt: number): void {
     const dy = (y[i] ?? 0) - player.y;
     if (dx * dx + dy * dy >= reach * reach) continue;
     const elite = ((flags[i] ?? 0) & ENEMY_FLAG_ELITE) !== 0;
-    damage = Math.max(damage, (ENEMY_CONTACT_DAMAGE[t] ?? 0) * (elite ? ELITE.damage : 1));
+    const hit = (ENEMY_CONTACT_DAMAGE[t] ?? 0) * (elite ? ELITE.damage : 1);
+    if (hit <= damage) continue;
+    damage = hit;
+    ignoresArmor = ENEMY_IGNORES_ARMOR[t] === 1;
   }
   if (damage <= 0) return;
-  const amount = Math.max(1, damage - player.armor);
+  const amount = ignoresArmor ? damage : Math.max(1, damage - player.armor);
   player.hp = Math.max(0, player.hp - amount);
   player.invulnTime = HIT_INVULN_SEC;
   const event = world.events.push('playerHit');

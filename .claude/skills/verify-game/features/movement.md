@@ -107,12 +107,19 @@ async function seams(page: Page, png: Buffer) {
       for (let y = top; y < h; y++) if (dark(x, y)) n++;
       if (n > (h - top) / 2) cols.push(x);
     }
-    let darkestBorder = 255;
-    // The top edge is under the XP bar and the HUD texts since #11, so only the other three edges are checked.
-    for (let x = 0; x < w; x++) darkestBorder = Math.min(darkestBorder, lum(((h - 1) * w + x) * 4));
-    for (let y = top; y < h; y++)
-      darkestBorder = Math.min(darkestBorder, lum(y * w * 4), lum((y * w + w - 1) * 4));
-    return { width: w, height: h, baseLum, rows, cols, edgeGap: darkestBorder < baseLum - 12 };
+    // The top edge is under the XP bar and the HUD texts since #11, so only the other three edges are checked. A gap
+    // darkens most of an edge line; an enemy sprite crossing the edge (dark ghouls from minute 0 since #17) darkens a
+    // few dozen pixels, so an edge counts as a gap when more than half of it is dark, as for `rows` and `cols`.
+    let bottom = 0;
+    let left = 0;
+    let right = 0;
+    for (let x = 0; x < w; x++) if (dark(x, h - 1)) bottom++;
+    for (let y = top; y < h; y++) {
+      if (dark(0, y)) left++;
+      if (dark(w - 1, y)) right++;
+    }
+    const edgeGap = bottom > w / 2 || left > (h - top) / 2 || right > (h - top) / 2;
+    return { width: w, height: h, baseLum, rows, cols, edgeGap, edgeDark: { bottom, left, right } };
   }, png.toString('base64'));
 }
 
@@ -202,6 +209,7 @@ test('movement: 8 directions at one speed, facing, stop, camera and ground', asy
     // 5. ArrowLeft + ArrowUp for 30 s into negative coordinates, a screenshot every 5 s. A fresh run (#9): the
     // first one has taken contact damage by now and could die on the way.
     await startRun(page);
+    await page.keyboard.press('i'); // precondition only (#17): invulnerable, so the 30 s run cannot end in death
     answerLevelUps(page); // #11: a run pauses on each level-up; answer it with 1 and keep playing
     const trail: PlayerSnap[] = [];
     await page.keyboard.down('ArrowLeft');
@@ -317,7 +325,8 @@ test('movement: switching tabs while holding a key stops the player', async ({
 ## Gotchas
 
 - Since #11 the HUD's XP bar spans the top edge: the seam check skips the top band (16 view units) and no longer checks the top edge for gaps, and the journeys answer level-up dialogs with `answerLevelUps`; a hold during which the level rose is repeated (up to 3 times), since the dialog froze part of it, and the seam check skips frames with the dialog, which dims the whole view (2026-11-08, #11).
-- The 30 s diagonal run (step 5) runs into relocated enemies ahead: one #9 run ended it at 15 HP of 100. It starts a fresh run for that reason, but a death on the way remains possible until the invulnerability precondition exists (`KeyI`, #17); if it dies (the trail stops short, `state: 'results'`), rerun once and report it, never shorten the run (2026-11-08, #9).
+- The 30 s diagonal run (step 5) runs into relocated enemies ahead: one #9 run ended it at 15 HP of 100. It starts a fresh run for that reason and, since #17, presses `I` (invulnerability) first, so it can no longer die on the way (2026-11-08, #9; `I` added 2026-11-08, #17).
+- The edge-gap check used to fail on any single border pixel darker than the ground. Since #17 ghouls (dark sprites) spawn from minute 0 and one crossing the bottom edge failed the 30 s run's check at 25 s with no gap in the ground; an edge now counts as a gap when more than half of its line is dark (`edgeDark` in the seams JSON has the counts). The fractional-scale journey still fails on `main` (92f81aa) and on #17's branch with a dark left column (`cols: [0]`), a real one-pixel gap at the left edge at scale 1005 × 565 that predates #17 (2026-11-08, #17).
 - Since #9 the run starts from the title screen and the player takes contact damage: `startRun` (`e2e/helpers.ts`) presses Enter on "Start" and, since #14, Enter on the character select (Warden); a long journey that stands still dies and ends on the results screen. Hiding the tab mid-run brings the pause overlay back (2026-11-08, #9).
 - Each extension `key` press is an instant down and up, so the extension cannot prove distances per second; use the Playwright holds (2026-11-08, #7).
 - `holdKeys` timing jitters by tens of milliseconds, and the release reaches the worker a step or two later: one hold measured 142.3 units for a nominal 1 s. The journey allowed 140 ± 10 (133 ± 10 since #14 made Warden, at 0.95 move speed, the default); one run of five failed once in #7 (its evidence was overwritten before it was read), so rerun once before treating a single miss as a regression (2026-11-08, #7).

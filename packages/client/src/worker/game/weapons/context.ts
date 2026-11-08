@@ -46,7 +46,15 @@ export interface WeaponContext {
     ttl: number,
     scale?: number,
   ): number;
-  damageEnemy(slot: number, amount: number, dirX: number, dirY: number, knockback: number): void;
+  /** `damageEnemy` with `source`, the weapon slot (`w.slot`) whose hit this is (#17). */
+  damageEnemy(
+    slot: number,
+    amount: number,
+    dirX: number,
+    dirY: number,
+    knockback: number,
+    source: number,
+  ): void;
   /**
    * Hits the intact light sources overlapping a circle or a box (#16); with `cooldown`, only lights not hit by such a
    * weapon for that many seconds. Lights are not enemies: no kill, no pierce used. Returns the number hit.
@@ -100,8 +108,8 @@ export function createWeaponContext(world: World): WeaponContext {
       spawnProjectile(world, assetId, x, y, vx, vy, opts),
     spawnFx: (assetId, x, y, rotationDeg, flipX, ttl, scale) =>
       spawnFx(world, assetId, x, y, rotationDeg, flipX, ttl, scale),
-    damageEnemy: (slot, amount, dirX, dirY, knockback) => {
-      damageEnemy(world, slot, amount, dirX, dirY, knockback);
+    damageEnemy: (slot, amount, dirX, dirY, knockback, source) => {
+      damageEnemy(world, slot, amount, dirX, dirY, knockback, source);
     },
     hitLightsInCircle: (x, y, r, damage, cooldown) =>
       hitLightsInCircle(world, x, y, r, damage, cooldown),
@@ -115,7 +123,7 @@ export function createWeaponContext(world: World): WeaponContext {
         lv.critChance ?? 0,
         lv.critMultiplier ?? 1,
       );
-      damageEnemy(world, slot, amount, dirX, dirY, lv.knockback);
+      damageEnemy(world, slot, amount, dirX, dirY, lv.knockback, w.slot);
       const every = lv.healEveryHits ?? 0;
       if (every <= 0) return;
       w.hits++;

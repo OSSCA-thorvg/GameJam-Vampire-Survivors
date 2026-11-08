@@ -16,7 +16,9 @@ import { enemyRelocateSystem } from './systems/enemy-relocate';
 import { recoverySystem } from './systems/recovery';
 import { lightSourceSystem } from './systems/light-sources';
 import { pickupSystem } from './systems/pickups';
+import { finaleSystem } from './systems/finale';
 import { spawnerSystem } from './systems/spawner';
+import { stageEventSystem } from './systems/stage-events';
 import { weaponSystem } from './weapons/system';
 import { inputSystem, SYSTEMS } from './world';
 import { createBaseWorld } from './base-world';
@@ -27,7 +29,9 @@ it('runs input, movement, camera, the spawner, enemy movement, relocation, conta
     playerMovementSystem,
     cameraSystem,
     lightSourceSystem,
+    finaleSystem,
     spawnerSystem,
+    stageEventSystem,
     enemyMovementSystem,
     enemyRelocateSystem,
     bossTetherSystem,

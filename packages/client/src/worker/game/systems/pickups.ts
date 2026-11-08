@@ -75,7 +75,7 @@ function clearScreen(world: World): void {
     const ex = x[i] ?? 0;
     const ey = y[i] ?? 0;
     if (ex < left || ex > right || ey < top || ey > bottom) continue;
-    damageEnemy(world, i, Math.max(hp[i] ?? 0, 1), 0, 0, 0);
+    damageEnemy(world, i, Math.max(hp[i] ?? 0, 1), 0, 0, 0, -1);
   }
 }
 

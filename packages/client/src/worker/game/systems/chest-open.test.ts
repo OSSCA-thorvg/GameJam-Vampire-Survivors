@@ -142,7 +142,7 @@ describe('chest rewards', () => {
 
 describe('chest drops and opening', () => {
   function killAt(world: World, slot: number): void {
-    damageEnemy(world, slot, 1e9, 0, 0, 0);
+    damageEnemy(world, slot, 1e9, 0, 0, 0, 0);
   }
 
   it('an elite and a boss each drop exactly one chest; a plain enemy drops none', () => {

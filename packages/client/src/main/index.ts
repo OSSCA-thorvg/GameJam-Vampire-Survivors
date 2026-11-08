@@ -194,6 +194,7 @@ async function boot(): Promise<void> {
     registerDebugKey('KeyK', { kind: 'spawnPickup' });
     registerDebugKey('KeyE', { kind: 'forceEvolution' });
     registerDebugKey('KeyB', { kind: 'spawnBoss' });
+    registerDebugKey('KeyI', { kind: 'toggleInvulnerable' });
     installDebugTools(worker);
   }
 }

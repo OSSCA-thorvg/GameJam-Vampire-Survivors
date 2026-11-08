@@ -9,6 +9,7 @@ export const WAND_BOLT_RADIUS = 6;
 /** Reused for every shot; `spawnProjectile` copies it. */
 const opts: ProjectileOptions = {
   damage: 0,
+  weaponSlot: 0,
   knockback: 0,
   radius: WAND_BOLT_RADIUS,
   pierce: 1,
@@ -24,6 +25,7 @@ export const magicWand: WeaponPatternModule = {
     const { x, y } = ctx.player;
     const dir = aimAt(ctx, ctx.nearest(x, y, WAND_RANGE));
     opts.damage = lv.damage;
+    opts.weaponSlot = w.slot;
     opts.knockback = lv.knockback;
     opts.pierce = lv.pierce;
     opts.ttl = lv.durationSec;

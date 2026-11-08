@@ -19,6 +19,25 @@ export interface RunStats {
   level: number;
 }
 
+/**
+ * The `gameOver` payload (#17): #9's `RunStats` plus what the results screen lists. `cleared` is true once the run
+ * reached the time limit, even when Death killed the player afterwards. `weapons` are sorted by `damage`, descending.
+ */
+export interface RunSummary extends RunStats {
+  cleared: boolean;
+  /** The `CharacterId` played. */
+  characterId: string;
+  /** Damage counted up to each enemy's remaining HP; an evolved weapon keeps its slot, so its total carries over. */
+  weapons: { id: string; level: number; damage: number }[];
+  passives: { id: string; level: number }[];
+}
+
+/**
+ * What the time limit does (#17): `'death'` (single player) clears the screen and spawns Death; `'end'` (versus, #20)
+ * ends the run with `cleared: true` and no Death (ADR 0005).
+ */
+export type Finale = 'death' | 'end';
+
 /** One card of the level-up choice (#11; passives #12). Text and icon come from content data only. */
 export type LevelUpOption =
   | { kind: 'newWeapon'; weaponId: WeaponId; name: string; description: string; iconId: AssetId }
@@ -63,8 +82,11 @@ export type MainToWorker =
   | { type: 'resume' }
   | { type: 'visibility'; hidden: boolean }
   | { type: 'setBackgroundPolicy'; policy: BackgroundPolicy }
-  /** #9: clears the previous run and starts a fresh one (unpaused). The worker starts no run on boot. */
-  | { type: 'startRun'; seed: number; characterId: string }
+  /**
+   * #9: clears the previous run and starts a fresh one (unpaused). The worker starts no run on boot. `finale` (#17)
+   * defaults to `'death'`.
+   */
+  | { type: 'startRun'; seed: number; characterId: string; finale?: Finale }
   /** #9: clears the run and draws an empty frame (back to the title). */
   | { type: 'endRun' }
   /** #11: the option chosen on the open level-up screen, an index into its `options`. */
@@ -80,8 +102,8 @@ export type WorkerToMain =
   | { type: 'assetsReady'; placeholders: string[] }
   | { type: 'fatal'; message: string }
   | { type: 'stats'; fps: number; stepsPerSecond: number }
-  /** #9: the player's HP reached 0; the run has stopped. Sent once per run. */
-  | { type: 'gameOver'; stats: RunStats }
+  /** #9: HP reached 0, or (#17) the time limit ended a `finale: 'end'` run; the run has stopped. Once per run. */
+  | { type: 'gameOver'; stats: RunSummary }
   /**
    * #11: a level-up is waiting; the worker has paused the run. `level` is the level being reached. Sent again, one at a
    * time, after each `levelUpChoice` while more are pending.
@@ -129,7 +151,9 @@ export type DebugCommand =
   /** #15: sets up the next pair of `EVOLUTIONS` and spawns an elite whose chest evolves it (`KeyE`). */
   | { kind: 'forceEvolution' }
   /** #15: spawns `reaper5` on the spawn ring (`KeyB`). */
-  | { kind: 'spawnBoss' };
+  | { kind: 'spawnBoss' }
+  /** #17: toggles `world.debugInvulnerable`, so long fast-forwarded runs survive (`KeyI`). */
+  | { kind: 'toggleInvulnerable' };
 
 /**
  * Read-only worker state for verification (`window.__vsTest`, dev and e2e builds only). One flat object: fields

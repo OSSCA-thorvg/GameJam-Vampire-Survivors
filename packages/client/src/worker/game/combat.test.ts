@@ -12,8 +12,8 @@ describe('combat', () => {
     const world = quietWorld();
     const bat = target(world, 'bat', 100, 0);
     const ghoul = target(world, 'ghoul', 200, 0);
-    damageEnemy(world, bat, 1, 1, 0, 100);
-    damageEnemy(world, ghoul, 1, 0, -1, 100);
+    damageEnemy(world, bat, 1, 1, 0, 100, 0);
+    damageEnemy(world, ghoul, 1, 0, -1, 100, 0);
     const { kbX, kbY, kbTime } = world.enemies.cols;
     expect(kbX[bat]).toBeCloseTo(100, 5);
     expect(kbY[bat]).toBe(0);
@@ -24,7 +24,7 @@ describe('combat', () => {
   it('pushes the enemy along the knockback for 0.12 s, then it chases again', () => {
     const world = quietWorld();
     const bat = target(world, 'bat', 100, 0);
-    damageEnemy(world, bat, 1, 1, 0, 200);
+    damageEnemy(world, bat, 1, 1, 0, 300, 0);
     const { x, vx } = world.enemies.cols;
     let pushed = 0;
     for (let i = 0; i < 20; i++) {
@@ -40,7 +40,7 @@ describe('combat', () => {
   it('applies no knockback when the impulse is 0, but still flashes', () => {
     const world = quietWorld();
     const bat = target(world, 'bat', 50, 0);
-    damageEnemy(world, bat, 3, 1, 0, 0);
+    damageEnemy(world, bat, 3, 1, 0, 0, 0);
     expect(world.enemies.cols.kbTime[bat]).toBe(0);
     expect(world.enemies.cols.flash[bat]).toBeCloseTo(HIT_FLASH_SEC, 6);
     expect(world.enemies.cols.hp[bat]).toBe(997);
@@ -51,8 +51,8 @@ describe('combat', () => {
     const world = quietWorld();
     target(world, 'ghoul', 300, 0);
     const bat = target(world, 'bat', 40, 10, ENEMIES.bat.maxHp);
-    damageEnemy(world, bat, 10, 1, 0, 0);
-    damageEnemy(world, bat, 10, 1, 0, 0);
+    damageEnemy(world, bat, 10, 1, 0, 0, 0);
+    damageEnemy(world, bat, 10, 1, 0, 0, 0);
     expect(world.enemies.cols.hp[bat]).toBe(-5);
     expect((world.enemies.cols.flags[bat] ?? 0) & ENEMY_FLAG_DEAD).toBe(ENEMY_FLAG_DEAD);
     cleanupSystem(world, DT);
@@ -76,12 +76,13 @@ describe('combat', () => {
     indexEnemies(world);
     world.weaponContext.spawnProjectile('weapon.magicWand', 60, 0, 1, 0, {
       damage: 10,
+      weaponSlot: 0,
       knockback: 0,
       radius: 6,
       pierce: 1,
       ttl: 1,
     });
-    world.weaponContext.damageEnemy(bat, 10, 1, 0, 0);
+    world.weaponContext.damageEnemy(bat, 10, 1, 0, 0, 0);
     // The step runs the projectile system (the bolt overlaps the dead bat and must not hit it again) and the cleanup.
     world.step(DT);
     const kills = world.events.items
@@ -94,10 +95,10 @@ describe('combat', () => {
   it('counts the hit flash down in the cleanup and spawns the death puff', () => {
     const world = quietWorld();
     const bat = target(world, 'bat', 0, 50, 100);
-    damageEnemy(world, bat, 1, 0, 1, 0);
+    damageEnemy(world, bat, 1, 0, 1, 0, 0);
     for (let i = 0; i < 6; i++) cleanupSystem(world, DT);
     expect(world.enemies.cols.flash[bat]).toBe(0);
-    damageEnemy(world, bat, 1000, 0, 1, 0);
+    damageEnemy(world, bat, 1000, 0, 1, 0, 0);
     const before = world.fx.count;
     cleanupSystem(world, DT);
     expect(world.fx.count).toBe(before + 1);

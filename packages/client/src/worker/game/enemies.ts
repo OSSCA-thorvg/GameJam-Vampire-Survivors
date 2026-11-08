@@ -62,6 +62,11 @@ export const ENEMY_CONTACT_DAMAGE = Float32Array.from(
   (id) => ENEMIES[id].contactDamage,
 );
 
+/** 1 for a type whose contact damage ignores the player's armor (Death, #17). */
+export const ENEMY_IGNORES_ARMOR = Uint8Array.from(ENEMY_LIST, (id) =>
+  ENEMIES[id].ignoresArmor ? 1 : 0,
+);
+
 export const ENEMY_KNOCKBACK_RESIST = Float32Array.from(
   ENEMY_LIST,
   (id) => ENEMIES[id].knockbackResist,

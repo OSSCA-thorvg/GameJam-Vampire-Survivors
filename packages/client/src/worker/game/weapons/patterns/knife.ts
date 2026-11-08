@@ -7,7 +7,15 @@ export const KNIFE_RADIUS = 6;
 export const KNIFE_SPREAD = 6;
 
 /** Reused for every shot; `spawnProjectile` copies it. */
-const opts: ProjectileOptions = { damage: 0, knockback: 0, radius: 0, pierce: 1, ttl: 0, scale: 1 };
+const opts: ProjectileOptions = {
+  damage: 0,
+  weaponSlot: 0,
+  knockback: 0,
+  radius: 0,
+  pierce: 1,
+  ttl: 0,
+  scale: 1,
+};
 
 /**
  * Knife (#13): each shot flies at `speed` along the player's last movement direction. Shot `k` of a burst starts
@@ -19,6 +27,7 @@ export const knife: WeaponPatternModule = {
     const { x, y, lastDirX: dirX, lastDirY: dirY } = ctx.player;
     const offset = KNIFE_SPREAD * Math.ceil(shot / 2) * (shot % 2 === 1 ? 1 : -1);
     opts.damage = lv.damage;
+    opts.weaponSlot = w.slot;
     opts.knockback = lv.knockback;
     opts.radius = KNIFE_RADIUS * lv.area;
     opts.scale = lv.area;

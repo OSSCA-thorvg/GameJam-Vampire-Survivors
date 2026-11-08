@@ -6,7 +6,8 @@ import { enemyMovementSystem } from './enemy-movement';
 
 it('spreads 50 enemies spawned at one point until no pair is closer than 1.5 × radius after 2 s', () => {
   const world = createWorld({ seed: 1 });
-  for (let i = 0; i < 50; i++) spawnEnemy(world, 'bat', 300, 200);
+  // Far enough from the player at the origin that the bats (140 units/s) do not reach it in the 2 s.
+  for (let i = 0; i < 50; i++) spawnEnemy(world, 'bat', 900, 600);
   for (let i = 0; i < 120; i++) enemyMovementSystem(world, 1 / 60);
   const { x, y } = world.enemies.cols;
   let closest = Infinity;

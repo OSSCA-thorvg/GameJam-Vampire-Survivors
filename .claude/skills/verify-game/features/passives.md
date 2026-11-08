@@ -8,7 +8,7 @@ The 8 passive items and the player stat block (#12, ADRs 0004, 0008, 0009): leve
 - **Cards:** a passive card (`data-kind` `newPassive` or `upgradePassive`) shows its `icon.passive.*` as `<img alt="">` (`/icons/passive-*.png`), the name, `NEW` or `Lv x → y`, and the passive's `description`. Choosing one adds it to `snapshot().passives` (`{ id, level }[]` in slot order) or raises its level, and `snapshot().stats` changes at once.
 - **Stats:** `snapshot().stats` starts at `BASE_STATS` (might 1, area 1, cooldown 1, amount 0, speed 1, duration 1, maxHp 100, recovery 0, armor 0, moveSpeed 1, magnet 1, luck 1, growth 1) plus the character's modifiers (#14; the default Warden: maxHp 120, armor 1, moveSpeed 0.95) and equals that + level × modifier for each owned passive.
 - **Candelabrador:** `stats.area` is `1 + 0.1 × level`; the Whip arc (`weapon.whip`, 160×40 at area 1) is drawn that much larger and hits that much farther.
-- **Spinach:** `stats.might` is `1 + 0.1 × level`; every weapon hit deals `damage × might`. With Spinach at 5 a level-1 Whip hit deals 15 instead of 10: `snapshot().damageDealt` (`{ hits, total }`, every weapon hit on a live enemy since the run started) rises by 15 per hit instead of 10. So a ghoul (15 HP) dies from one level-1 strike instead of two (unit test `stats.test.ts`, see Gotchas).
+- **Spinach:** `stats.might` is `1 + 0.1 × level`; every weapon hit deals `damage × might`. With Spinach at 5 a level-1 Whip hit deals 15 instead of 10: `snapshot().damageDealt` (`{ hits, total }`, every weapon hit on a live enemy since the run started) rises by 15 per hit instead of 10. So a ghoul (15 HP) dies from one level-1 strike instead of two: journey 3 shows it live (#17), every Whip hit in a window after Spinach 5 is a kill (`kills` and `damageDealt.hits` rise together, 11 of 11 in #17's run) and ghouls seen in the strike box die (`stats.test.ts` at level 4).
 - **Pummarola:** `player.hp` rises by `stats.recovery` per second while alive and never exceeds `maxHp`.
 - **Hollow Heart:** `player.maxHp` and `stats.maxHp` rise by 20 per level and `player.hp` rises by the same 20 (the HUD HP bar under the player stays about as full: Warden's 116/120 becomes 136/140).
 - **Slots:** never more than 6 passives (`MAX_PASSIVE_SLOTS`); with 6 owned no card is `newPassive`, and no card offers a level above 5.
@@ -27,7 +27,7 @@ Open the game URL, press Enter on "Start" and play until the XP bar fills (about
 1. `tabs_context_mcp` `{ createIfEmpty: true }`, use the group's new empty tab; `navigate` to `http://localhost:5180/`; `javascript_tool` `await window.__vsTest.waitFor((s) => s.state === 'title', 30000)`; `computer` `key` `Enter`.
 2. `computer` `key` `l`; `find` "Level up dialog" → cards; repeat `l` and `1` until a card tagged `NEW` with a passive name shows; `screenshot` (icon, name, `NEW`, description); press its digit; `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).passives)` → it is listed at level 1.
 3. Candelabrador: `screenshot` a Whip strike (repeat until the arc shows); press `l` and choose Candelabrador whenever offered (never a Whip upgrade, Empty Tome or Spellbinder) until its level is 3 or more; `screenshot` a strike again → visibly larger arc; `javascript_tool` `(await window.__vsTest.snapshot()).stats.area` → `1 + 0.1 × level`.
-4. Spinach: reload and start; wait a few seconds; `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).damageDealt)` → `total / hits` is 10; press `l` and choose Spinach whenever offered (never a weapon card that changes the base damage of 10: only the Magic Wand up to 4, the King Bible up to 3 and the Whip up to 2 are safe, #13) until it is level 5 (`stats.might` 1.5); read `damageDealt` again after a few strikes → the new hits add 15 each; `screenshot`s.
+4. Spinach: reload and start; `computer` `key` `i` (invulnerability, #17); wait a few seconds; `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).damageDealt)` → `total / hits` is 10; press `l` and choose Spinach whenever offered (never a weapon card that changes the base damage of 10: only the Magic Wand up to 4, the King Bible up to 3 and the Whip up to 2 are safe, #13) until it is level 5 (`stats.might` 1.5); read `damageDealt` and `kills` again after a few strikes → the new hits add 15 each and `kills` rises by one per hit (ghouls die in one strike); `screenshot`s.
 5. Pummarola: reload and start; choose Pummarola whenever offered; wait until `player.hp < player.maxHp`; hold ArrowRight in bursts away from the crowd; read `player.hp` every second → it rises, then stays at `maxHp`.
 6. Hollow Heart: wait for a hit, press `l` and choose Hollow Heart (or `P`); `player.maxHp` +20 and `player.hp` +20; `zoom` the HP bar → about as full as before.
 7. Slots: reload and start; press `p` six times; `passives` has 6; press `l` several times → no card tagged `NEW` for a passive; `tabs_close_mcp` on the tab.
@@ -298,7 +298,7 @@ test('passives 2: Candelabrador enlarges the Whip arc and stats.area is 1 + 0.1 
   }
 });
 
-test('passives 3: Spinach Lv5 raises the damage per base-10 hit (level-1 Whip) from 10 to 15', async ({
+test('passives 3: Spinach Lv5 raises the damage per base-10 hit (level-1 Whip) from 10 to 15, so one strike kills a ghoul', async ({
   page,
 }, testInfo) => {
   test.setTimeout(180_000);
@@ -314,6 +314,8 @@ test('passives 3: Spinach Lv5 raises the damage per base-10 hit (level-1 Whip) f
     let stop: () => Promise<void>;
     for (let attempt = 0; attempt < 6 && !strong; attempt++) {
       await startRun(page);
+      await page.keyboard.press('i'); // precondition only (#17): invulnerable, so the run lasts for the kill-time window
+      await waitForSnapshot(page, (n) => n.debugInvulnerable === true, 2_000);
       stop = autoAnswer(page, whipL1Only);
       base = await waitForSnapshot(
         page,
@@ -340,7 +342,41 @@ test('passives 3: Spinach Lv5 raises the damage per base-10 hit (level-1 Whip) f
         shots.push({ timeS: later.timeS, damageDealt: dealt(later) });
       }
     }
+    // Live kill time (#17): with 15 per hit every hit kills, ghouls (15 HP, which took two level-1 strikes) included. A
+    // ghoul seen in the strike box (220 × 80 units around the player) and then gone was killed by the Whip.
+    const killStart = await snapshot(page);
+    const ghouls = new Map<number, boolean>();
+    let ghoulKills = 0;
+    let killEnd = killStart;
+    for (let i = 0; i < 600; i++) {
+      await page.waitForTimeout(100);
+      killEnd = await snapshot(page);
+      if (killEnd.state === 'results') break;
+      const p = player(killEnd);
+      const rows = killEnd.enemyPositions as [number, number, number, number][];
+      const alive = new Set(rows.map((row) => row[0]));
+      for (const [uid, seenNear] of ghouls)
+        if (!alive.has(uid)) {
+          if (seenNear) ghoulKills++;
+          ghouls.delete(uid);
+        }
+      for (const [uid, type, x, y] of rows)
+        if (type === 1)
+          ghouls.set(
+            uid,
+            (ghouls.get(uid) ?? false) || (Math.abs(x - p.x) < 220 && Math.abs(y - p.y) < 80),
+          );
+      if (ghoulKills >= 3 && dealt(killEnd).hits - dealt(killStart).hits >= 10) break;
+    }
     await stop();
+    await ev.shot('spinach-ghoul-kills');
+    const killWindow = {
+      hits: dealt(killEnd).hits - dealt(killStart).hits,
+      kills: (killEnd.kills as number) - (killStart.kills as number),
+      ghoulKills,
+      from: killStart.timeS,
+      to: killEnd.timeS,
+    };
     const perHitBefore = dealt(base).total / dealt(base).hits;
     const hits = dealt(later).hits - dealt(strong).hits;
     const perHitAfter = (dealt(later).total - dealt(strong).total) / hits;
@@ -366,6 +402,7 @@ test('passives 3: Spinach Lv5 raises the damage per base-10 hit (level-1 Whip) f
       },
       perHitBefore,
       perHitAfter,
+      killWindow,
       shots,
       rerolls,
     });
@@ -374,6 +411,10 @@ test('passives 3: Spinach Lv5 raises the damage per base-10 hit (level-1 Whip) f
     expect(stats(strong).might).toBeCloseTo(1.5, 9);
     expect(hits).toBeGreaterThanOrEqual(3);
     expect(perHitAfter).toBeCloseTo(15, 6);
+    // Every hit is a kill: no ghoul survives a strike, and ghouls did die in the window.
+    expect(killWindow.hits).toBeGreaterThanOrEqual(10);
+    expect(killWindow.kills).toBe(killWindow.hits);
+    expect(killWindow.ghoulKills).toBeGreaterThanOrEqual(1);
     // Only weapons that still deal a base 10 per hit (`keepsTen`, #13).
     expect(weapons(later).every((w) => w.level <= (TEN_IDS[w.id] ?? 0))).toBe(true);
     expect(pageErrors(ev)).toEqual([]);
@@ -395,7 +436,10 @@ test('passives 4: with Pummarola, HP rises over time after a hit and stops at ma
     const stop = autoAnswer(page, noNewWeapon);
     const hit = await waitForSnapshot(page, (s) => player(s).hp < player(s).maxHp, 30_000);
     await ev.shot('hit');
-    // Walk away from the crowd (140 units/s, bats 100): HP climbs at stats.recovery per second.
+    // Precondition only (#17): bats (140 units/s) outrun the player, so `I` stops further hits while HP climbs at
+    // stats.recovery per second.
+    await page.keyboard.press('i');
+    await waitForSnapshot(page, (n) => n.debugInvulnerable === true, 2_000);
     const samples: { timeS: number; hp: number; maxHp: number }[] = [];
     let s = hit;
     for (let i = 0; i < 180; i++) {
@@ -569,7 +613,8 @@ test('passives 7: with Clover at level 5 (luck 1.5) a 4th card shows up about ha
 
 ## Gotchas
 
-- The issue's journey 3 planned to press `]` three times to reach minute 3, where ghouls (15 HP) first appear, and to see a ghoul die from one Spinach-boosted Whip strike. That cannot be driven: the fast-forward stops advancing at the first level-up (`world.step` does nothing while a choice is pending, #11), and a player standing still at minute 0 dies within about 15–60 s. At minute 0 every enemy is a bat (5 HP), which the Whip kills in one hit with or without Spinach. So the journey measures the damage per hit through the read-only `damageDealt` field (level 5: 10 → 15), and "a ghoul dies in one strike instead of two" is proven at level 4 by `stats.test.ts` with a real ghoul. Upgrade it to a live kill-time journey once #17's invulnerability key `KeyI` lets the player stand until minute 3 (2026-11-08, #12).
+- Journey 4 walked away from the crowd so that HP could climb, which worked while bats (100) were slower than the player. Since #17 bats fly at 140, and two runs ended at 114 of 200 HP still taking hits; after the first hit the journey now presses `I` so only Pummarola changes HP (2026-11-08, #17).
+- Since #17 ghouls spawn from minute 0 (3:1 with bats) and `I` keeps the player alive, so journey 3 checks the kill time live without fast-forwarding: after Spinach 5 it watches until 3 ghouls seen in the strike box are gone and at least 10 hits landed, and requires one kill per hit (2026-11-08, #17). Before #17: the issue's journey 3 planned to press `]` three times to reach minute 3, where ghouls (15 HP) first appeared, and to see a ghoul die from one Spinach-boosted Whip strike. That could not be driven: the fast-forward stops advancing at the first level-up (`world.step` does nothing while a choice is pending, #11), and a player standing still at minute 0 dies within about 15–60 s. At minute 0 every enemy is a bat (5 HP), which the Whip kills in one hit with or without Spinach. So the journey measures the damage per hit through the read-only `damageDealt` field (level 5: 10 → 15), and "a ghoul dies in one strike instead of two" is proven at level 4 by `stats.test.ts` with a real ghoul. Upgrade it to a live kill-time journey once #17's invulnerability key `KeyI` lets the player stand until minute 3 (2026-11-08, #12).
 - The Whip arc shows for only 0.15 s; journeys 2 screenshots it with the `weapons.md` method (wait in the page for the strike step, then shoot). The arc is the same art scaled by `stats.area`, so area 1.5 draws it 1.5 times as wide (2026-11-08, #12).
 - When no offered card is acceptable for a journey's measurement, `answer` takes the first card that is not a Whip upgrade: journey 2 then may own Spinach or other passives too, which does not change the arc size; Whip levels 1–3 keep area 1 (2026-11-08, #12).
 - Journey 4 takes Pummarola up to level 5 (1 HP/s), so a 5-HP bat hit heals in about 5 s; walking away still meets new spawns now and then, so the samples dip on a hit before they rise again; the journey walks for up to 45 s until two samples in a row are at `maxHp` (2026-11-08, #12).
