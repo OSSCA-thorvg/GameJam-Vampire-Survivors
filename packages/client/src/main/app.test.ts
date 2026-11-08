@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ChestReward } from '@vs/shared';
 import type { LevelUpOption, MainToWorker } from '../protocol/worker-messages';
-import { createApp, effects, reduce, type AppEvent, type AppState } from './app';
+import { CONNECTION_LOST, createApp, effects, reduce, type AppEvent, type AppState } from './app';
+import { NetClient, type OpenSocket, type SocketHandlers } from './net/client';
 
 const stats = { timeSec: 75.4, kills: 3, level: 1 };
 const title: AppState = { name: 'title' };
@@ -20,12 +21,76 @@ const options: LevelUpOption[] = [
   },
 ];
 const levelUp: AppState = { name: 'levelUp', level: 2, options };
-const selectWarden: AppState = { name: 'characterSelect', selectedId: 'warden' };
-const selectSwift: AppState = { name: 'characterSelect', selectedId: 'swift' };
+const selectWarden: AppState = { name: 'characterSelect', selectedId: 'warden', purpose: 'single' };
+const selectSwift: AppState = { name: 'characterSelect', selectedId: 'swift', purpose: 'single' };
 const rewards: ChestReward[] = [
   { kind: 'evolve', fromWeaponId: 'whip', intoWeaponId: 'bloodyTear' },
 ];
 const chest: AppState = { name: 'chest', rewards };
+
+const room = {
+  type: 'roomState' as const,
+  code: 'ABCDEF',
+  maxPlayers: 2,
+  phase: 'lobby' as const,
+  players: [{ id: 'a', nickname: 'Alice', ready: false, host: true, connected: true }],
+};
+const playingRoom = { ...room, phase: 'playing' as const };
+const match = { type: 'matchStart' as const, seed: 9, startAt: 1000 };
+const selectVersus: AppState = { name: 'characterSelect', selectedId: 'swift', purpose: 'versus' };
+const entry: AppState = { name: 'multiplayerEntry', characterId: 'swift' };
+const lobby: AppState = { name: 'lobby', room, selfId: 'a', characterId: 'swift' };
+
+describe('reduce (#19 multiplayer)', () => {
+  it.each<[AppState, AppEvent, AppState]>([
+    [title, { type: 'multiplayer' }, { ...selectWarden, purpose: 'versus' }],
+    [selectVersus, { type: 'select', id: 'ember' }, { ...selectVersus, selectedId: 'ember' }],
+    [selectVersus, { type: 'confirm' }, entry],
+    [selectVersus, { type: 'back' }, title],
+    [entry, { type: 'back' }, title],
+    [entry, { type: 'roomState', room, selfId: 'a' }, lobby],
+    [entry, { type: 'connectionLost' }, { ...entry, error: CONNECTION_LOST }],
+    [lobby, { type: 'roomState', room: playingRoom, selfId: 'a' }, { ...lobby, room: playingRoom }],
+    [lobby, { type: 'matchStart', match }, { ...lobby, match }],
+    [
+      { ...lobby, match },
+      { type: 'roomState', room: playingRoom, selfId: 'a' },
+      { ...lobby, room: playingRoom, match },
+    ],
+    [{ ...lobby, room: playingRoom, match }, { type: 'roomState', room, selfId: 'a' }, lobby],
+    [lobby, { type: 'leave' }, title],
+    [lobby, { type: 'connectionLost' }, { ...entry, error: CONNECTION_LOST }],
+  ])('%j + %j → %j', (state, event, next) => {
+    expect(reduce(state, event)).toEqual(next);
+  });
+
+  it.each<[AppState, AppEvent]>([
+    [title, { type: 'roomState', room, selfId: 'a' }],
+    [title, { type: 'connectionLost' }],
+    [selectVersus, { type: 'roomState', room, selfId: 'a' }],
+    [entry, { type: 'matchStart', match }],
+    [entry, { type: 'start' }],
+    [lobby, { type: 'back' }],
+    [lobby, { type: 'pauseToggle' }],
+    [playing, { type: 'connectionLost' }],
+    [playing, { type: 'roomState', room, selfId: 'a' }],
+  ])('ignores %j + %j', (state, event) => {
+    expect(reduce(state, event)).toBe(state);
+  });
+
+  it('sends no worker message anywhere in the multiplayer flow', () => {
+    const seed = () => 1;
+    for (const [from, to] of [
+      [title, selectVersus],
+      [selectVersus, entry],
+      [entry, lobby],
+      [lobby, title],
+      [entry, title],
+      [selectVersus, title],
+    ] as const)
+      expect(effects(from, to, seed)).toEqual([]);
+  });
+});
 
 describe('reduce', () => {
   it.each<[AppState, AppEvent, AppState]>([
@@ -53,6 +118,7 @@ describe('reduce', () => {
     expect(reduce(title, { type: 'start' }, 'ember')).toEqual({
       name: 'characterSelect',
       selectedId: 'ember',
+      purpose: 'single',
     });
   });
 
@@ -264,7 +330,11 @@ describe('createApp (happy-dom)', () => {
     // Not confirmed, so the select screen starts on the default again.
     expect(app.state).toEqual(selectWarden);
     key('ArrowLeft');
-    expect(app.state).toEqual({ name: 'characterSelect', selectedId: 'aurelia' });
+    expect(app.state).toEqual({
+      name: 'characterSelect',
+      selectedId: 'aurelia',
+      purpose: 'single',
+    });
     key('KeyA');
     expect(app.state).toEqual(selectSwift);
     key('Enter');
@@ -304,5 +374,157 @@ describe('createApp (happy-dom)', () => {
     expect(app.state).toEqual(playing);
     expect(root.children).toHaveLength(0);
     expect(sent.slice(1)).toEqual([{ type: 'chestClosed' }]);
+  });
+});
+
+describe('createApp multiplayer flow (happy-dom, fake socket)', () => {
+  const key = (code: string) =>
+    document.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }));
+  const button = (name: string) =>
+    [...document.querySelectorAll('button')].find((b) => b.textContent === name);
+
+  function setup() {
+    document.body.replaceChildren();
+    localStorage.clear();
+    const root = document.createElement('div');
+    document.body.append(root);
+    const sockets: { on: SocketHandlers; sent: string[] }[] = [];
+    const open: OpenSocket = (_url, on) => {
+      const socket = { on, sent: [] as string[] };
+      sockets.push(socket);
+      return { send: (d) => socket.sent.push(d), close: () => undefined };
+    };
+    const created: NetClient[] = [];
+    const posted: MainToWorker[] = [];
+    const app = createApp(
+      root,
+      (m) => posted.push(m),
+      () => 1,
+      () => null,
+      () => {
+        const net = new NetClient('ws://test/ws', open);
+        created.push(net);
+        return net;
+      },
+    );
+    const socket = () => {
+      const s = sockets.at(-1);
+      if (!s) throw new Error('no socket');
+      return s;
+    };
+    const serverSays = (m: unknown) => {
+      socket().on.message(JSON.stringify(m));
+    };
+    return { root, app, sockets, created, posted, socket, serverSays };
+  }
+
+  it('creates no socket in single player', () => {
+    const t = setup();
+    button('Start')?.click();
+    key('Enter');
+    expect(t.app.state).toEqual(playing);
+    expect(t.created).toHaveLength(0);
+  });
+
+  it('title → Multiplayer → character → entry connects, creates a room and shows the lobby; Leave sends leaveRoom and closes', async () => {
+    const t = setup();
+    button('Multiplayer')?.click();
+    expect(t.app.state).toEqual({ ...selectWarden, purpose: 'versus' });
+    expect(t.created).toHaveLength(0);
+    key('ArrowRight');
+    key('ArrowRight');
+    key('Enter');
+    expect(t.app.state).toEqual(entry);
+    expect(t.created).toHaveLength(1);
+    expect(t.created[0]?.state).toBe('connecting');
+    t.socket().on.open();
+    t.serverSays({ type: 'welcome', playerId: 'a' });
+    await Promise.resolve();
+    const nickname = t.root.querySelector<HTMLInputElement>('#mp-nickname');
+    if (!nickname) throw new Error('no nickname field');
+    expect(document.activeElement).toBe(nickname);
+    nickname.value = 'Alice';
+    nickname.dispatchEvent(new Event('input'));
+    expect(button('Create room')?.disabled).toBe(false);
+    nickname.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', bubbles: true }));
+    expect(t.socket().sent.at(-1)).toBe('{"type":"createRoom","nickname":"Alice"}');
+    expect(localStorage.getItem('vs.nickname')).toBe('Alice');
+    t.serverSays(room);
+    expect(t.app.state).toEqual(lobby);
+    expect(t.root.querySelector('.room-code')?.textContent).toBe('ABCDEF');
+    button('Leave')?.click();
+    expect(t.socket().sent.at(-1)).toBe('{"type":"leaveRoom"}');
+    expect(t.app.state).toEqual(title);
+    expect(t.created[0]?.state).toBe('closed');
+    expect(t.posted).toEqual([]);
+    // The next visit pre-fills the nickname.
+    button('Multiplayer')?.click();
+    key('Enter');
+    expect(t.root.querySelector<HTMLInputElement>('#mp-nickname')?.value).toBe('Alice');
+    expect(t.created).toHaveLength(2);
+  });
+
+  it('a server error shows its mapped message and stays on the entry screen', async () => {
+    const t = setup();
+    t.app.dispatch({ type: 'multiplayer' });
+    t.app.dispatch({ type: 'confirm' });
+    t.socket().on.open();
+    t.serverSays({ type: 'welcome', playerId: 'b' });
+    await Promise.resolve();
+    const nickname = t.root.querySelector<HTMLInputElement>('#mp-nickname');
+    const code = t.root.querySelector<HTMLInputElement>('#mp-code');
+    if (!nickname || !code) throw new Error('fields missing');
+    nickname.value = 'Bob';
+    nickname.dispatchEvent(new Event('input'));
+    button('Join room')?.click();
+    code.value = 'zzzzzz';
+    code.dispatchEvent(new Event('input'));
+    button('Join')?.click();
+    expect(t.socket().sent.at(-1)).toBe('{"type":"joinRoom","code":"ZZZZZZ","nickname":"Bob"}');
+    t.serverSays({ type: 'error', code: 'roomNotFound', message: '<img src=x onerror=alert(1)>' });
+    expect(t.app.state.name).toBe('multiplayerEntry');
+    expect(t.root.querySelector('#mp-code-error')?.textContent).toBe(
+      'Room not found or not joinable',
+    );
+    expect(t.root.textContent).not.toContain('onerror');
+    expect(t.root.querySelector('img')).toBeNull();
+  });
+
+  it('an unexpected close in the lobby returns to the entry screen with the notice and the nickname kept', async () => {
+    vi.useFakeTimers();
+    try {
+      const t = setup();
+      t.app.dispatch({ type: 'multiplayer' });
+      t.app.dispatch({ type: 'confirm' });
+      t.socket().on.open();
+      t.serverSays({ type: 'welcome', playerId: 'a' });
+      await vi.advanceTimersByTimeAsync(0);
+      const nickname = t.root.querySelector<HTMLInputElement>('#mp-nickname');
+      if (!nickname) throw new Error('no nickname field');
+      nickname.value = 'Alice';
+      nickname.dispatchEvent(new Event('input'));
+      button('Create room')?.click();
+      t.serverSays(room);
+      expect(t.app.state.name).toBe('lobby');
+      t.socket().on.close(1006);
+      expect(t.root.querySelector('.lobby .status')?.textContent).toBe('Reconnecting…');
+      for (const delay of [1000, 2000, 4000]) {
+        await vi.advanceTimersByTimeAsync(delay);
+        t.socket().on.close(1006);
+      }
+      await vi.advanceTimersByTimeAsync(0);
+      expect(t.app.state).toEqual({ ...entry, characterId: 'warden', error: CONNECTION_LOST });
+      expect(t.root.querySelector('.notice')?.textContent).toBe(CONNECTION_LOST);
+      expect(t.root.querySelector<HTMLInputElement>('#mp-nickname')?.value).toBe('Alice');
+      // The entry screen tries again on mount; with the server still down it offers Retry.
+      expect(t.root.querySelector('.status')?.textContent).toBe('Connecting to the game server…');
+      t.socket().on.close(1006);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(t.root.querySelector('.status')?.textContent).toBe('Cannot reach the game server');
+      expect(button('Retry')?.hidden).toBe(false);
+      expect(button('Create room')?.disabled).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

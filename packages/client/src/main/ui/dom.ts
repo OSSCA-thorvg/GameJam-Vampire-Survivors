@@ -57,30 +57,42 @@ export interface Screen<P> {
 const NEXT = new Set(['ArrowDown', 'ArrowRight', 'KeyS', 'KeyD']);
 const PREVIOUS = new Set(['ArrowUp', 'ArrowLeft', 'KeyW', 'KeyA']);
 
+/** Keys typed into a text field belong to the field: menus and screen shortcuts ignore them (#19). */
+export function isTextField(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+}
+
 /**
  * Keyboard-first menus (ADR 0009): arrows and WASD move focus between `buttons` (wrapping), Tab moves natively, and
- * Enter activates the focused button, or the first one when focus is elsewhere. Focuses the first button. Returns
- * the function that removes the listener.
+ * Enter activates the focused button, or the first one when focus is elsewhere. Keys typed into a text field are left
+ * alone. `buttons` may be a function, read on every key, for menus whose buttons are disabled or hidden over time
+ * (#19). Focuses the first button unless `focusFirst` is false. Returns the function that removes the listener.
  */
-export function menuKeys(doc: Document, buttons: readonly HTMLButtonElement[]): () => void {
-  const focused = (): number => buttons.findIndex((b) => b === doc.activeElement);
+export function menuKeys(
+  doc: Document,
+  buttons: readonly HTMLButtonElement[] | (() => readonly HTMLButtonElement[]),
+  focusFirst = true,
+): () => void {
+  const list = typeof buttons === 'function' ? buttons : () => buttons;
   const onKey = (e: KeyboardEvent): void => {
+    if (isTextField(e.target)) return;
+    const current = list();
+    const focused = current.findIndex((b) => b === doc.activeElement);
     if (e.code === 'Enter' || e.code === 'NumpadEnter') {
       // A focused button activates itself natively on Enter.
-      if (focused() >= 0) return;
+      if (focused >= 0) return;
       e.preventDefault();
-      buttons[0]?.click();
+      current[0]?.click();
       return;
     }
     const step = NEXT.has(e.code) ? 1 : PREVIOUS.has(e.code) ? -1 : 0;
-    if (step === 0 || buttons.length === 0) return;
+    if (step === 0 || current.length === 0) return;
     e.preventDefault();
-    const from = focused();
-    const to = from < 0 ? 0 : (from + step + buttons.length) % buttons.length;
-    buttons[to]?.focus();
+    const to = focused < 0 ? 0 : (focused + step + current.length) % current.length;
+    current[to]?.focus();
   };
   doc.addEventListener('keydown', onKey);
-  buttons[0]?.focus();
+  if (focusFirst) list()[0]?.focus();
   return () => {
     doc.removeEventListener('keydown', onKey);
   };

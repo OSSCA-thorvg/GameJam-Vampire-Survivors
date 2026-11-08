@@ -79,6 +79,8 @@ export default defineConfig({
   define: { __VS_BUILD_REV__: JSON.stringify(gitRev()) },
   // Art and assets/manifest.json are served from the repository's assets/ folder (ADR 0007).
   publicDir: '../../assets',
+  // `.env` lives at the repository root next to `compose.yaml`; only `VITE_*` variables reach the client (#19).
+  envDir: '../..',
   // Bundle @vs/shared from source in dev and build, so the client never needs packages/shared/dist (#4).
   resolve: {
     alias: { '@vs/shared': fileURLToPath(new URL('../shared/src/index.ts', import.meta.url)) },

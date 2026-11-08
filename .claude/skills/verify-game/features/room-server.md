@@ -1,6 +1,6 @@
 # Room server
 
-The WebSocket room server (#18): clients say `hello`, create or join a room by its 6-character code with a nickname, ready up, and the host starts a match with one shared seed; the server relays status and interference and decides the result (ADRs 0005, 0006, 0011). Until the lobby UI (#19, #20) exists, it is driven from the page with `page.evaluate` and a plain `WebSocket`.
+The WebSocket room server (#18): clients say `hello`, create or join a room by its 6-character code with a nickname, ready up, and the host starts a match with one shared seed; the server relays status and interference and decides the result (ADRs 0005, 0006, 0011). It is driven here from the page with `page.evaluate` and a plain `WebSocket`; the player-facing lobby is `lobby.md` (#19).
 
 ## Sub-features
 
@@ -18,7 +18,7 @@ No snapshot fields: the server state is observed through the messages it sends.
 
 ## How to get to it (user POV)
 
-No player entry point until #19 (lobby) and #20 (match). Precondition: the server in Docker, `cp -n .env.example .env`, then `pnpm verify:launch --with-server` (starts or reuses the server on :8787, and the client on :5180, whose origin `http://localhost:5180` is in the default `ALLOWED_ORIGINS`). Load the game page in two separate browser contexts and open a `WebSocket` to `ws://localhost:8787/ws` from each page.
+The player entry point is the lobby (`lobby.md`, #19); this file drives the raw protocol. Precondition: the server in Docker, `cp -n .env.example .env`, then `pnpm verify:launch --with-server` (starts or reuses the server on :8787, and the client on :5180, whose origin `http://localhost:5180` is in the default `ALLOWED_ORIGINS`). Load the game page in two separate browser contexts and open a `WebSocket` to `ws://localhost:8787/ws` from each page.
 
 ## Driving it
 
