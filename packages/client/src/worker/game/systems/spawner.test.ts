@@ -32,6 +32,7 @@ describe('spawnerSystem', () => {
       expect(ENEMY_LIST[world.enemies.cols.type[i] ?? -1]).toBe('bat');
   });
 
+  // Long seeded property test: CI runners are several times slower than local machines (#80).
   it('never exceeds ENEMY_CAP over 5 minutes, spawning at most 20 per step', () => {
     const world = createWorld({ seed: 11 });
     // Push the clock to minute 10 halfway, so the top-up is large.
@@ -45,7 +46,7 @@ describe('spawnerSystem', () => {
       peak = Math.max(peak, world.enemies.count);
     }
     expect(peak).toBeGreaterThanOrEqual(240);
-  });
+  }, 30_000);
 
   it('stops at the cap and drops the excess queue', () => {
     const world = createWorld({ seed: 3 });
