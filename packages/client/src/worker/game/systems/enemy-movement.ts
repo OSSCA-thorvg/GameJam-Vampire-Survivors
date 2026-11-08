@@ -1,5 +1,6 @@
 import { ENEMY_RADIUS, ENEMY_SPEED } from '../enemies';
 import type { World } from '../world';
+import { isFrozen } from './freeze';
 
 /** Neighbours read per enemy for separation; extra ones in a dense pile are ignored. */
 const neighbours = new Int32Array(32);
@@ -16,18 +17,25 @@ const GOLDEN_ANGLE = 2.399963229728653;
 /**
  * Chase and separation (#8): each enemy walks toward the player at its speed, pushed apart from overlapping
  * neighbours (capped at twice its speed), or follows its knockback while `kbTime > 0` (#10). Velocities are computed from
- * the positions at the start of the step, then integrated.
+ * the positions at the start of the step, then integrated. While an Orologion freeze lasts (#16) enemies neither chase
+ * nor separate, but knockback still moves them; a standing enemy keeps the facing it had.
  */
 export function enemyMovementSystem(world: World, dt: number): void {
   const { enemies, enemyGrid, player } = world;
   const { x, y, vx, vy, type, kbX, kbY, kbTime, flip } = enemies.cols;
   const count = enemies.count;
+  const frozen = isFrozen(world);
   enemyGrid.rebuild(x, y, count);
   for (let i = 0; i < count; i++) {
     if ((kbTime[i] ?? 0) > 0) {
       vx[i] = kbX[i] ?? 0;
       vy[i] = kbY[i] ?? 0;
       kbTime[i] = (kbTime[i] ?? 0) - dt;
+      continue;
+    }
+    if (frozen) {
+      vx[i] = 0;
+      vy[i] = 0;
       continue;
     }
     const px = x[i] ?? 0;
@@ -73,6 +81,6 @@ export function enemyMovementSystem(world: World, dt: number): void {
   for (let i = 0; i < count; i++) {
     x[i] = (x[i] ?? 0) + (vx[i] ?? 0) * dt;
     y[i] = (y[i] ?? 0) + (vy[i] ?? 0) * dt;
-    flip[i] = (vx[i] ?? 0) < 0 ? 1 : 0;
+    if (!frozen || (vx[i] ?? 0) !== 0) flip[i] = (vx[i] ?? 0) < 0 ? 1 : 0;
   }
 }

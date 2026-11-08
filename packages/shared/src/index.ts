@@ -59,3 +59,5 @@ export { PASSIVES } from './content/passives.js';
 export type { PassiveDef, PassiveId } from './content/passives.js';
 export { CHARACTERS, findCharacter } from './content/characters.js';
 export type { CharacterDef, CharacterId } from './content/characters.js';
+export { PICKUPS, LIGHT_SOURCE, PICKUP_COLLECT_RADIUS } from './content/pickups.js';
+export type { PickupDef, PickupEffect } from './content/pickups.js';

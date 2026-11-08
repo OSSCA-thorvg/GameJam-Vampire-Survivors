@@ -1,6 +1,7 @@
 import { HIT_INVULN_SEC, MAX_ENEMY_RADIUS, PLAYER_RADIUS } from '@vs/shared';
 import { ENEMY_CONTACT_DAMAGE, ENEMY_RADIUS } from '../enemies';
 import type { World } from '../world';
+import { isFrozen } from './freeze';
 
 /** Enemies read per contact check; a crowd larger than this around the player still lands its one hit. */
 const touching = new Int32Array(64);
@@ -11,7 +12,7 @@ const EPSILON = 1e-6;
  * Contact damage (#9): while not invulnerable, the strongest enemy touching the player (centre distance below
  * `PLAYER_RADIUS + radius`) deals `max(1, contactDamage - armor)`, then the player is invulnerable for
  * `HIT_INVULN_SEC`, so a crowd lands one hit per window. Pushes a `playerHit` event. At 0 HP it sets `world.state` to
- * `'dead'`; `world.step` then stops and reports the game over once. Reads `world.enemyGrid`, rebuilt this step by the movement system.
+ * `'dead'`; `world.step` then stops and reports the game over once. Deals nothing while frozen (#16). Reads `world.enemyGrid`, rebuilt this step by the movement system.
  */
 export function contactDamageSystem(world: World, dt: number): void {
   const { player } = world;
@@ -20,6 +21,8 @@ export function contactDamageSystem(world: World, dt: number): void {
     if (player.invulnTime > EPSILON) return;
     player.invulnTime = 0;
   }
+  // A frozen enemy deals no contact damage (#16, Orologion).
+  if (isFrozen(world)) return;
   const { x, y, type } = world.enemies.cols;
   const found = world.enemyGrid.query(
     player.x,

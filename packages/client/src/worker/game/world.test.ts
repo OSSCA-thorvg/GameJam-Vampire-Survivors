@@ -11,6 +11,8 @@ import { enemyMovementSystem } from './systems/enemy-movement';
 import { contactDamageSystem } from './systems/contact-damage';
 import { enemyRelocateSystem } from './systems/enemy-relocate';
 import { recoverySystem } from './systems/recovery';
+import { lightSourceSystem } from './systems/light-sources';
+import { pickupSystem } from './systems/pickups';
 import { spawnerSystem } from './systems/spawner';
 import { weaponSystem } from './weapons/system';
 import { inputSystem, SYSTEMS } from './world';
@@ -21,6 +23,7 @@ it('runs input, movement, camera, the spawner, enemy movement, relocation, conta
     inputSystem,
     playerMovementSystem,
     cameraSystem,
+    lightSourceSystem,
     spawnerSystem,
     enemyMovementSystem,
     enemyRelocateSystem,
@@ -28,6 +31,7 @@ it('runs input, movement, camera, the spawner, enemy movement, relocation, conta
     recoverySystem,
     weaponSystem,
     projectileSystem,
+    pickupSystem,
     fxSystem,
     cleanupSystem,
     gemDropSystem,

@@ -2,6 +2,7 @@ import type { Rng } from '@vs/shared';
 import type { Camera } from '../camera';
 import { damageEnemy } from '../combat';
 import type { EnemyStore } from '../enemies';
+import { hitLightsInBox, hitLightsInCircle } from '../light-sources';
 import { spawnFx, type FxAssetId } from '../fx';
 import type { PlayerState } from '../player';
 import { spawnProjectile, type ProjectileAssetId, type ProjectileOptions } from '../projectiles';
@@ -45,6 +46,12 @@ export interface WeaponContext {
     scale?: number,
   ): number;
   damageEnemy(slot: number, amount: number, dirX: number, dirY: number, knockback: number): void;
+  /**
+   * Hits the intact light sources overlapping a circle or a box (#16); with `cooldown`, only lights not hit by such a
+   * weapon for that many seconds. Lights are not enemies: no kill, no pierce used. Returns the number hit.
+   */
+  hitLightsInCircle(x: number, y: number, r: number, damage: number, cooldown?: number): number;
+  hitLightsInBox(left: number, top: number, right: number, bottom: number, damage: number): number;
 }
 
 export function createWeaponContext(world: World): WeaponContext {
@@ -79,5 +86,9 @@ export function createWeaponContext(world: World): WeaponContext {
     damageEnemy: (slot, amount, dirX, dirY, knockback) => {
       damageEnemy(world, slot, amount, dirX, dirY, knockback);
     },
+    hitLightsInCircle: (x, y, r, damage, cooldown) =>
+      hitLightsInCircle(world, x, y, r, damage, cooldown),
+    hitLightsInBox: (left, top, right, bottom, damage) =>
+      hitLightsInBox(world, left, top, right, bottom, damage),
   };
 }

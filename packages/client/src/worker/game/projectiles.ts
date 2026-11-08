@@ -5,6 +5,7 @@ import { createStore, type Store } from '../ecs/store';
 import { PaintPool, RenderBinding } from '../render/pool';
 import { damageEnemy, isDead } from './combat';
 import { ENEMY_RADIUS } from './enemies';
+import { hitLightsInCircle } from './light-sources';
 import type { World } from './world';
 
 /**
@@ -261,6 +262,8 @@ export function projectileSystem(world: World, dt: number): void {
       p.pierceLeft[i] = (p.pierceLeft[i] ?? 0) - 1;
       damageEnemy(world, e, p.damage[i] ?? 0, dirX, dirY, p.knockback[i] ?? 0);
     }
+    // Light sources (#16): hit after the enemy query, without using pierce.
+    hitLightsInCircle(world, x, y, radius, p.damage[i] ?? 0);
     if ((p.pierceLeft[i] ?? 0) > 0 && (p.ttl[i] ?? 0) > 0) continue;
     projectileBinding?.unbind(i);
     projectiles.remove(i);

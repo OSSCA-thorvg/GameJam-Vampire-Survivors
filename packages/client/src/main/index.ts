@@ -188,6 +188,7 @@ async function boot(): Promise<void> {
     registerDebugKey('KeyG', { kind: 'grantWeapon' });
     registerDebugKey('KeyL', { kind: 'levelUp' });
     registerDebugKey('KeyP', { kind: 'grantPassive' });
+    registerDebugKey('KeyK', { kind: 'spawnPickup' });
     installDebugTools(worker);
   }
 }

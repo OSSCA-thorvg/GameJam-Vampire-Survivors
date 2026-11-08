@@ -8,6 +8,8 @@ import { createEventQueue, type EventQueue } from './events';
 import { createFxState, fxSystem, type FxState } from './fx';
 import { createGemState, gemDropSystem, gemSystem, type GemState } from './gems';
 import { levelSystem } from './level';
+import { createLightState, type LightState } from './light-sources';
+import { createPickupState, type PickupState } from './pickups';
 import { createPlayer, playerMovementSystem, type PlayerState } from './player';
 import { type PassivesState } from './passives';
 import { createProjectileState, projectileSystem, type ProjectileState } from './projectiles';
@@ -15,6 +17,9 @@ import { applyCharacter, resolveCharacter } from './start-run';
 import { contactDamageSystem } from './systems/contact-damage';
 import { enemyMovementSystem } from './systems/enemy-movement';
 import { enemyRelocateSystem } from './systems/enemy-relocate';
+import type { FreezeState } from './systems/freeze';
+import { lightSourceSystem } from './systems/light-sources';
+import { pickupSystem } from './systems/pickups';
 import { recoverySystem } from './systems/recovery';
 import { spawnerSystem } from './systems/spawner';
 import { createWeaponContext, type WeaponContext } from './weapons/context';
@@ -33,13 +38,25 @@ export interface WorldOptions {
   fxPools?: readonly PaintPool[];
   /** The view's gem pools (`GameView.gemPools`, #11), in `GEM_ASSETS` order; omitted like `enemyPools`. */
   gemPools?: readonly PaintPool[];
+  /** The view's light and pickup pools (`GameView.lightPools`, `GameView.pickupPools`, #16); omitted like `enemyPools`. */
+  lightPools?: readonly PaintPool[];
+  pickupPools?: readonly PaintPool[];
   /** Called once, with the final stats, in the step where HP reaches 0. */
   onGameOver?: (stats: RunStats) => void;
 }
 
 /** All state for one run. Later issues add their state here. */
 export interface World
-  extends EnemyState, ProjectileState, FxState, WeaponsState, PassivesState, GemState {
+  extends
+    EnemyState,
+    ProjectileState,
+    FxState,
+    WeaponsState,
+    PassivesState,
+    GemState,
+    LightState,
+    PickupState,
+    FreezeState {
   readonly seed: number;
   /** The character played (#14), always a known id: `startRun`'s id, or `CHARACTERS[0]` when that was unknown. */
   readonly characterId: CharacterId;
@@ -110,6 +127,7 @@ export const SYSTEMS: readonly System[] = [
   inputSystem,
   playerMovementSystem,
   cameraSystem,
+  lightSourceSystem,
   spawnerSystem,
   enemyMovementSystem,
   enemyRelocateSystem,
@@ -117,6 +135,7 @@ export const SYSTEMS: readonly System[] = [
   recoverySystem,
   weaponSystem,
   projectileSystem,
+  pickupSystem,
   fxSystem,
   cleanupSystem,
   gemDropSystem,
@@ -131,6 +150,8 @@ export function createWorld({
   projectilePools,
   fxPools,
   gemPools,
+  lightPools,
+  pickupPools,
   onGameOver,
 }: WorldOptions): World {
   const rng = createRng(seed);
@@ -150,6 +171,9 @@ export function createWorld({
     ...createProjectileState(projectilePools),
     ...createFxState(fxPools),
     ...createGemState(gemPools),
+    ...createLightState(rng, lightPools),
+    ...createPickupState(rng, pickupPools),
+    freezeUntil: 0,
     weapons: [],
     passives: [],
     weaponRng: rng.fork('weapons'),
@@ -185,10 +209,12 @@ export function createWorld({
   return world;
 }
 
-/** Empties every store of `world` (enemies, projectiles, effects, gems), as the session does before reusing the pools. */
+/** Empties every store of `world` (enemies, projectiles, effects, gems, lights, pickups), as the session does before reusing the pools. */
 export function clearWorld(world: World): void {
   world.gems.clear();
   world.enemies.clear();
   world.projectiles.clear();
   world.fx.clear();
+  world.lights.clear();
+  world.pickups.clear();
 }
