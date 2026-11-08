@@ -1,0 +1,23 @@
+# Development server (ADR 0010, dev-server skill): `pnpm server:up`, `pnpm server:logs`, `pnpm server:down`.
+services:
+  server:
+    build:
+      context: .
+      dockerfile: packages/server/Dockerfile
+      target: dev
+      args: { NODE_VERSION: '${NODE_VERSION:-24}' }
+    ports: ['8787:8787']
+    env_file: [.env]
+    # Only sources are bind-mounted; dependencies stay in the named volume, so host and container node_modules never mix.
+    volumes:
+      - ./packages/server/src:/repo/packages/server/src
+      - ./packages/server/tsconfig.json:/repo/packages/server/tsconfig.json
+      - ./packages/shared/src:/repo/packages/shared/src
+      - server_node_modules:/repo/node_modules
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8787/healthz']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+volumes:
+  server_node_modules:

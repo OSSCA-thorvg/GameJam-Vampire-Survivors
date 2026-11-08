@@ -10,7 +10,7 @@
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "prepare": "simple-git-hooks",
-    "dev": "pnpm -r --parallel --filter './packages/*' dev",
+    "dev": "pnpm --filter client dev",
     "build": "pnpm -r build",
     "typecheck": "tsc -b",
     "test": "vitest run",
@@ -18,7 +18,12 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "server:up": "NODE_VERSION=$(cat .nvmrc) docker compose up -d --build server",
+    "server:down": "docker compose down",
+    "server:logs": "docker compose logs -f server",
+    "server:sh": "docker compose exec server sh",
+    "server:image": "docker build -f packages/server/Dockerfile --target runtime --build-arg NODE_VERSION=$(cat .nvmrc) -t vs-server:local ."
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm exec lint-staged"

@@ -18,7 +18,7 @@ Check each of these that the change touches:
 - **Frame loop and pools (ADRs 0003, 0004):** allocation per frame, Paint creation or disposal per frame, pool sizes, entity caps, the hidden-tab loop, and the 120-step cap.
 - **Determinism:** seeded RNG streams (`rng.fork`). A new random call in the wave path changes both players' schedules.
 - **Rendering cost:** vector complexity, the number of Paints, and `update()` time. Compare with ADR 0003's numbers.
-- **Server in Docker (ADR 0010):** env vars, ports, `.env.example`, `compose.yaml` and the `Dockerfile`.
+- **Server in Docker (ADR 0010):** env vars, ports, `.env.example`, `compose.yaml` and the `Dockerfile`; the `@vs/shared` `exports` conditions (`development` source for dev and tests, `default` compiled `dist` in the runtime image); and the CI `server image` job, which builds the `runtime` image and checks `/healthz`, health and the `node` user whenever the server, `shared`, Docker files, the lockfile or `.nvmrc` change.
 - **Security (ADR 0011):** user data reaching the DOM, new dependencies, CI permissions.
 - **Docs that go stale (`docs-sync.md`):** `CLAUDE.md` commands and architecture, and the verification map.
 - **Workflow and CI (ADR 0012):** rules, skills and `CLAUDE.md` that reference each other by name or step number, the CI `repo rules` and `PR rules` steps that grep them, and `.github/workflows/auto-merge.yml`, which merges on green CI.
