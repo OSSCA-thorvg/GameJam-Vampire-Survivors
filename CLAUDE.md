@@ -115,7 +115,11 @@ pnpm build                                  # also runs scripts/verify/check-pro
 pnpm exec playwright install chromium       # once per clone: the browser for verify-game (never an install script)
 pnpm verify:launch      # client in --mode e2e on :5180, ready when __vsTest reports gl (--with-server adds Docker :8787)
 pnpm verify:doctor      # read-only checks of the launched run (pid, URL, __vsTest, buildRev == HEAD)
-pnpm verify:e2e         # launch, Playwright e2e/ (headless; VERIFY_HEADED=1 for the real GPU), cleanup, always
+pnpm verify:e2e         # launch, headless smoke + headed native hidden-tab projects, cleanup, always
+pnpm verify:e2e --issue 52 --project hidden-tab  # headed native visibility; own browser/profile only
+pnpm verify:e2e --project chromium             # standalone headless smoke (VERIFY_HEADED=1 for real GPU)
+xvfb-run -a pnpm verify:e2e                    # Linux display for the full suite; CI uses this
+node --test scripts/verify/e2e-args.test.mjs     # harness argument-routing tests (also in pnpm check)
 pnpm verify:cleanup     # stop only what verify:launch recorded, keep verification/ evidence
 VERIFY_JOURNEYS=verification/issue-<N>/journeys pnpm exec playwright test -c e2e/playwright.config.ts   # feature-map journeys
 sh scripts/make-hud-font.sh   # rebuild assets/fonts/hud.ttf (ADR 0013); needs fonttools 4.68.0 (pipx install fonttools==4.68.0), not a project dependency
@@ -168,7 +172,7 @@ Read the ADR for the full reasoning.
   | `KeyI`         | `toggleInvulnerable` | #17                    | toggle invulnerability                  |
   | `KeyJ`         | `spawnInterference`  | #21                    | next interference pickup (versus only)  |
 
-- **Test bridge (#31, dev and e2e builds):** `main/test-bridge.ts` exposes `window.__vsTest` (`snapshot()`, `waitFor(predicate, ms)`), which asks the worker over the `testSnapshot` messages (`TestSnapshotRequest`/`TestSnapshotReply`, filtered out before both exhaustive switches) and returns a flat `GameSnapshot` (`WorkerSnapshot` plus `ready`, `buildRev`, `state`). It only reads. Later issues add fields by name with `registerSnapshotField(name, read)` (`worker/test-bridge.ts`) or `registerMainSnapshotField` (main thread), never by editing the bridges. Calls are wrapped in `if (import.meta.env.DEV || import.meta.env.MODE === 'e2e')`; `verify:launch` serves `--mode e2e`. `__VS_BUILD_REV__` (`vite.config.ts`, `protocol/env.d.ts`) is the git revision at server start. Playwright lives in `e2e/` (root tsconfig reference, so `tsc -b` and ESLint cover it), the scripts in `scripts/verify/`.
+- **Test bridge (#31, dev and e2e builds):** `main/test-bridge.ts` exposes `window.__vsTest` (`snapshot()`, `waitFor(predicate, ms)`), which asks the worker over the `testSnapshot` messages (`TestSnapshotRequest`/`TestSnapshotReply`, filtered out before both exhaustive switches) and returns a flat `GameSnapshot` (`WorkerSnapshot` plus `ready`, `buildRev`, `state`). It only reads. Later issues add fields by name with `registerSnapshotField(name, read)` (`worker/test-bridge.ts`) or `registerMainSnapshotField` (main thread), never by editing the bridges. Calls are wrapped in `if (import.meta.env.DEV || import.meta.env.MODE === 'e2e')`; `verify:launch` serves `--mode e2e`. `__VS_BUILD_REV__` (`vite.config.ts`, `protocol/env.d.ts`) is the git revision at server start. The dev-only registered `renders` field reads the existing worker debug render counter; hidden-tab verification compares cumulative values. Playwright lives in `e2e/` (root tsconfig reference, so `tsc -b` and ESLint cover it), the scripts in `scripts/verify/`. `verify:e2e` consumes `--issue <N>` and `--with-server` and forwards remaining arguments unchanged to Playwright. The headed hidden project uses `helpers/native-test.ts`: a fresh BrowserServer process/profile and its owned loopback CDP endpoint with `noDefaults: true`, preserving native tab visibility. Cleanup closes only task targets/processes and removes their temporary profiles; no user browser is attached.
 - **Multiplayer (ADRs 0005, 0006):**
   - Each player simulates their own world, and worlds are never synchronized.
   - The server handles rooms (6-character codes, nicknames), match start (seed), status relay (at most 4 Hz), interference routing and the result. WebSocket upgrades happen only on `/ws`.

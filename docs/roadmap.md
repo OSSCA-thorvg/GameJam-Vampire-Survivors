@@ -8,6 +8,7 @@ Each row is one GitHub issue, and the issue is the source of truth for scope and
 | W1                                              | #32   | Make the repo and issues ready for any Claude Code contributor         | #30 (merged)   | high     |
 | W2                                              | #44   | Turn problems found during implementation into follow-up issues (done) | —              | high     |
 | W3                                              | #54   | Document Codex workflow and Claude skill adapters                      | —              | medium   |
+| SEC1                                            | #58   | Resolve minimatch advisory in the lint dependency chain                | upstream patch | medium   |
 | F1                                              | #1    | Set up the pnpm monorepo with lint, format, tests and CI               | —              | high     |
 | F2                                              | #2    | Boot ThorVG in a game worker on an OffscreenCanvas                     | F1             | high     |
 | V1                                              | #31   | Create the verify-game skill and Playwright harness                    | F2             | high     |

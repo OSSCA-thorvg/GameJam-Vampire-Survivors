@@ -45,9 +45,9 @@ Pick the driver, then follow the feature file's **Driving it** section for that 
 - Evidence: `gif_creator` `start_recording`, a `computer` `screenshot` right after, the actions with a screenshot after each (screenshots become the frames), a final screenshot, `stop_recording`, then `export` with `download: true` and a meaningful name such as `issue-<N>-<feature>.gif`. Save screenshots with `save_to_disk` and copy them, the GIF (from the browser's download folder) and a short notes file with the snapshots into `verification/issue-<N>/<feature>/`.
 - Never trigger `alert`, `confirm` or `prompt` (they block the extension). Close every tab you opened with `tabs_close_mcp` before Cleanup.
 
-**2. Playwright (headless and CI, and the fallback).** Chromium; headless runs use SwiftShader for WebGL 2 (`--use-angle=swiftshader --enable-unsafe-swiftshader`), `VERIFY_HEADED=1` runs headed on the real GPU.
+**2. Playwright (headless smoke, headed native visibility, and CI).** Chromium; ordinary headless runs use SwiftShader for WebGL 2 (`--use-angle=swiftshader --enable-unsafe-swiftshader`), and `VERIFY_HEADED=1` runs that smoke project headed. The `hidden-tab` project always runs headed with its own fresh process/profile and the public `noDefaults` CDP connection, as documented in `features/hidden-tab.md`; it never attaches to a user browser.
 
-- `pnpm verify:e2e` launches, runs `e2e/` (the CI gate; `e2e/smoke.spec.ts` drives `boot.md`) and always cleans up. `--issue <N>` picks the evidence folder.
+- `pnpm verify:e2e` launches, runs both `chromium` smoke and headed `hidden-tab` projects, and always cleans up. `--issue <N>` picks the evidence folder, `--with-server` reaches launch, and remaining arguments reach Playwright unchanged. Use `--project chromium` for ordinary smoke and `--project hidden-tab` for native visibility. On Linux, install Chromium with `pnpm exec playwright install --with-deps chromium`, then use `xvfb-run -a pnpm verify:e2e` (also the CI command).
 - A feature-map journey: save the spec from the feature file as `verification/issue-<N>/journeys/<feature>.spec.ts` (it imports `../../../e2e/helpers`), then, with the client launched:
   ```sh
   VERIFY_JOURNEYS=verification/issue-<N>/journeys VERIFY_EVIDENCE_DIR=$PWD/verification/issue-<N> \
@@ -75,13 +75,13 @@ Stops only the process group recorded in `client.json` (never by name), runs `do
 
 ## Helpers
 
-| What                     | Where                                                                                                       |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| Test bridge, main thread | `packages/client/src/main/test-bridge.ts`: `window.__vsTest`, `registerMainSnapshotField(name, read)`       |
-| Test bridge, worker      | `packages/client/src/worker/test-bridge.ts`: `registerSnapshotField(name, read)`                            |
-| Snapshot types           | `packages/client/src/protocol/worker-messages.ts`: `WorkerSnapshot`, `GameSnapshot`                         |
-| Scripts                  | `scripts/verify/`: `launch.mjs`, `doctor.mjs`, `cleanup.mjs`, `e2e.mjs`, `check-prod-bundle.mjs`, `lib.mjs` |
-| Playwright               | `e2e/playwright.config.ts`, `e2e/helpers.ts`, `e2e/smoke.spec.ts`                                           |
-| Production guard         | `pnpm build` runs `check-prod-bundle.mjs`: no `__vsTest`, `__vsDebug`, `testSnapshot`, `togglePerfOverlay`  |
+| What                     | Where                                                                                                                                                 |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Test bridge, main thread | `packages/client/src/main/test-bridge.ts`: `window.__vsTest`, `registerMainSnapshotField(name, read)`                                                 |
+| Test bridge, worker      | `packages/client/src/worker/test-bridge.ts`: `registerSnapshotField(name, read)`                                                                      |
+| Snapshot types           | `packages/client/src/protocol/worker-messages.ts`: `WorkerSnapshot`, `GameSnapshot`                                                                   |
+| Scripts                  | `scripts/verify/`: `launch.mjs`, `doctor.mjs`, `cleanup.mjs`, `e2e.mjs`, `check-prod-bundle.mjs`, `lib.mjs`                                           |
+| Playwright               | `e2e/playwright.config.ts`, `e2e/helpers.ts`, `e2e/smoke.spec.ts`, `e2e/hidden-tab.spec.ts`, `e2e/helpers/native-test.ts`, `e2e/helpers/hide-page.ts` |
+| Production guard         | `pnpm build` runs `check-prod-bundle.mjs`: no `__vsTest`, `__vsDebug`, `testSnapshot`, `togglePerfOverlay`                                            |
 
 A new feature registers its snapshot fields by name (never edit the bridges) and adds or updates its file in `features/` in the same PR (`.claude/rules/docs-sync.md`).

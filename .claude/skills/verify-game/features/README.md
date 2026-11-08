@@ -16,7 +16,7 @@ One file per user-facing feature. A PR that adds or changes user-facing behaviou
 
 ## Driving conventions
 
-- Two drivers, same journeys: **Claude in Chrome** (interactive sessions, real Chrome and GPU) and **Playwright** (headless with SwiftShader, CI, and the fallback when the extension is not connected). `../SKILL.md` § Drive has the rules for both.
+- Two drivers, same journeys: **Claude in Chrome** (interactive sessions, real Chrome and GPU) and **Playwright** (headless smoke with SwiftShader, a headed native hidden-tab fixture, CI under Xvfb, and the fallback when the extension is not connected). The hidden fixture owns a newly launched browser process/profile and uses `noDefaults` on its existing context; it never attaches to a user browser. Select it with `--project hidden-tab`, and select ordinary smoke with `--project chromium`. `../SKILL.md` § Drive has the rules for both.
 - Input is real keyboard input: `computer` `key` (extension), `page.keyboard` or `holdKeys` (Playwright). Screens from #9 on are found by ARIA role and name.
 - State comes only from `window.__vsTest.snapshot()` / `waitFor` (dev and e2e builds). The bridge only reads; nothing sets gameplay state.
 - Debug keys (`CLAUDE.md` table) and `__vsDebug.post` only reach preconditions; say which ones a journey used.

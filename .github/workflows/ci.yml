@@ -46,8 +46,8 @@ jobs:
         if: steps.ws.outputs.present == 'true'
         run: pnpm check
 
-  # verify-game smoke run (#31): launches the client on :5180 and drives e2e/ with Playwright Chromium (headless,
-  # SwiftShader WebGL 2). The browser comes from the explicit `playwright install` step, never a lifecycle script.
+  # verify-game (#31/#52): headless Chromium smoke plus headed native hidden-tab verification under Xvfb.
+  # The browser comes from explicit `playwright install`, never a lifecycle script.
   verify:
     name: verify
     runs-on: ubuntu-latest
@@ -86,9 +86,12 @@ jobs:
       - name: Install Chromium for Playwright
         if: steps.ws.outputs.present == 'true'
         run: pnpm exec playwright install --with-deps chromium
-      - name: pnpm verify:e2e
+      - name: Check headed browser display support
         if: steps.ws.outputs.present == 'true'
-        run: pnpm verify:e2e
+        run: command -v xvfb-run
+      - name: pnpm verify:e2e (headless smoke and headed hidden tab)
+        if: steps.ws.outputs.present == 'true'
+        run: xvfb-run -a pnpm verify:e2e
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure() && steps.ws.outputs.present == 'true'
         with:

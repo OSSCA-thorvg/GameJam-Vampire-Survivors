@@ -9,7 +9,7 @@ Use Node 24: `nvm use`, `corepack enable`, `pnpm install`.
 - `pnpm dev`: client on :5173. `pnpm server:up`: Docker server on :8787.
 - `pnpm check`: format, lint, typecheck, Vitest, build, then `test:build`.
 - `pnpm format`, `pnpm lint:fix`: fixes. `pnpm test`: unit suites. `pnpm test:build`: requires built artifacts.
-- `pnpm verify:e2e --issue <N>`: browser smoke test and cleanup.
+- `pnpm verify:e2e --issue <N>`: browser smoke/native hidden-tab tests and cleanup (`--project chromium` selects headless smoke).
 
 Use two spaces, single quotes, semicolons, strict TypeScript, ESLint, and Prettier. Name colocated Vitest tests `*.test.ts`.
 
@@ -27,6 +27,8 @@ Read `CLAUDE.md` first. Before each applicable stage, read `.claude/rules/<rule>
 | Commit                | commits                                | commit                                                |
 | Rebase                | conflicts                              | resolve-conflicts                                     |
 | Finish                | pull-requests, verification, docs-sync | issue-finish                                          |
+
+After checking prerequisites and issue ownership, assign the issue and set `status:in-progress` on GitHub before creating its worktree, installing dependencies, and implementing (user directive, 2026-11-08).
 
 Read the whole issue thread before starting and before the PR. Check prerequisites and their actual artifacts on `origin/main`. Record executed checks and evidence in `verification/issue-<N>/`. Ask about blocking decisions; route other findings through the follow-up procedure.
 
