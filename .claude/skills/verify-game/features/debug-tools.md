@@ -1,12 +1,13 @@
 # Debug tools
 
-Dev-only tools from #2: `` ` `` (`Backquote`) toggles the perf overlay and `]` (`BracketRight`) fast-forwards 60 s of simulation; production builds contain neither them nor the test bridge.
+Dev-only tools from #2: `` ` `` (`Backquote`) toggles the perf overlay and `]` (`BracketRight`) fast-forwards 60 s of simulation; later issues add gameplay precondition keys such as `G` (`KeyG`, #10); production builds contain neither them nor the test bridge.
 
 ## Sub-features
 
 - **Perf overlay:** `Backquote` toggles `snapshot().perfOverlay`; when shown, white text at the top left reads `fps <n>` and `steps/s <n>` (lines added by later issues with `registerPerfStat` appear below). Worker log: `[debug] perf overlay shown` / `hidden`.
 - **Fast-forward:** `BracketRight` raises `steps` by 3600 at once, without rendering in between; during a run `timeS` rises by 60 too, unless the player dies on the way (contact damage, #9: a standing player dies within 60 s, and the run then stops). The journey runs it on the title screen, where `timeS` stays 0. Worker log: `[debug] fastForward 60 s in <t> ms: simTime a -> simTime a+60`.
 - **Stress scene (#6):** `/?stress=3000` in dev or `perf` mode creates 3000 pooled `enemy.bat` instances, moves/separates them and replaces 1000 every 2 simulated seconds. In dev/e2e, `snapshot().debug` reports actual `entities`, `paintsCreated`, `visiblePaints`, `churnCycles` and `stepMs`. The overlay adds `entities`, `paints created` and `step ms`. Counts stay constant as churn advances. Numeric values clamp to 4096, zero is valid, invalid names warn and fall back to normal boot, and gallery takes precedence when both flags are present.
+- **Grant weapon (#10):** `G` (`KeyG`) during a run adds the first weapon of `WEAPON_LIST` the player does not own, at level 1: `snapshot().weapons` goes from `[{ id: 'whip', level: 1 }]` to also list `{ id: 'magicWand', level: 1 }`; once every weapon is owned it adds nothing. Worker log: `[debug] grantWeapon: magicWand` (or `nothing to grant`). Driven in `weapons.md` journey 3.
 - **Absent from production:** `pnpm build` passes `check-prod-bundle.mjs` (no `__vsTest`, `__vsDebug`, `testSnapshot`, `togglePerfOverlay` in `packages/client/dist`); in `vite preview`, `typeof __vsDebug` and `typeof __vsTest` are `undefined` and the two keys change nothing.
 
 ## How to get to it (user POV)

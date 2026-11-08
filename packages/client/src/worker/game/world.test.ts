@@ -1,14 +1,18 @@
 import { expect, it } from 'vitest';
 import { cameraSystem } from './camera';
+import { cleanupSystem } from './combat';
+import { fxSystem } from './fx';
+import { projectileSystem } from './projectiles';
 import { playerMovementSystem } from './player';
 import { readEnemyPositions, readPlayerSnapshot } from './snapshot';
 import { enemyMovementSystem } from './systems/enemy-movement';
 import { contactDamageSystem } from './systems/contact-damage';
 import { enemyRelocateSystem } from './systems/enemy-relocate';
 import { spawnerSystem } from './systems/spawner';
+import { weaponSystem } from './weapons/system';
 import { createWorld, inputSystem, SYSTEMS } from './world';
 
-it('runs input, movement, camera, the spawner, enemy movement, relocation, then contact damage', () => {
+it('runs input, movement, camera, the spawner, enemy movement, relocation, contact damage, then the combat systems', () => {
   expect(SYSTEMS).toEqual([
     inputSystem,
     playerMovementSystem,
@@ -17,7 +21,17 @@ it('runs input, movement, camera, the spawner, enemy movement, relocation, then 
     enemyMovementSystem,
     enemyRelocateSystem,
     contactDamageSystem,
+    weaponSystem,
+    projectileSystem,
+    fxSystem,
+    cleanupSystem,
   ]);
+});
+
+it('starts the default character with the Whip at level 1 and a weapons stream of its own', () => {
+  const world = createWorld({ seed: 42 });
+  expect(world.weapons.map((w) => [w.def.id, w.level])).toEqual([['whip', 1]]);
+  expect(world.weaponRng.next()).toBe(createWorld({ seed: 42 }).rng.fork('weapons').next());
 });
 
 it('stores the seed and character, seeds the root stream and reports the player snapshot', () => {

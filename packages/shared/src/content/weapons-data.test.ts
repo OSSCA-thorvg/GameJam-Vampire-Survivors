@@ -1,0 +1,57 @@
+import { expect, it } from 'vitest';
+import { ASSET_IDS } from '../generated/asset-ids.js';
+import { WEAPONS, WEAPON_LIST } from './weapons.js';
+
+const ids: readonly string[] = ASSET_IDS;
+
+it('gives every base weapon full stats for levels 1–8, upgrade texts for 2–8 and cataloged art', () => {
+  expect(new Set(WEAPON_LIST).size).toBe(WEAPON_LIST.length);
+  for (const id of WEAPON_LIST) {
+    const def = WEAPONS[id];
+    expect(def.id, id).toBe(id);
+    expect(def.maxLevel, id).toBe(8);
+    expect(def.levels, id).toHaveLength(def.maxLevel);
+    expect(def.levelText, id).toHaveLength(def.maxLevel - 1);
+    for (const [i, lv] of def.levels.entries()) {
+      const at = `${id} L${String(i + 1)}`;
+      expect(lv.cooldownSec, at).toBeGreaterThan(0);
+      expect(lv.damage, at).toBeGreaterThan(0);
+      expect(lv.amount, at).toBeGreaterThanOrEqual(1);
+      expect(lv.pierce, at).toBeGreaterThanOrEqual(1);
+      expect(lv.area, at).toBeGreaterThan(0);
+      for (const value of Object.values(lv)) expect(Number.isNaN(value), at).toBe(false);
+    }
+    expect(ids, id).toContain(def.assetId);
+    expect(ids, id).toContain(def.iconId);
+  }
+});
+
+it('matches the issue tables at their corners: Whip L1 and L8, Magic Wand L1 and L8', () => {
+  expect(WEAPONS.whip.levels[0]).toEqual({
+    damage: 10,
+    cooldownSec: 1.35,
+    area: 1,
+    speed: 0,
+    amount: 1,
+    durationSec: 0.15,
+    pierce: Infinity,
+    knockback: 200,
+  });
+  expect(WEAPONS.whip.levels[7]).toMatchObject({ damage: 40, area: 1.2, amount: 2 });
+  expect(WEAPONS.magicWand.levels[0]).toEqual({
+    damage: 10,
+    cooldownSec: 1.2,
+    area: 1,
+    speed: 400,
+    amount: 1,
+    durationSec: 2,
+    pierce: 1,
+    knockback: 100,
+  });
+  expect(WEAPONS.magicWand.levels[7]).toMatchObject({
+    damage: 30,
+    cooldownSec: 1,
+    amount: 4,
+    pierce: 2,
+  });
+});

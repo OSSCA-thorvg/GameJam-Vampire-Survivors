@@ -20,3 +20,5 @@ export const PLAYER_RADIUS = 14;
 export const HIT_INVULN_SEC = 0.5;
 /** The largest enemy radius any content may use; the contact query reaches `PLAYER_RADIUS + MAX_ENEMY_RADIUS`. */
 export const MAX_ENEMY_RADIUS = 24;
+/** Weapons the player can hold at once (ADR 0008); the owned array's index is the slot. */
+export const MAX_WEAPON_SLOTS = 6;

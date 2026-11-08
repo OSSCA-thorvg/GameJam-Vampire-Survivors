@@ -12,7 +12,7 @@ export type Axis = -1 | 0 | 1;
 export interface RunStats {
   /** Simulated seconds survived. */
   timeSec: number;
-  /** 0 until weapons kill (#10). */
+  /** Enemies killed by weapons (#10). */
   kills: number;
   /** 1 until XP and level-up (#11). */
   level: number;
@@ -77,7 +77,9 @@ export type DebugCommand =
   | { kind: 'togglePerfOverlay' }
   | { kind: 'fastForward'; seconds: number }
   /** #5: toggles the `?gallery` speed preview (`KeyV`). */
-  | { kind: 'galleryPreview' };
+  | { kind: 'galleryPreview' }
+  /** #10: adds the first weapon of `WEAPON_LIST` the player does not own, at level 1 (`KeyG`). */
+  | { kind: 'grantWeapon' };
 
 /**
  * Read-only worker state for verification (`window.__vsTest`, dev and e2e builds only). One flat object: fields

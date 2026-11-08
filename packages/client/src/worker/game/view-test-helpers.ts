@@ -2,11 +2,12 @@ import type { Matrix, Paint, ThorVGNamespace } from '@thorvg/webcanvas';
 import type { DrawableAssetId } from '@vs/shared';
 import type { GameViewOptions } from './view';
 
-/** A recorded fake paint: visibility, opacity, the last matrix or translation, and the last text. */
+/** A recorded fake paint: visibility, opacity and its write count, the last matrix or translation, and the last text. */
 export interface FakePaint {
   id: string;
   visible: boolean;
   opacity: number;
+  opacityWrites: number;
   matrix: Matrix | null;
   translate: [number, number] | null;
   text: string | null;
@@ -24,6 +25,7 @@ function fakePaint(state: FakePaint): Paint {
     opacity(value?: number) {
       if (value === undefined) return state.opacity;
       state.opacity = value;
+      state.opacityWrites++;
       return paint;
     },
     transform(m: Matrix) {
@@ -53,6 +55,7 @@ export function fakeGameView() {
       id,
       visible: true,
       opacity: 255,
+      opacityWrites: 0,
       matrix: null,
       translate: null,
       text: null,
@@ -82,7 +85,9 @@ export function fakeGameView() {
       },
       ground: { add },
       enemies: { add },
+      projectiles: { add },
       player: { add },
+      fx: { add },
       hud: { add },
     },
     scale: () => 2,

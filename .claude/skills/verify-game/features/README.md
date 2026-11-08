@@ -13,6 +13,7 @@ One file per user-facing feature. A PR that adds or changes user-facing behaviou
 | `enemies.md`       | wave spawning off-screen, chase, separation, relocation and the enemy cap    | #8    |
 | `run-flow.md`      | title, pause on Escape or hidden tab, results, retry, keyboard-only screens  | #9    |
 | `player-health.md` | contact damage, invulnerability and blink, death, the ThorVG HUD             | #9    |
+| `weapons.md`       | the Whip, the Magic Wand (`G`), hits, flash, knockback, kills, the cap       | #10   |
 
 ## Baseline preconditions
 

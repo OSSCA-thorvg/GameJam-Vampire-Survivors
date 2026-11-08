@@ -174,6 +174,7 @@ async function boot(): Promise<void> {
 
   if (import.meta.env.DEV) {
     if (debug?.gallery) registerDebugKey('KeyV', { kind: 'galleryPreview' });
+    registerDebugKey('KeyG', { kind: 'grantWeapon' });
     installDebugTools(worker);
   }
 }

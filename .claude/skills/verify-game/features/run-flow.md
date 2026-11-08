@@ -8,7 +8,7 @@ The screens around a single-player run (#9, ADR 0009): the title screen, the run
 - **Pause on Escape:** Escape while playing shows the dialog (`role=dialog`, name "Paused") with "Resume" focused and "Quit to title"; `paused: true`; over 2 s `timeS` and `enemyPositions` are unchanged. Enter on "Resume" (or Escape again) closes it and `timeS` continues from the frozen value with no jump (under 0.25 s later at the first sample).
 - **Pause on a hidden tab:** see `hidden-tab.md` (the run journey there): the overlay is shown on return and holds the run until Resume.
 - **Quit to title:** ArrowDown to "Quit to title", Enter: `state: 'title'`, `player: null`, the worker cleared the run (`endRun`) and draws an empty frame.
-- **Results:** at 0 HP (`player-health.md`) the run stops and `state: 'results'`; the screen shows "Game over", Survived (`mm:ss` of `timeS` at death, rounded down), Kills (0 until #10) and Level (1 until #11), with "Retry" focused and "Title".
+- **Results:** at 0 HP (`player-health.md`) the run stops and `state: 'results'`; the screen shows "Game over", Survived (`mm:ss` of `timeS` at death, rounded down), Kills (`kills` at death, rising since #10's weapons) and Level (1 until #11), with "Retry" focused and "Title".
 - **Retry keeps the paint count flat:** Retry starts a fresh run (`timeS` back near 0, full HP); `debug.paintsCreated` (the sum of `created` over every worker paint pool) is the same at boot, at the start of each of five runs and back on the title.
 - **Keyboard only:** arrows and WASD move focus between buttons (wrapping), Tab moves natively, Enter activates the focused button (or the first one when focus is elsewhere). Escape does nothing on the title and results screens.
 - Snapshot fields: `state` (main thread, `main/app.ts`: `'booting'`, `'title'`, `'playing'`, `'results'`), `paused`, `timeS` and `player` (`null` outside a run), `enemyPositions`, `debug` (`{ paintsCreated }`, `worker/index.ts`).
@@ -26,7 +26,7 @@ Open the game URL: the title screen appears once loading finishes. Press Enter t
 3. `computer` `key` `Enter`; `javascript_tool` `(await window.__vsTest.waitFor((s) => s.state === 'playing' && s.timeS > 3, 10000)).timeS`; `screenshot`.
 4. `computer` `key` `Escape`; `read_page` `{ filter: "interactive" }` → a dialog "Paused" with buttons "Resume" and "Quit to title"; read `timeS` and `enemyPositions` twice 1 s apart → equal; `screenshot`.
 5. `computer` `key` `Enter`; read `timeS` → a little above the frozen value; `screenshot`.
-6. Wait for death: `javascript_tool` `JSON.stringify(await window.__vsTest.waitFor((s) => s.state === 'results', 90000))`; `get_page_text` → "Game over", Survived `mm:ss` matching `timeS`, Kills 0, Level 1; `screenshot`.
+6. Wait for death: `javascript_tool` `JSON.stringify(await window.__vsTest.waitFor((s) => s.state === 'results', 90000))`; `get_page_text` → "Game over", Survived `mm:ss` matching `timeS`, Kills equal to the snapshot's `kills`, Level 1; `screenshot`.
 7. `computer` `key` `Enter` (Retry); read `debug.paintsCreated` → the same as at step 2. Repeat steps 6–7 to taste, then `key` `ArrowDown`, `key` `Enter` (Title) → `state: "title"`.
 8. `gif_creator` `stop_recording`, `export` `{ download: true, filename: "issue-<N>-run-flow.gif" }`; `tabs_close_mcp` on the tab.
 

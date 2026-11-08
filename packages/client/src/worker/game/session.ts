@@ -1,6 +1,6 @@
 import type { RunStats } from '../../protocol/worker-messages';
 import type { GameView } from './view';
-import { createWorld, type World } from './world';
+import { clearWorld, createWorld, type World } from './world';
 
 /** Runs one world at a time on a long-lived view (#9): what the worker's `startRun` and `endRun` do. */
 export interface Session {
@@ -21,13 +21,20 @@ export function createSession(view: GameView, onGameOver: (stats: RunStats) => v
       return world;
     },
     start(seed, characterId) {
-      world?.enemies.clear();
+      if (world) clearWorld(world);
       view.begin();
-      world = createWorld({ seed, characterId, enemyPools: view.enemyPools, onGameOver });
+      world = createWorld({
+        seed,
+        characterId,
+        enemyPools: view.enemyPools,
+        projectilePools: view.projectilePools,
+        fxPools: view.fxPools,
+        onGameOver,
+      });
       return world;
     },
     end() {
-      world?.enemies.clear();
+      if (world) clearWorld(world);
       view.clear();
       world = null;
     },
