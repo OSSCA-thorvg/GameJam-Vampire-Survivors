@@ -1,11 +1,25 @@
 import { expect, it } from 'vitest';
+import { ELITE } from './chests.js';
 import { MAX_ENEMY_RADIUS, PLAYER_RADIUS } from './constants.js';
 import { ENEMIES, ENEMY_LIST } from './enemies.js';
 
-it('keeps every enemy radius within MAX_ENEMY_RADIUS, so the contact query reaches every enemy', () => {
+it('keeps elite-scaled and boss radii within MAX_ENEMY_RADIUS, so the contact and weapon queries reach every enemy', () => {
   for (const id of ENEMY_LIST) {
-    expect(ENEMIES[id].radius, id).toBeGreaterThan(0);
-    expect(ENEMIES[id].radius, id).toBeLessThanOrEqual(MAX_ENEMY_RADIUS);
+    const def = ENEMIES[id];
+    expect(def.radius, id).toBeGreaterThan(0);
+    const largest = def.boss ? def.radius : def.radius * ELITE.scale;
+    expect(largest, id).toBeLessThanOrEqual(MAX_ENEMY_RADIUS);
   }
+  // reaper10's radius; an elite ghoul is 24.
+  expect(MAX_ENEMY_RADIUS).toBe(48);
   expect(PLAYER_RADIUS).toBeGreaterThan(0);
+});
+
+it('makes reaper5 and reaper10 bosses that always drop a chest', () => {
+  for (const id of ['reaper5', 'reaper10'] as const) {
+    expect(ENEMIES[id].boss, id).toEqual({ tether: true, dropsChest: 'always' });
+    expect(ENEMIES[id].assetId, id).toBe(`boss.${id}`);
+  }
+  expect(ENEMIES.bat.boss).toBeUndefined();
+  expect(ENEMIES.ghoul.boss).toBeUndefined();
 });

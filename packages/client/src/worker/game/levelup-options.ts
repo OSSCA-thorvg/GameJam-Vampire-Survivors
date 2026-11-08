@@ -1,4 +1,5 @@
 import {
+  EVOLUTIONS,
   LEVELUP_CHOICES,
   LEVELUP_HEAL,
   MAX_PASSIVE_SLOTS,
@@ -31,6 +32,12 @@ export const FOURTH_CARD_MAX_CHANCE = 0.5;
 
 const ALL_WEAPONS: readonly WeaponDef[] = WEAPON_LIST.map((id) => WEAPONS[id]);
 
+/** Whether `id` is owned, or its evolution is (#15): an evolved base weapon is never offered again. */
+function ownedOrEvolved(weapons: LevelUpOptionsWorld['weapons'], id: WeaponDef['id']): boolean {
+  const into = EVOLUTIONS.find((e) => e.weaponId === id)?.intoWeaponId;
+  return weapons.some((w) => w.def.id === id || w.def.id === into);
+}
+
 function weight(o: LevelUpOption | undefined): number {
   if (!o) return 0;
   return o.kind === 'upgradeWeapon' || o.kind === 'upgradePassive'
@@ -61,9 +68,9 @@ function pickInto(candidates: LevelUpOption[], from: number, rng: Rng): void {
 /**
  * The cards of one level-up (#11, passives #12): `LEVELUP_CHOICES` distinct candidates drawn by weight (new items
  * `NEW_ITEM_WEIGHT`, upgrades `UPGRADE_WEIGHT`) from the upgrades of owned weapons and passives below their
- * `maxLevel` and, while a slot of that kind is free, the weapons and passives not owned yet; then a 4th card with
- * probability `min(0.5, luck - 1)` when a 4th candidate exists. With no candidate it is a single heal of
- * `LEVELUP_HEAL`; never gold (REQUIREMENTS #8, #9). `catalog` and `passiveCatalog` exist for tests.
+ * `maxLevel` and, while a slot of that kind is free, the weapons and passives not owned yet (a weapon whose evolution
+ * is owned counts as owned, #15); then a 4th card with probability `min(0.5, luck - 1)` when a 4th candidate exists.
+ * With no candidate it is a single heal of `LEVELUP_HEAL`; never gold (REQUIREMENTS #8, #9). `catalog` and `passiveCatalog` exist for tests.
  */
 export function buildLevelUpOptions(
   world: LevelUpOptionsWorld,
@@ -93,7 +100,7 @@ export function buildLevelUpOptions(
       });
   if (world.weapons.length < MAX_WEAPON_SLOTS)
     for (const def of catalog)
-      if (!world.weapons.some((w) => w.def.id === def.id))
+      if (!ownedOrEvolved(world.weapons, def.id))
         candidates.push({
           kind: 'newWeapon',
           weaponId: def.id,

@@ -1,4 +1,5 @@
-import type { PassiveId, WeaponId } from '@vs/shared';
+import { ENEMY_LIST, type PassiveId, type WeaponId } from '@vs/shared';
+import { ENEMY_FLAG_BOSS } from './enemies';
 import type { World } from './world';
 
 /** The `player` snapshot field (test bridge): position, facing and HP (#9), level and XP toward the next level (#11). */
@@ -58,5 +59,32 @@ export function readGemPositions(world: World): [number, number, number, number,
       Math.round(cols.y[i] ?? 0),
       cols.value[i] ?? 0,
     ]);
+  return out;
+}
+
+/**
+ * The `bosses` snapshot field (test bridge, #15): each live boss's enemy ID and its distance from the player, rounded
+ * to whole units. Built only when a snapshot is taken.
+ */
+export function readBosses(world: World): { id: string; distance: number }[] {
+  const { count, cols } = world.enemies;
+  const out: { id: string; distance: number }[] = [];
+  for (let i = 0; i < count; i++) {
+    if (((cols.flags[i] ?? 0) & ENEMY_FLAG_BOSS) === 0) continue;
+    const distance = Math.hypot(
+      (cols.x[i] ?? 0) - world.player.x,
+      (cols.y[i] ?? 0) - world.player.y,
+    );
+    out.push({ id: ENEMY_LIST[cols.type[i] ?? 0] ?? '?', distance: Math.round(distance) });
+  }
+  return out;
+}
+
+/** The `chestPositions` snapshot field (test bridge, #15): `[x, y]` per chest on the ground, rounded to whole units. */
+export function readChestPositions(world: World): [number, number][] {
+  const { count, cols } = world.chests;
+  const out: [number, number][] = [];
+  for (let i = 0; i < count; i++)
+    out.push([Math.round(cols.x[i] ?? 0), Math.round(cols.y[i] ?? 0)]);
   return out;
 }

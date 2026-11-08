@@ -4,8 +4,9 @@ import type { AssetLibrary } from '../assets/library';
 import { createStore, type Store } from '../ecs/store';
 import { PaintPool, RenderBinding } from '../render/pool';
 import { damageEnemy, isDead } from './combat';
-import { ENEMY_RADIUS } from './enemies';
+import { enemyRadius } from './enemies';
 import { hitLightsInCircle } from './light-sources';
+import { rollCrit } from './weapons/context';
 import type { World } from './world';
 
 /**
@@ -45,6 +46,9 @@ export const PROJECTILE_SCHEMA = {
   aimY: 'f32',
   returnAfter: 'f32',
   turned: 'u8',
+  /** Chance per hit of a critical hit, and its damage multiplier (Heaven Sword, #15); rolled on `world.weaponRng`. */
+  critChance: 'f32',
+  critMultiplier: 'f32',
   ...RenderBinding.columns,
 } as const;
 
@@ -57,6 +61,12 @@ export const PROJECTILE_ASSETS = [
   'weapon.axe',
   'weapon.cross',
   'weapon.fireWand',
+  // The evolutions (#15), drawn by the same patterns from `WeaponDef.assetId`.
+  'weapon.holyWand',
+  'weapon.thousandEdge',
+  'weapon.deathSpiral',
+  'weapon.heavenSword',
+  'weapon.hellfire',
 ] as const satisfies readonly DrawableAssetId[];
 export type ProjectileAssetId = (typeof PROJECTILE_ASSETS)[number];
 
@@ -67,6 +77,11 @@ export const PROJECTILE_POOL_PREWARM: Readonly<Record<ProjectileAssetId, number>
   'weapon.axe': 30,
   'weapon.cross': 30,
   'weapon.fireWand': 60,
+  'weapon.holyWand': 100,
+  'weapon.thousandEdge': 30,
+  'weapon.deathSpiral': 30,
+  'weapon.heavenSword': 10,
+  'weapon.hellfire': 10,
 };
 
 /** Flies in a straight line at its launch velocity. */
@@ -111,6 +126,9 @@ export interface ProjectileOptions {
   gravity?: number;
   /** For `MOTION_RETURN`. */
   returnAfter?: number;
+  /** Critical hits (#15); none when absent. */
+  critChance?: number;
+  critMultiplier?: number;
 }
 
 /** One prewarmed pool per projectile asset, created once per worker and reused by every run (#9). */
@@ -163,6 +181,8 @@ export function spawnProjectile(
   const motion = opts.motion ?? MOTION_STRAIGHT;
   cols.motion[slot] = motion;
   cols.gravity[slot] = opts.gravity ?? 0;
+  cols.critChance[slot] = opts.critChance ?? 0;
+  cols.critMultiplier[slot] = opts.critMultiplier ?? 1;
   if (motion === MOTION_RETURN) {
     const speed = Math.hypot(vx, vy);
     cols.speed[slot] = speed;
@@ -220,7 +240,6 @@ export function projectileSystem(world: World, dt: number): void {
   const p = projectiles.cols;
   const ex = enemies.cols.x;
   const ey = enemies.cols.y;
-  const etype = enemies.cols.type;
   for (let i = projectiles.count - 1; i >= 0; i--) {
     if (steer(world, i, dt)) {
       projectileBinding?.unbind(i);
@@ -245,7 +264,7 @@ export function projectileSystem(world: World, dt: number): void {
     for (let n = 0; n < found && (p.pierceLeft[i] ?? 0) > 0; n++) {
       const e = nearby[n] ?? 0;
       if (isDead(world, e)) continue;
-      const reach = radius + (ENEMY_RADIUS[etype[e] ?? 0] ?? 0);
+      const reach = radius + enemyRadius(enemies.cols, e);
       const dx = (ex[e] ?? 0) - x;
       const dy = (ey[e] ?? 0) - y;
       if (dx * dx + dy * dy > reach * reach) continue;
@@ -260,7 +279,13 @@ export function projectileSystem(world: World, dt: number): void {
       p.hitCursor[i] = (cursor + 1) % ring.length;
       if (filled < ring.length) p.hitCount[i] = filled + 1;
       p.pierceLeft[i] = (p.pierceLeft[i] ?? 0) - 1;
-      damageEnemy(world, e, p.damage[i] ?? 0, dirX, dirY, p.knockback[i] ?? 0);
+      const damage = rollCrit(
+        world.weaponRng,
+        p.damage[i] ?? 0,
+        p.critChance[i] ?? 0,
+        p.critMultiplier[i] ?? 1,
+      );
+      damageEnemy(world, e, damage, dirX, dirY, p.knockback[i] ?? 0);
     }
     // Light sources (#16): hit after the enemy query, without using pierce.
     hitLightsInCircle(world, x, y, radius, p.damage[i] ?? 0);

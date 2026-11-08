@@ -1,7 +1,7 @@
 // The only message contract between the main thread and the game worker (ADR 0004). Types only: compiled by both
 // tsconfig.main.json and tsconfig.worker.json. Later issues extend these unions; every `switch` on `type` or `kind`
 // is exhaustive and ends in `assertNever` (./assert-never.ts).
-import type { AssetId, PassiveId, WeaponId } from '@vs/shared';
+import type { AssetId, ChestReward, PassiveId, WeaponId } from '@vs/shared';
 
 /** Hidden-tab behaviour: `'pause'` for single player, `'simulate'` for versus play (ADRs 0004, 0005). */
 export type BackgroundPolicy = 'pause' | 'simulate';
@@ -69,6 +69,8 @@ export type MainToWorker =
   | { type: 'endRun' }
   /** #11: the option chosen on the open level-up screen, an index into its `options`. */
   | { type: 'levelUpChoice'; index: number }
+  /** #15: the chest overlay closed (Enter or its timer); the worker resumes the run. */
+  | { type: 'chestClosed' }
   | { type: 'debug'; command: DebugCommand }
   | TestSnapshotRequest;
 
@@ -85,6 +87,8 @@ export type WorkerToMain =
    * time, after each `levelUpChoice` while more are pending.
    */
   | { type: 'levelUp'; level: number; options: LevelUpOption[] }
+  /** #15: a chest opened and its rewards are already applied; the worker has paused the run until `chestClosed`. */
+  | { type: 'chestOpened'; rewards: ChestReward[] }
   | TestSnapshotReply;
 
 /**
@@ -121,7 +125,11 @@ export type DebugCommand =
   /** #12: adds the first passive of `PASSIVES` not owned or, with 6 owned, levels the first below max (`KeyP`). */
   | { kind: 'grantPassive' }
   /** #16: drops the next `PICKUPS` entry (cycling, ignoring its level gate) 48 units right of the player (`KeyK`). */
-  | { kind: 'spawnPickup' };
+  | { kind: 'spawnPickup' }
+  /** #15: sets up the next pair of `EVOLUTIONS` and spawns an elite whose chest evolves it (`KeyE`). */
+  | { kind: 'forceEvolution' }
+  /** #15: spawns `reaper5` on the spawn ring (`KeyB`). */
+  | { kind: 'spawnBoss' };
 
 /**
  * Read-only worker state for verification (`window.__vsTest`, dev and e2e builds only). One flat object: fields
@@ -149,6 +157,6 @@ export type GameSnapshot = WorkerSnapshot & {
   ready: boolean;
   /** Git revision the client was served from (`__VS_BUILD_REV__`). */
   buildRev: string;
-  /** `'booting'` until `ready`; then the screen from `main/app.ts` (#9): `'title'`, `'playing'`, `'levelUp'` (#11) or `'results'`. */
+  /** `'booting'` until `ready`; then the screen from `main/app.ts` (#9): `'title'`, `'playing'`, `'levelUp'` (#11), `'chest'` (#15) or `'results'`. */
   state: string;
 };

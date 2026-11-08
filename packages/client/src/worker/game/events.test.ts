@@ -27,10 +27,19 @@ describe('event queue', () => {
     const a = queue.push('enemyKilled');
     a.enemyId = 'bat';
     a.xp = 3;
+    a.flags = 5;
     queue.clear();
     const b = queue.push('playerHit');
     expect(b).toBe(a);
-    expect(b).toEqual({ kind: 'playerHit', x: 0, y: 0, amount: 0, enemyId: null, xp: 0 });
+    expect(b).toEqual({
+      kind: 'playerHit',
+      x: 0,
+      y: 0,
+      amount: 0,
+      enemyId: null,
+      xp: 0,
+      flags: 0,
+    });
     expect(queue.count).toBe(1);
   });
 });

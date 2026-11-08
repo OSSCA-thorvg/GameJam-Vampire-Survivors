@@ -13,27 +13,39 @@ const AHEAD_TRIES = 8;
 const point = { x: 0, y: 0 };
 
 /**
+ * Writes a spawn-ring point into `out` (`world.relocateRng`), on the half the player is moving toward when it moves:
+ * up to `AHEAD_TRIES` draws, then the last one. Shared by the relocation and #15's boss tether.
+ */
+export function relocatePoint(
+  world: Pick<World, 'player' | 'camera' | 'relocateRng'>,
+  out: { x: number; y: number },
+): void {
+  const { player, camera, relocateRng } = world;
+  const moving = player.dirX !== 0 || player.dirY !== 0;
+  for (let attempt = 0; attempt < AHEAD_TRIES; attempt++) {
+    ringPoint(camera, relocateRng, out);
+    if (!moving) return;
+    if ((out.x - player.x) * player.dirX + (out.y - player.y) * player.dirY > 0) return;
+  }
+}
+
+/**
  * Every `RELOCATE_INTERVAL_SEC`, moves non-boss enemies left far behind to the spawn ring, ahead of the player when it
- * is moving. HP and type are unchanged. Draws only from `world.relocateRng`, so the spawn stream never shifts.
+ * is moving (bosses are tethered by `bossTetherSystem`, #15). HP and type are unchanged. Draws only from `world.relocateRng`, so the spawn stream never shifts.
  */
 export function enemyRelocateSystem(world: World, dt: number): void {
   world.relocateTimer -= dt;
   if (world.relocateTimer > 0) return;
   world.relocateTimer += RELOCATE_INTERVAL_SEC;
-  const { enemies, player, camera, relocateRng } = world;
+  const { enemies, player } = world;
   const { x, y, flags } = enemies.cols;
   const limit2 = RELOCATE_DISTANCE * RELOCATE_DISTANCE;
-  const moving = player.dirX !== 0 || player.dirY !== 0;
   for (let i = 0; i < enemies.count; i++) {
     if (((flags[i] ?? 0) & ENEMY_FLAG_BOSS) !== 0) continue;
     const dx = (x[i] ?? 0) - player.x;
     const dy = (y[i] ?? 0) - player.y;
     if (dx * dx + dy * dy <= limit2) continue;
-    for (let attempt = 0; attempt < AHEAD_TRIES; attempt++) {
-      ringPoint(camera, relocateRng, point);
-      if (!moving) break;
-      if ((point.x - player.x) * player.dirX + (point.y - player.y) * player.dirY > 0) break;
-    }
+    relocatePoint(world, point);
     x[i] = point.x;
     y[i] = point.y;
   }

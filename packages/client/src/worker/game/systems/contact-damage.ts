@@ -1,5 +1,5 @@
-import { HIT_INVULN_SEC, MAX_ENEMY_RADIUS, PLAYER_RADIUS } from '@vs/shared';
-import { ENEMY_CONTACT_DAMAGE, ENEMY_RADIUS } from '../enemies';
+import { ELITE, HIT_INVULN_SEC, MAX_ENEMY_RADIUS, PLAYER_RADIUS } from '@vs/shared';
+import { ENEMY_CONTACT_DAMAGE, ENEMY_FLAG_ELITE, enemyRadius } from '../enemies';
 import type { World } from '../world';
 import { isFrozen } from './freeze';
 
@@ -12,10 +12,13 @@ const EPSILON = 1e-6;
  * Contact damage (#9): while not invulnerable, the strongest enemy touching the player (centre distance below
  * `PLAYER_RADIUS + radius`) deals `max(1, contactDamage - armor)`, then the player is invulnerable for
  * `HIT_INVULN_SEC`, so a crowd lands one hit per window. Pushes a `playerHit` event. At 0 HP it sets `world.state` to
- * `'dead'`; `world.step` then stops and reports the game over once. Deals nothing while frozen (#16). Reads `world.enemyGrid`, rebuilt this step by the movement system.
+ * `'dead'`; `world.step` then stops and reports the game over once. Deals nothing while frozen (#16). An elite deals
+ * `ELITE.damage` times its type's damage (#15). Does nothing while the dev-only `world.debugInvulnerable` is set (#15,
+ * #17). Reads `world.enemyGrid`, rebuilt this step by the movement system.
  */
 export function contactDamageSystem(world: World, dt: number): void {
   const { player } = world;
+  if (world.debugInvulnerable) return;
   if (player.invulnTime > 0) {
     player.invulnTime -= dt;
     if (player.invulnTime > EPSILON) return;
@@ -23,7 +26,8 @@ export function contactDamageSystem(world: World, dt: number): void {
   }
   // A frozen enemy deals no contact damage (#16, Orologion).
   if (isFrozen(world)) return;
-  const { x, y, type } = world.enemies.cols;
+  const { cols } = world.enemies;
+  const { x, y, type, flags } = cols;
   const found = world.enemyGrid.query(
     player.x,
     player.y,
@@ -34,11 +38,12 @@ export function contactDamageSystem(world: World, dt: number): void {
   for (let n = 0; n < found; n++) {
     const i = touching[n] ?? 0;
     const t = type[i] ?? 0;
-    const reach = PLAYER_RADIUS + (ENEMY_RADIUS[t] ?? 0);
+    const reach = PLAYER_RADIUS + enemyRadius(cols, i);
     const dx = (x[i] ?? 0) - player.x;
     const dy = (y[i] ?? 0) - player.y;
     if (dx * dx + dy * dy >= reach * reach) continue;
-    damage = Math.max(damage, ENEMY_CONTACT_DAMAGE[t] ?? 0);
+    const elite = ((flags[i] ?? 0) & ENEMY_FLAG_ELITE) !== 0;
+    damage = Math.max(damage, (ENEMY_CONTACT_DAMAGE[t] ?? 0) * (elite ? ELITE.damage : 1));
   }
   if (damage <= 0) return;
   const amount = Math.max(1, damage - player.armor);

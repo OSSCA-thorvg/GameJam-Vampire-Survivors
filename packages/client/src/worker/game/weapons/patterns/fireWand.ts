@@ -1,5 +1,5 @@
 import { ENEMY_FLAG_DEAD } from '../../enemies';
-import type { ProjectileOptions } from '../../projectiles';
+import type { ProjectileAssetId, ProjectileOptions } from '../../projectiles';
 import { aimAt } from './aim';
 import type { WeaponPatternModule } from './types';
 
@@ -13,7 +13,7 @@ const opts: ProjectileOptions = { damage: 0, knockback: 0, radius: 0, pierce: 1,
  * store, reservoir sampling with `ctx.rng`), or along the last movement direction when none is on screen.
  */
 export const fireWand: WeaponPatternModule = {
-  fire(ctx, _w, lv) {
+  fire(ctx, w, lv) {
     const { x, y } = ctx.player;
     const { left, top, right, bottom } = ctx.camera.viewRect(0);
     const { x: ex, y: ey, flags } = ctx.enemies.cols;
@@ -34,6 +34,13 @@ export const fireWand: WeaponPatternModule = {
     opts.scale = lv.area;
     opts.pierce = lv.pierce;
     opts.ttl = lv.durationSec;
-    ctx.spawnProjectile('weapon.fireWand', x, y, dir.x * lv.speed, dir.y * lv.speed, opts);
+    ctx.spawnProjectile(
+      w.def.assetId as ProjectileAssetId,
+      x,
+      y,
+      dir.x * lv.speed,
+      dir.y * lv.speed,
+      opts,
+    );
   },
 };

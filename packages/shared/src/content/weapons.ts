@@ -1,8 +1,19 @@
 import type { DrawableAssetId } from '../assets.js';
 
-/** The 8 base weapons (ADR 0008); #15 adds their evolutions. */
-export type WeaponId =
+/** The 8 base weapons (ADR 0008). */
+export type BaseWeaponId =
   'whip' | 'magicWand' | 'knife' | 'axe' | 'cross' | 'kingBible' | 'fireWand' | 'garlic';
+/** Their evolutions (#15, ADR 0008): granted only by a chest, never offered on a level-up. */
+export type EvolvedWeaponId =
+  | 'bloodyTear'
+  | 'holyWand'
+  | 'thousandEdge'
+  | 'deathSpiral'
+  | 'heavenSword'
+  | 'unholyVespers'
+  | 'hellfire'
+  | 'soulEater';
+export type WeaponId = BaseWeaponId | EvolvedWeaponId;
 
 /** Selects the behaviour code for a weapon (ADR 0008): one module per pattern in the worker's `weapons/patterns/`. */
 export type WeaponPattern =
@@ -34,6 +45,15 @@ export interface WeaponLevel {
   orbitRadius?: number;
   /** Seconds between the shots of one burst; the weapon system's `BURST_GAP_SEC` (0.1) when absent (#13). */
   burstIntervalSec?: number;
+  /** Heal 1 HP (capped at max HP) on every Nth enemy hit of this weapon (Bloody Tear, Soul Eater; #15). */
+  healEveryHits?: number;
+  /** Chance per hit, drawn from the weapon stream, to multiply the damage by `critMultiplier` (Heaven Sword; #15). */
+  critChance?: number;
+  critMultiplier?: number;
+  /** Fire `amount` projectiles evenly around the player instead of in an arc (Death Spiral; #15). */
+  radial?: true;
+  /** An orbit with no off-time (Unholy Vespers; #15). */
+  permanent?: true;
 }
 
 export interface WeaponDef {
@@ -45,12 +65,14 @@ export interface WeaponDef {
   assetId: DrawableAssetId;
   /** The UI icon (#11). */
   iconId: DrawableAssetId;
-  /** 8 for every base weapon. */
+  /** 8 for every base weapon, 1 for an evolved one. */
   maxLevel: number;
   /** Stats for L1..maxLevel; `levels.length === maxLevel`. */
   levels: readonly WeaponLevel[];
-  /** Upgrade text shown when reaching L2..maxLevel (index 0 is L2), used by #11. */
+  /** Upgrade text shown when reaching L2..maxLevel (index 0 is L2), used by #11; empty for an evolved weapon. */
   levelText: readonly string[];
+  /** An evolution (#15): in `WEAPONS` but not in `WEAPON_LIST`, so no level-up or `G` key ever offers it. */
+  evolved?: true;
 }
 
 /** The stats that differ per level, one array of 8 values each, as in the issue's tables. */
@@ -77,7 +99,10 @@ function levels(
 
 const eight = (value: number): number[] => Array.from({ length: 8 }, () => value);
 
-type LevelStat = keyof WeaponLevel;
+/** The numeric stats a level step may change. */
+type LevelStat = {
+  [K in keyof WeaponLevel]-?: NonNullable<WeaponLevel[K]> extends number ? K : never;
+}[keyof WeaponLevel];
 /**
  * One level's change from the previous level: `add` is flat, `pct` is a fraction of the L1 value (0.25 is +25% of
  * L1), so two +25% steps give 1.5× L1.
@@ -120,7 +145,7 @@ function steps(
  * Initial values, untuned against footage (docs/reference/gameplay.md § Weapons): the owner deferred tuning, so these
  * are the issue tables of #10 (Whip, Magic Wand) and #13 (the other six).
  */
-export const WEAPONS: Readonly<Record<WeaponId, WeaponDef>> = {
+const BASE_WEAPONS: Readonly<Record<BaseWeaponId, WeaponDef>> = {
   whip: {
     id: 'whip',
     name: 'Whip',
@@ -385,8 +410,106 @@ export const WEAPONS: Readonly<Record<WeaponId, WeaponDef>> = {
   },
 };
 
-/** Fixed order of the base weapons, used by the `G` debug key and #11's choices. */
-export const WEAPON_LIST: readonly WeaponId[] = [
+/** The base weapon's level-8 stats with `change` applied: the one level of its evolution (#15). */
+function evolveLevel(
+  baseId: BaseWeaponId,
+  change: (l8: Readonly<WeaponLevel>) => Partial<WeaponLevel>,
+): WeaponLevel {
+  const l8 = BASE_WEAPONS[baseId].levels[7];
+  if (!l8) throw new Error(`Weapon '${baseId}' has no level 8`);
+  return { ...l8, ...change(l8) };
+}
+
+function evolved(
+  id: EvolvedWeaponId,
+  baseId: BaseWeaponId,
+  name: string,
+  description: string,
+  change: (l8: Readonly<WeaponLevel>) => Partial<WeaponLevel>,
+): WeaponDef {
+  return {
+    id,
+    name,
+    description,
+    pattern: BASE_WEAPONS[baseId].pattern,
+    assetId: `weapon.${id}`,
+    iconId: `icon.weapon.${id}`,
+    maxLevel: 1,
+    levels: [evolveLevel(baseId, change)],
+    levelText: [],
+    evolved: true,
+  };
+}
+
+/**
+ * Every weapon: the 8 base weapons and their 8 evolutions (#15). Evolutions copy their base's level 8 and change a few
+ * fields: initial values, untuned against footage (docs/reference/gameplay.md § Level-up and evolution rules).
+ */
+export const WEAPONS: Readonly<Record<WeaponId, WeaponDef>> = {
+  ...BASE_WEAPONS,
+  bloodyTear: evolved(
+    'bloodyTear',
+    'whip',
+    'Bloody Tear',
+    'Evolved Whip. Heals 1 HP every 10 hits.',
+    (l) => ({ damage: l.damage * 2, healEveryHits: 10 }),
+  ),
+  holyWand: evolved(
+    'holyWand',
+    'magicWand',
+    'Holy Wand',
+    'Evolved Magic Wand. Fires with no delay.',
+    () => ({
+      cooldownSec: 0.1,
+    }),
+  ),
+  thousandEdge: evolved(
+    'thousandEdge',
+    'knife',
+    'Thousand Edge',
+    'Evolved Knife. Fires with no delay.',
+    () => ({ cooldownSec: 0.1, amount: 1 }),
+  ),
+  // `speed` is not in the issue's table: the axe's own speed is 0 because it is thrown and falls (initial value).
+  deathSpiral: evolved(
+    'deathSpiral',
+    'axe',
+    'Death Spiral',
+    'Evolved Axe. Scythes fly out all around, through every enemy.',
+    () => ({ amount: 9, radial: true, pierce: Infinity, speed: 300 }),
+  ),
+  heavenSword: evolved(
+    'heavenSword',
+    'cross',
+    'Heaven Sword',
+    'Evolved Cross. Can deal critical damage.',
+    (l) => ({ damage: l.damage * 2, critChance: 0.2, critMultiplier: 2 }),
+  ),
+  unholyVespers: evolved(
+    'unholyVespers',
+    'kingBible',
+    'Unholy Vespers',
+    'Evolved King Bible. Never ends.',
+    () => ({ permanent: true }),
+  ),
+  hellfire: evolved(
+    'hellfire',
+    'fireWand',
+    'Hellfire',
+    'Evolved Fire Wand. Passes through enemies.',
+    (l) => ({ pierce: Infinity, area: l.area * 2 }),
+  ),
+  soulEater: evolved(
+    'soulEater',
+    'garlic',
+    'Soul Eater',
+    'Evolved Garlic. Heals 1 HP every 10 hits.',
+    (l) => ({ area: l.area * 1.5, healEveryHits: 10 }),
+  ),
+};
+
+/** Fixed order of the base weapons, used by the `G` debug key and #11's choices. Never lists an evolution (#15). */
+export const WEAPON_LIST: readonly BaseWeaponId[] = [
   'whip',
   'magicWand',
   'knife',

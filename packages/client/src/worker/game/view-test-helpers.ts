@@ -10,6 +10,8 @@ export interface FakePaint {
   opacityWrites: number;
   matrix: Matrix | null;
   translate: [number, number] | null;
+  /** The last `scale()` factor (#15's elite markers), or null. */
+  scale: number | null;
   text: string | null;
   textWrites: number;
 }
@@ -36,13 +38,17 @@ function fakePaint(state: FakePaint): Paint {
       state.translate = [x, y];
       return paint;
     },
+    scale(factor: number) {
+      state.scale = factor;
+      return paint;
+    },
     text(value: string) {
       state.text = value;
       state.textWrites++;
       return paint;
     },
   };
-  for (const name of ['appendRect', 'fill', 'font', 'fontSize', 'outline', 'align'])
+  for (const name of ['appendRect', 'appendCircle', 'fill', 'font', 'fontSize', 'outline', 'align'])
     paint[name] = () => paint;
   return paint as unknown as Paint;
 }
@@ -58,6 +64,7 @@ export function fakeGameView() {
       opacityWrites: 0,
       matrix: null,
       translate: null,
+      scale: null,
       text: null,
       textWrites: 0,
     };

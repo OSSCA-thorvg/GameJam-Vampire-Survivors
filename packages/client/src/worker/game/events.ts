@@ -10,6 +10,8 @@ export interface GameEvent {
   amount: number;
   enemyId: EnemyId | null;
   xp: number;
+  /** `enemyKilled`: the enemy's `flags` (boss bit 0, elite bit 2) when it died, read by the chest drop (#15). */
+  flags: number;
 }
 
 /** Events of the current step only: `world.step` clears the queue before the first system. */
@@ -25,7 +27,15 @@ export interface EventQueue {
 /** Records per step (initial value): more than any step produces; overflow is dropped with one dev warning. */
 export const EVENT_CAPACITY = 1024;
 
-const blank = (): GameEvent => ({ kind: 'playerHit', x: 0, y: 0, amount: 0, enemyId: null, xp: 0 });
+const blank = (): GameEvent => ({
+  kind: 'playerHit',
+  x: 0,
+  y: 0,
+  amount: 0,
+  enemyId: null,
+  xp: 0,
+  flags: 0,
+});
 
 function reset(event: GameEvent, kind: GameEventKind): GameEvent {
   event.kind = kind;
@@ -34,6 +44,7 @@ function reset(event: GameEvent, kind: GameEventKind): GameEvent {
   event.amount = 0;
   event.enemyId = null;
   event.xp = 0;
+  event.flags = 0;
   return event;
 }
 

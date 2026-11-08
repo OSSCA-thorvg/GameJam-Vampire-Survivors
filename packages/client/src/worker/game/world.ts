@@ -1,7 +1,8 @@
-import { createRng, type CharacterId, type Rng } from '@vs/shared';
+import { createRng, type CharacterId, type ChestReward, type Rng } from '@vs/shared';
 import type { Axis, RunStats } from '../../protocol/worker-messages';
 import type { PaintPool } from '../render/pool';
 import { cameraSystem, createCamera, type Camera } from './camera';
+import { chestDropSystem, createChestState, type ChestState } from './chests';
 import { cleanupSystem } from './combat';
 import { createEnemyState, type EnemyState } from './enemies';
 import { createEventQueue, type EventQueue } from './events';
@@ -14,6 +15,8 @@ import { createPlayer, playerMovementSystem, type PlayerState } from './player';
 import { type PassivesState } from './passives';
 import { createProjectileState, projectileSystem, type ProjectileState } from './projectiles';
 import { applyCharacter, resolveCharacter } from './start-run';
+import { bossTetherSystem } from './systems/bosses';
+import { chestOpenSystem } from './systems/chest-open';
 import { contactDamageSystem } from './systems/contact-damage';
 import { enemyMovementSystem } from './systems/enemy-movement';
 import { enemyRelocateSystem } from './systems/enemy-relocate';
@@ -41,6 +44,8 @@ export interface WorldOptions {
   /** The view's light and pickup pools (`GameView.lightPools`, `GameView.pickupPools`, #16); omitted like `enemyPools`. */
   lightPools?: readonly PaintPool[];
   pickupPools?: readonly PaintPool[];
+  /** The view's chest pool (`GameView.chestPool`, #15); omitted like `enemyPools`. */
+  chestPool?: PaintPool;
   /** Called once, with the final stats, in the step where HP reaches 0. */
   onGameOver?: (stats: RunStats) => void;
 }
@@ -56,7 +61,8 @@ export interface World
     GemState,
     LightState,
     PickupState,
-    FreezeState {
+    FreezeState,
+    ChestState {
   readonly seed: number;
   /** The character played (#14), always a known id: `startRun`'s id, or `CHARACTERS[0]` when that was unknown. */
   readonly characterId: CharacterId;
@@ -80,6 +86,17 @@ export interface World
   readonly relocateRng: Rng;
   /** Seconds until the next relocation pass. */
   relocateTimer: number;
+  /** Seconds until the next boss tether pass (#15). */
+  tetherTimer: number;
+  /** `rng.fork('chests')`: the chest rewards' only randomness (#15), so chests never shift other streams. */
+  readonly chestRng: Rng;
+  /**
+   * The rewards of the chest opened and not closed yet (#15). While set the world does not step: the chest overlay is
+   * open (`createChestFlow`), as with `pendingLevelUps`.
+   */
+  chestRewards: ChestReward[] | null;
+  /** Dev only (#15, #17's `I` key): contact damage does nothing while set. Always false in a normal run. */
+  debugInvulnerable: boolean;
   /** `rng.fork('weapons')`: every weapon pattern's randomness (#10), so weapons never shift the spawn stream. */
   readonly weaponRng: Rng;
   /** What the weapon patterns read and call, bound to this world (#10). */
@@ -106,7 +123,7 @@ export interface World
   readonly stats: RunStats;
   /**
    * Runs `SYSTEMS` in order, then advances `time`; calls `onGameOver` in the step that ends dead. Does nothing once
-   * dead, or while a level-up choice is pending.
+   * dead, while a level-up choice is pending, or while a chest is open (#15).
    */
   step(dt: number): void;
 }
@@ -131,6 +148,7 @@ export const SYSTEMS: readonly System[] = [
   spawnerSystem,
   enemyMovementSystem,
   enemyRelocateSystem,
+  bossTetherSystem,
   contactDamageSystem,
   recoverySystem,
   weaponSystem,
@@ -138,9 +156,11 @@ export const SYSTEMS: readonly System[] = [
   pickupSystem,
   fxSystem,
   cleanupSystem,
+  chestDropSystem,
   gemDropSystem,
   gemSystem,
   levelSystem,
+  chestOpenSystem,
 ];
 
 export function createWorld({
@@ -152,6 +172,7 @@ export function createWorld({
   gemPools,
   lightPools,
   pickupPools,
+  chestPool,
   onGameOver,
 }: WorldOptions): World {
   const rng = createRng(seed);
@@ -174,6 +195,7 @@ export function createWorld({
     ...createLightState(rng, lightPools),
     ...createPickupState(rng, pickupPools),
     freezeUntil: 0,
+    ...createChestState(chestPool),
     weapons: [],
     passives: [],
     weaponRng: rng.fork('weapons'),
@@ -186,6 +208,10 @@ export function createWorld({
     spawnQueue: 0,
     relocateRng: rng.fork('relocate'),
     relocateTimer: 0,
+    tetherTimer: 0,
+    chestRng: rng.fork('chests'),
+    chestRewards: null,
+    debugInvulnerable: false,
     levelUpRng: rng.fork('levelup'),
     pendingLevelUps: 0,
     events: createEventQueue(),
@@ -193,7 +219,7 @@ export function createWorld({
     damageDealt: { hits: 0, total: 0 },
     stats: { timeSec: 0, kills: 0, level: 1 },
     step(dt) {
-      if (dead() || world.pendingLevelUps > 0) return;
+      if (dead() || world.pendingLevelUps > 0 || world.chestRewards) return;
       world.events.clear();
       for (const system of SYSTEMS) {
         system(world, dt);
@@ -209,9 +235,10 @@ export function createWorld({
   return world;
 }
 
-/** Empties every store of `world` (enemies, projectiles, effects, gems, lights, pickups), as the session does before reusing the pools. */
+/** Empties every store of `world` (enemies, projectiles, effects, gems, lights, pickups, chests), as the session does before reusing the pools. */
 export function clearWorld(world: World): void {
   world.gems.clear();
+  world.chests.clear();
   world.enemies.clear();
   world.projectiles.clear();
   world.fx.clear();

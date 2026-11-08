@@ -1,13 +1,19 @@
 import { HIT_INVULN_SEC } from '@vs/shared';
 import { expect, it } from 'vitest';
 import { cleanupSystem, damageEnemy } from './combat';
+import { addChest } from './chests';
 import { spawnEnemy } from './enemies';
 import { addLight, hitLightsInCircle } from './light-sources';
 import { PICKUP_FAMILY_LIGHT, spawnPickup } from './pickups';
 import { freezeEnemies } from './systems/freeze';
-import { createGameView } from './view';
+import { spawnElite } from './systems/elites';
+import { createGameView, ELITE_MARKERS } from './view';
 import { fakeGameView } from './view-test-helpers';
 import { createBaseWorld } from './base-world';
+
+/** The HUD's HP fill: the second-to-last Shape (the 16 elite markers of #15 come first, the XP fill last). */
+const hpFill = (byId: (id: string) => { matrix: unknown }[]) =>
+  byId('Shape').at(-2) as { matrix: { e11: number; e13: number; e23: number } | null } | undefined;
 
 function setup() {
   const fake = fakeGameView();
@@ -18,7 +24,7 @@ function setup() {
   return { ...fake, view, world, byId };
 }
 
-it('creates every paint once: ground, garlic, gem, enemy, projectile, book and effect pools, player, HP and XP bars, skull, fills and texts', () => {
+it('creates every paint once: ground, garlic, gem, chest, elite marker, enemy, projectile, book and effect pools, player, HP and XP bars, skull, fills and texts', () => {
   const { view, byId, paints } = setup();
   expect(byId('stage.ground')).toHaveLength(96);
   expect(byId('enemy.bat')).toHaveLength(200);
@@ -33,6 +39,18 @@ it('creates every paint once: ground, garlic, gem, enemy, projectile, book and e
   for (const id of ['weapon.whip', 'fx.hit', 'fx.enemyDeath'])
     expect(byId(id), id).toHaveLength(64);
   expect(byId('fx.levelUp')).toHaveLength(2);
+  // #15: the bosses, the chests and the evolved art.
+  expect(byId('boss.reaper5')).toHaveLength(2);
+  expect(byId('boss.reaper10')).toHaveLength(2);
+  expect(byId('pickup.chest')).toHaveLength(16);
+  expect(byId('weapon.holyWand')).toHaveLength(100);
+  for (const id of ['weapon.thousandEdge', 'weapon.deathSpiral'])
+    expect(byId(id), id).toHaveLength(30);
+  for (const id of ['weapon.heavenSword', 'weapon.hellfire']) expect(byId(id), id).toHaveLength(10);
+  expect(byId('weapon.unholyVespers')).toHaveLength(8);
+  expect(byId('weapon.soulEater')).toHaveLength(1);
+  expect(byId('weapon.bloodyTear')).toHaveLength(4);
+  expect(byId('fx.chestOpen')).toHaveLength(2);
   expect(byId('gem.blue')).toHaveLength(200);
   expect(byId('gem.green')).toHaveLength(50);
   expect(byId('gem.red')).toHaveLength(50);
@@ -47,11 +65,11 @@ it('creates every paint once: ground, garlic, gem, enemy, projectile, book and e
   expect(byId('fx.freeze')).toHaveLength(1);
   expect(byId('ui.hpBar')).toHaveLength(1);
   expect(byId('ui.skull')).toHaveLength(1);
-  // The HP fill and the XP fill; the level, the timer and the kill counter.
-  expect(byId('Shape')).toHaveLength(2);
+  // The 16 elite markers (#15), the HP fill and the XP fill; the level, the timer and the kill counter.
+  expect(byId('Shape')).toHaveLength(18);
   expect(byId('Text')).toHaveLength(3);
-  expect(view.countPaints()).toBe(1719);
-  expect(paints).toHaveLength(1724);
+  expect(view.countPaints()).toBe(1934);
+  expect(paints).toHaveLength(1955);
 });
 
 it('follows the camera, snapped to device pixels', () => {
@@ -70,7 +88,7 @@ it('scales the HP fill by hp / maxHp under the player and keeps the frame 6 unit
   world.player.y = 50;
   world.player.hp = 25;
   view.render(world);
-  const fill = byId('Shape')[0]?.matrix;
+  const fill = hpFill(byId)?.matrix;
   expect(fill?.e11).toBe(0.25);
   expect(fill?.e13).toBe(100 - 19);
   expect(fill?.e23).toBe(50 + 6 + 1);
@@ -78,7 +96,7 @@ it('scales the HP fill by hp / maxHp under the player and keeps the frame 6 unit
   expect(byId('ui.hpBar')[0]?.matrix?.e23).toBe(50 + 6 + 3);
   world.player.hp = -5;
   view.render(world);
-  expect(byId('Shape')[0]?.matrix?.e11).toBe(0);
+  expect(hpFill(byId)?.matrix?.e11).toBe(0);
 });
 
 it('writes the timer text only when the shown second changes, as mm:ss', () => {
@@ -204,7 +222,7 @@ it('dims a hit enemy to 140 while it flashes, writing opacity only on change, an
 
 it('fills the XP bar by xp / xpToNext(level) across the view and writes "Lv n" only when the level changes (#11)', () => {
   const { view, world, byId } = setup();
-  const fill = () => byId('Shape')[1]?.matrix;
+  const fill = () => byId('Shape').at(-1)?.matrix;
   const level = byId('Text')[0];
   world.player.xp = 2;
   view.render(world);
@@ -290,4 +308,53 @@ it('draws lights and pickups from their pools and stretches the frost overlay ov
   world.time = 10;
   view.render(world);
   expect(shown('fx.freeze')).toHaveLength(0);
+});
+
+it('draws an elite at 1.5× over a pooled red marker sized to its radius, and chests on the chest pool (#15)', () => {
+  const fake = fakeGameView();
+  const view = createGameView(fake.options);
+  view.begin('warden');
+  const world = createBaseWorld({
+    seed: 1,
+    enemyPools: view.enemyPools,
+    chestPool: view.chestPool,
+  });
+  const created = fake.paints.length;
+  const shown = (id: string) => fake.paints.filter((p) => p.id === id && p.visible);
+  const markers = fake.paints.filter((p) => p.id === 'Shape').slice(0, ELITE_MARKERS);
+  spawnElite(world, 'ghoul', { x: 100, y: 20 });
+  spawnEnemy(world, 'bat', -100, 0);
+  addChest(world, 30, 40);
+  view.render(world);
+  expect(markers.filter((m) => m.visible)).toHaveLength(1);
+  expect(markers[0]?.translate).toEqual([100, 20]);
+  expect(markers[0]?.scale).toBeCloseTo(24 / 10);
+  const [ghoul] = shown('enemy.ghoul');
+  expect(ghoul?.matrix?.e11).toBeCloseTo(1.5);
+  expect(shown('enemy.bat')[0]?.matrix?.e11).toBeCloseTo(1);
+  expect(shown('pickup.chest').map((p) => [p.matrix?.e13, p.matrix?.e23])).toEqual([[30, 40]]);
+  world.enemies.clear();
+  view.render(world);
+  expect(markers.filter((m) => m.visible)).toHaveLength(0);
+  expect(fake.paints).toHaveLength(created);
+});
+
+it('switches the books and the aura to the evolved art once evolved, from prewarmed pools (#15)', () => {
+  const { view, world, byId, paints } = setup();
+  const created = paints.length;
+  const shown = (id: string) => byId(id).filter((p) => p.visible);
+  const { books, garlic } = world.weaponVisuals;
+  books.count = 2;
+  garlic.shown = true;
+  view.render(world);
+  expect(shown('weapon.kingBible')).toHaveLength(2);
+  expect(shown('weapon.garlic')).toHaveLength(1);
+  books.evolved = true;
+  garlic.evolved = true;
+  view.render(world);
+  expect(shown('weapon.kingBible')).toHaveLength(0);
+  expect(shown('weapon.garlic')).toHaveLength(0);
+  expect(shown('weapon.unholyVespers')).toHaveLength(2);
+  expect(shown('weapon.soulEater')).toHaveLength(1);
+  expect(paints).toHaveLength(created);
 });

@@ -53,7 +53,7 @@ export function damageEnemy(
 
 /**
  * The last combat system of a step (#10): counts every hit flash down, and removes each dead enemy, iterating
- * backwards: one `enemyKilled` event (`x`, `y`, `enemyId`, `xp`), one kill in `world.stats`, an `fx.enemyDeath` puff,
+ * backwards: one `enemyKilled` event (`x`, `y`, `enemyId`, `xp`, and `flags` for the chest drop, #15), one kill in `world.stats`, an `fx.enemyDeath` puff,
  * then its paint is unbound. Systems that consume `enemyKilled` (gem drops, #11) run after it.
  */
 export function cleanupSystem(world: World, dt: number): void {
@@ -71,6 +71,7 @@ export function cleanupSystem(world: World, dt: number): void {
     event.y = y[i] ?? 0;
     event.enemyId = ENEMY_LIST[t] ?? null;
     event.xp = ENEMY_XP[t] ?? 0;
+    event.flags = flags[i] ?? 0;
     world.stats.kills++;
     spawnFx(world, 'fx.enemyDeath', event.x, event.y, 0, false, DEATH_FX_SEC);
     enemyBinding?.unbind(i);

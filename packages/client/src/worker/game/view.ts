@@ -1,4 +1,4 @@
-import type { Matrix, Scene, ThorVGNamespace } from '@thorvg/webcanvas';
+import type { Matrix, Scene, Shape, ThorVGNamespace } from '@thorvg/webcanvas';
 import { CHARACTERS, type CharacterId } from '@vs/shared';
 import type { AssetLibrary } from '../assets/library';
 import { VIEW_HEIGHT, VIEW_WIDTH } from '../constants';
@@ -7,7 +7,8 @@ import { createHud } from '../render/hud';
 import { PaintPool } from '../render/pool';
 import { setTransform } from '../render/transform';
 import { snapToPixel } from './camera';
-import { createEnemyPools } from './enemies';
+import { createChestPool } from './chests';
+import { createEnemyPools, ENEMY_FLAG_ELITE, enemyRadius } from './enemies';
 import { createFxPools } from './fx';
 import { createGemPools } from './gems';
 import { createLightPools } from './light-sources';
@@ -26,6 +27,11 @@ const HIT_FLASH_OPACITY = 140;
 /** The `fx.freeze` overlay (64×64) stretched over the 1280×720 view at this opacity while Orologion lasts (#16). */
 const FREEZE_ART = 64;
 const FREEZE_OPACITY = 80;
+/** Elite markers drawn at most (#15): one pooled red circle under each elite; extra elites go unmarked. */
+export const ELITE_MARKERS = 16;
+/** The marker circle's radius before its per-elite scale, and its opacity (#15). */
+const MARKER_RADIUS = 10;
+const MARKER_OPACITY = 90;
 
 export interface GameViewOptions {
   TVG: Pick<ThorVGNamespace, 'Shape' | 'Text'>;
@@ -59,6 +65,8 @@ export interface GameView {
   /** Pool `i` draws `LIGHT_ASSETS[i]` and `PICKUPS[i].assetId` (#16), in the `pickups` layer; borrowed the same way. */
   readonly lightPools: readonly PaintPool[];
   readonly pickupPools: readonly PaintPool[];
+  /** The `pickup.chest` pool (#15), in the `pickups` layer; borrowed the same way. */
+  readonly chestPool: PaintPool;
   /** Every pool the view owns, for the `paintsCreated` count. */
   readonly pools: readonly PaintPool[];
   /** `created` summed over every pool. */
@@ -67,7 +75,7 @@ export interface GameView {
   clear(): void;
   /** Shows the ground, `characterId`'s player sprite (#14) and the HUD for a new run, from the existing paints. */
   begin(characterId: CharacterId): void;
-  /** Syncs the camera, ground, garlic aura, lights, gems, pickups, enemies (with their hit flash), projectiles, books, player, effects, the frost overlay and HUD from `world`. No `canvas.update()`/`render()`. */
+  /** Syncs the camera, ground, garlic aura, lights, gems, pickups, chests, elite markers, enemies (with their hit flash and scale), projectiles, books, player, effects, the frost overlay and HUD from `world`. No `canvas.update()`/`render()`. */
   render(world: World): void;
 }
 
@@ -75,13 +83,25 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
   const ground = createGround(library, layers.ground);
   // The garlic aura (#13) is created before the gems, so it draws under them in the same layer, and under the enemies.
   const garlicPool = new PaintPool(library, 'weapon.garlic', layers.pickups, 1);
+  const soulEaterPool = new PaintPool(library, 'weapon.soulEater', layers.pickups, 1);
   // Light sources under the gems, pickups above them (#16).
   const lightPools = createLightPools(library, layers.pickups);
   const gemPools = createGemPools(library, layers.pickups);
   const pickupPools = createPickupPools(library, layers.pickups);
+  const chestPool = createChestPool(library, layers.pickups);
+  // Created before the enemy pools, so the elite markers draw under every enemy in the same layer (#15).
+  const markers: Shape[] = Array.from({ length: ELITE_MARKERS }, () => {
+    const marker = new TVG.Shape();
+    marker.appendCircle(0, 0, MARKER_RADIUS).fill(0xe0, 0x20, 0x20, 255);
+    marker.opacity(MARKER_OPACITY);
+    marker.visible(false);
+    layers.enemies.add(marker);
+    return marker;
+  });
   const enemyPools = createEnemyPools(library, layers.enemies);
   const projectilePools = createProjectilePools(library, layers.projectiles);
   const bookPool = new PaintPool(library, 'weapon.kingBible', layers.projectiles, MAX_BOOKS);
+  const vespersPool = new PaintPool(library, 'weapon.unholyVespers', layers.projectiles, MAX_BOOKS);
   const fxPools = createFxPools(library, layers.fx);
   // One sprite per character (#14), all created at boot; a run acquires only its character's.
   const playerPools = new Map(
@@ -94,12 +114,15 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
   const pools: readonly PaintPool[] = [
     ground.pool,
     garlicPool,
+    soulEaterPool,
     ...lightPools,
     ...gemPools,
     ...pickupPools,
+    chestPool,
     ...enemyPools,
     ...projectilePools,
     bookPool,
+    vespersPool,
     ...playerPools.values(),
     ...fxPools,
     freezePool,
@@ -112,6 +135,9 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
   /** Book handles acquired, `shownBooks` of them; acquired or released only when the shown count changes. */
   const bookHandles = new Int32Array(MAX_BOOKS);
   let shownBooks = 0;
+  /** The pools the shown books and the aura come from: base or evolved art (#15). */
+  let books = bookPool;
+  let aura = garlicPool;
   let garlicHandle = -1;
   let freezeHandle = -1;
   /** The frost overlay stretched over the view; its translation is set from the instance's anchor when shown. */
@@ -126,6 +152,7 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
     e32: 0,
     e33: 1,
   };
+  let shownMarkers = 0;
 
   const view: GameView = {
     enemyPools,
@@ -134,6 +161,7 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
     gemPools,
     lightPools,
     pickupPools,
+    chestPool,
     pools,
     countPaints() {
       let total = 0;
@@ -145,6 +173,8 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
       shownBooks = 0;
       garlicHandle = -1;
       freezeHandle = -1;
+      for (const marker of markers) marker.visible(false);
+      shownMarkers = 0;
       hud.setVisible(false);
     },
     begin(characterId) {
@@ -167,14 +197,19 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
       world.lightBinding?.sync(world.lights, world.lights.cols.x, world.lights.cols.y);
       world.gemBinding?.sync(gems, gems.cols.x, gems.cols.y);
       world.pickupBinding?.sync(world.pickups, world.pickups.cols.x, world.pickups.cols.y);
+      world.chestBinding?.sync(world.chests, world.chests.cols.x, world.chests.cols.y);
       world.enemyBinding?.sync(
         enemies,
         enemies.cols.x,
         enemies.cols.y,
         undefined,
         enemies.cols.flip,
+        enemies.cols.scale,
       );
-      if (world.enemyBinding) syncHitFlash(world);
+      if (world.enemyBinding) {
+        syncHitFlash(world);
+        syncEliteMarkers(world);
+      }
       world.projectileBinding?.sync(
         projectiles,
         projectiles.cols.x,
@@ -207,25 +242,53 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
   };
   /** Shows the King Bible books and the garlic aura (#13) from `world.weaponVisuals`, on the pooled paints. */
   function syncWeaponVisuals(world: World): void {
-    const { books, garlic } = world.weaponVisuals;
-    const wanted = Math.min(books.count, MAX_BOOKS);
-    while (shownBooks < wanted) bookHandles[shownBooks++] = bookPool.acquire();
-    while (shownBooks > wanted) bookPool.release(bookHandles[--shownBooks] ?? 0);
+    const { books: shown, garlic } = world.weaponVisuals;
+    // An evolution switches the art (#15): hand the old paints back, then draw from the evolved pool.
+    const bookArt = shown.evolved ? vespersPool : bookPool;
+    if (bookArt !== books) {
+      while (shownBooks > 0) books.release(bookHandles[--shownBooks] ?? 0);
+      books = bookArt;
+    }
+    const auraArt = garlic.evolved ? soulEaterPool : garlicPool;
+    if (auraArt !== aura) {
+      if (garlicHandle >= 0) aura.release(garlicHandle);
+      garlicHandle = -1;
+      aura = auraArt;
+    }
+    const wanted = Math.min(shown.count, MAX_BOOKS);
+    while (shownBooks < wanted) bookHandles[shownBooks++] = books.acquire();
+    while (shownBooks > wanted) books.release(bookHandles[--shownBooks] ?? 0);
     for (let i = 0; i < shownBooks; i++)
       setTransform(
-        bookPool.get(bookHandles[i] ?? 0),
-        books.x[i] ?? 0,
-        books.y[i] ?? 0,
+        books.get(bookHandles[i] ?? 0),
+        shown.x[i] ?? 0,
+        shown.y[i] ?? 0,
         0,
-        books.scale,
+        shown.scale,
       );
-    if (garlic.shown && garlicHandle < 0) garlicHandle = garlicPool.acquire();
+    if (garlic.shown && garlicHandle < 0) garlicHandle = aura.acquire();
     if (!garlic.shown && garlicHandle >= 0) {
-      garlicPool.release(garlicHandle);
+      aura.release(garlicHandle);
       garlicHandle = -1;
     }
     if (garlicHandle >= 0)
-      setTransform(garlicPool.get(garlicHandle), world.player.x, world.player.y, 0, garlic.scale);
+      setTransform(aura.get(garlicHandle), world.player.x, world.player.y, 0, garlic.scale);
+  }
+  /** Puts one pooled red circle under each elite (#15), sized to its collision radius; hides the unused ones. */
+  function syncEliteMarkers(world: World): void {
+    const { count, cols } = world.enemies;
+    const { x, y, flags } = cols;
+    let used = 0;
+    for (let i = 0; i < count && used < ELITE_MARKERS; i++) {
+      if (((flags[i] ?? 0) & ENEMY_FLAG_ELITE) === 0) continue;
+      const marker = markers[used++];
+      if (!marker) break;
+      marker.translate(x[i] ?? 0, y[i] ?? 0);
+      marker.scale(enemyRadius(cols, i) / MARKER_RADIUS);
+      if (used > shownMarkers) marker.visible(true);
+    }
+    for (let i = used; i < shownMarkers; i++) markers[i]?.visible(false);
+    shownMarkers = used;
   }
   /** Shows the `fx.freeze` overlay over the whole view while frozen, acquiring or releasing it only when that changes. */
   function syncFreeze(world: World): void {

@@ -7,7 +7,8 @@ import { PaintPool, RenderBinding } from '../render/pool';
 
 /**
  * Enemy columns (#8). #10 writes the knockback and flash columns and `shownOpacity`; `flags` bit 0 marks a boss (#15),
- * bit 1 a dead enemy waiting for `cleanupSystem` (#10).
+ * bit 1 a dead enemy waiting for `cleanupSystem` (#10), bit 2 an elite (#15). `scale` multiplies the drawn size and
+ * the collision radius (`enemyRadius`): 1, or `ELITE.scale` for an elite.
  */
 export const ENEMY_SCHEMA = {
   x: 'f32',
@@ -22,6 +23,7 @@ export const ENEMY_SCHEMA = {
   kbTime: 'f32',
   flash: 'f32',
   flags: 'u8',
+  scale: 'f32',
   flip: 'u8',
   /** The opacity last written to the paint (#10's hit flash); 0 until the first render, so a reused paint is reset. */
   shownOpacity: 'u8',
@@ -45,8 +47,12 @@ export const ENEMY_FLAG_BOSS = 1;
 /** `flags` bit 1: HP reached 0 this step; `cleanupSystem` removes the enemy at the end of the step (#10). */
 export const ENEMY_FLAG_DEAD = 2;
 
-/** Paints prewarmed per enemy asset (initial value; #22 retunes). */
+/** `flags` bit 2: an elite (#15), with `ELITE.hp` × HP, `ELITE.damage` × contact damage and `ELITE.scale` × size. */
+export const ENEMY_FLAG_ELITE = 4;
+
+/** Paints prewarmed per enemy asset (initial value; #22 retunes); bosses get `BOSS_POOL_PREWARM`. */
 export const ENEMY_POOL_PREWARM = 200;
+export const BOSS_POOL_PREWARM = 2;
 
 /** Per-type speed and radius, indexed like `type`, so per-enemy loops read numbers instead of objects. */
 export const ENEMY_SPEED = Float32Array.from(ENEMY_LIST, (id) => ENEMIES[id].speed);
@@ -60,6 +66,11 @@ export const ENEMY_KNOCKBACK_RESIST = Float32Array.from(
   ENEMY_LIST,
   (id) => ENEMIES[id].knockbackResist,
 );
+
+/** The collision radius of the enemy in `slot`: its type's radius times its `scale` (1.5 for an elite, #15). */
+export function enemyRadius(cols: EnemyStore['cols'], slot: number): number {
+  return (ENEMY_RADIUS[cols.type[slot] ?? 0] ?? 0) * (cols.scale[slot] ?? 1);
+}
 
 /** The hit time of an enemy no weapon has hit yet: far enough back that every hit cooldown has passed. */
 export const NEVER_HIT = -1e9;
@@ -80,7 +91,13 @@ export function createEnemyPools(
   layer: Pick<Scene, 'add'>,
 ): PaintPool[] {
   return ENEMY_LIST.map(
-    (id) => new PaintPool(library, ENEMIES[id].assetId, layer, ENEMY_POOL_PREWARM),
+    (id) =>
+      new PaintPool(
+        library,
+        ENEMIES[id].assetId,
+        layer,
+        ENEMIES[id].boss ? BOSS_POOL_PREWARM : ENEMY_POOL_PREWARM,
+      ),
   );
 }
 
@@ -107,6 +124,7 @@ export function spawnEnemy(world: EnemyState, enemyId: EnemyId, x: number, y: nu
   cols.y[slot] = y;
   cols.hp[slot] = ENEMIES[enemyId].maxHp;
   cols.type[slot] = type;
+  cols.scale[slot] = 1;
   for (const hitT of world.enemyHitTimes) hitT[slot] = NEVER_HIT;
   world.enemyBinding?.bind(slot, type);
   return slot;

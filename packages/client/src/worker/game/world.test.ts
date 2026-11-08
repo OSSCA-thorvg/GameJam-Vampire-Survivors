@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import { cameraSystem } from './camera';
+import { chestDropSystem } from './chests';
 import { cleanupSystem } from './combat';
 import { fxSystem } from './fx';
 import { gemDropSystem, gemSystem } from './gems';
@@ -7,6 +8,8 @@ import { levelSystem } from './level';
 import { projectileSystem } from './projectiles';
 import { playerMovementSystem } from './player';
 import { readEnemyPositions, readPlayerSnapshot } from './snapshot';
+import { bossTetherSystem } from './systems/bosses';
+import { chestOpenSystem } from './systems/chest-open';
 import { enemyMovementSystem } from './systems/enemy-movement';
 import { contactDamageSystem } from './systems/contact-damage';
 import { enemyRelocateSystem } from './systems/enemy-relocate';
@@ -27,6 +30,7 @@ it('runs input, movement, camera, the spawner, enemy movement, relocation, conta
     spawnerSystem,
     enemyMovementSystem,
     enemyRelocateSystem,
+    bossTetherSystem,
     contactDamageSystem,
     recoverySystem,
     weaponSystem,
@@ -34,9 +38,11 @@ it('runs input, movement, camera, the spawner, enemy movement, relocation, conta
     pickupSystem,
     fxSystem,
     cleanupSystem,
+    chestDropSystem,
     gemDropSystem,
     gemSystem,
     levelSystem,
+    chestOpenSystem,
   ]);
 });
 

@@ -1,4 +1,4 @@
-import type { ProjectileOptions } from '../../projectiles';
+import type { ProjectileAssetId, ProjectileOptions } from '../../projectiles';
 import type { WeaponPatternModule } from './types';
 
 /** Knife hit radius before `area`. */
@@ -15,7 +15,7 @@ const opts: ProjectileOptions = { damage: 0, knockback: 0, radius: 0, pierce: 1,
  * a burst fans into parallel lines.
  */
 export const knife: WeaponPatternModule = {
-  fire(ctx, _w, lv, shot) {
+  fire(ctx, w, lv, shot) {
     const { x, y, lastDirX: dirX, lastDirY: dirY } = ctx.player;
     const offset = KNIFE_SPREAD * Math.ceil(shot / 2) * (shot % 2 === 1 ? 1 : -1);
     opts.damage = lv.damage;
@@ -25,7 +25,7 @@ export const knife: WeaponPatternModule = {
     opts.pierce = lv.pierce;
     opts.ttl = lv.durationSec;
     ctx.spawnProjectile(
-      'weapon.knife',
+      w.def.assetId as ProjectileAssetId,
       x - dirY * offset,
       y + dirX * offset,
       dirX * lv.speed,

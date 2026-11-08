@@ -40,7 +40,24 @@ export {
 export { validateLottie, MAX_LOTTIE_IMAGES, MAX_LOTTIE_DECODED_BYTES } from './lottie.js';
 export type { LottieImage, ValidatedLottie } from './lottie.js';
 export { WEAPONS, WEAPON_LIST } from './content/weapons.js';
-export type { WeaponDef, WeaponId, WeaponLevel, WeaponPattern } from './content/weapons.js';
+export type {
+  BaseWeaponId,
+  EvolvedWeaponId,
+  WeaponDef,
+  WeaponId,
+  WeaponLevel,
+  WeaponPattern,
+} from './content/weapons.js';
+export { EVOLUTIONS } from './content/evolutions.js';
+export type { EvolutionDef } from './content/evolutions.js';
+export {
+  EVOLUTION_MIN_TIME_S,
+  CHEST_ODDS,
+  CHEST_HEAL,
+  ELITE,
+  CHEST_REWARD_KINDS,
+} from './content/chests.js';
+export type { ChestReward } from './content/chests.js';
 export {
   BASE_STATS,
   STAT_IDS,

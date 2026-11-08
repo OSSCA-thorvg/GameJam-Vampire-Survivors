@@ -1,4 +1,4 @@
-import { ENEMY_RADIUS, ENEMY_SPEED } from '../enemies';
+import { ENEMY_SPEED, enemyRadius } from '../enemies';
 import type { World } from '../world';
 import { isFrozen } from './freeze';
 
@@ -41,7 +41,7 @@ export function enemyMovementSystem(world: World, dt: number): void {
     const px = x[i] ?? 0;
     const py = y[i] ?? 0;
     const speed = ENEMY_SPEED[type[i] ?? 0] ?? 0;
-    const radius = ENEMY_RADIUS[type[i] ?? 0] ?? 0;
+    const radius = enemyRadius(enemies.cols, i);
     const toX = player.x - px;
     const toY = player.y - py;
     const toLen = Math.hypot(toX, toY);
