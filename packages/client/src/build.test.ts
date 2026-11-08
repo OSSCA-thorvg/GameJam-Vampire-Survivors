@@ -23,3 +23,15 @@ it('excludes the development asset gallery from production JavaScript', () => {
     expect(source).not.toContain('gallery');
   }
 });
+
+it('excludes the stress scene and its counters from normal production JavaScript', () => {
+  const dist = fileURLToPath(new URL('../dist/', import.meta.url));
+  for (const file of readdirSync(dist, { recursive: true, encoding: 'utf8' }).filter((file) =>
+    file.endsWith('.js'),
+  )) {
+    const source = readFileSync(join(dist, file), 'utf8');
+    expect(source).not.toContain('paintsCreated');
+    expect(source).not.toContain('churnCycles');
+    expect(source).not.toContain('unsupported scenario');
+  }
+});

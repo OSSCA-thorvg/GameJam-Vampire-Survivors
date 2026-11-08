@@ -16,7 +16,7 @@ export type MainToWorker =
       height: number;
       scale: number;
       assetBaseUrl: string;
-      debug?: { gallery: boolean };
+      debug?: { gallery: boolean; stress: string };
     }
   | { type: 'resize'; width: number; height: number; scale: number }
   | { type: 'input'; dx: Axis; dy: Axis }

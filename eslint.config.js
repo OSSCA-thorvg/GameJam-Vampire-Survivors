@@ -53,6 +53,20 @@ export default defineConfig(
     languageOptions: { globals: globals.worker },
   },
   {
+    files: ['packages/client/src/worker/**', 'packages/shared/**'],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        ...bannedHtmlSinks,
+        {
+          object: 'Math',
+          property: 'random',
+          message: 'Use createRng from @vs/shared for reproducible simulation (ADR 0004).',
+        },
+      ],
+    },
+  },
+  {
     files: [
       'packages/server/**',
       'scripts/**',
