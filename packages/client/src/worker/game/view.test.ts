@@ -15,12 +15,18 @@ function setup() {
   return { ...fake, view, world, byId };
 }
 
-it('creates every paint once: ground, gem, enemy, projectile and effect pools, player, HP and XP bars, skull, fills and texts', () => {
+it('creates every paint once: ground, garlic, gem, enemy, projectile, book and effect pools, player, HP and XP bars, skull, fills and texts', () => {
   const { view, byId, paints } = setup();
   expect(byId('stage.ground')).toHaveLength(96);
   expect(byId('enemy.bat')).toHaveLength(200);
   expect(byId('enemy.ghoul')).toHaveLength(200);
   expect(byId('weapon.magicWand')).toHaveLength(300);
+  expect(byId('weapon.knife')).toHaveLength(100);
+  expect(byId('weapon.axe')).toHaveLength(30);
+  expect(byId('weapon.cross')).toHaveLength(30);
+  expect(byId('weapon.fireWand')).toHaveLength(60);
+  expect(byId('weapon.kingBible')).toHaveLength(8);
+  expect(byId('weapon.garlic')).toHaveLength(1);
   for (const id of ['weapon.whip', 'fx.hit', 'fx.enemyDeath'])
     expect(byId(id), id).toHaveLength(64);
   expect(byId('fx.levelUp')).toHaveLength(2);
@@ -34,8 +40,8 @@ it('creates every paint once: ground, gem, enemy, projectile and effect pools, p
   // The HP fill and the XP fill; the level, the timer and the kill counter.
   expect(byId('Shape')).toHaveLength(2);
   expect(byId('Text')).toHaveLength(3);
-  expect(view.countPaints()).toBe(1294);
-  expect(paints).toHaveLength(1299);
+  expect(view.countPaints()).toBe(1523);
+  expect(paints).toHaveLength(1528);
 });
 
 it('follows the camera, snapped to device pixels', () => {
@@ -194,4 +200,44 @@ it('fills the XP bar by xp / xpToNext(level) across the view and writes "Lv n" o
   // The frame spans the full 1280-unit width (400 × 3.2); the fake has no anchor offset, so its centre is (640, 6).
   const frame = byId('ui.xpBar')[0]?.matrix;
   expect([frame?.e11, frame?.e22, frame?.e13, frame?.e23]).toEqual([3.2, 1, 640, 6]);
+});
+
+it('shows the King Bible books and the garlic aura from the weapon visuals, on the prewarmed paints (#13)', () => {
+  const { view, world, byId, paints } = setup();
+  const created = paints.length;
+  const shown = (id: string) => byId(id).filter((p) => p.visible);
+  view.render(world);
+  expect(shown('weapon.kingBible')).toHaveLength(0);
+  expect(shown('weapon.garlic')).toHaveLength(0);
+  const { books, garlic } = world.weaponVisuals;
+  books.count = 3;
+  books.scale = 1.25;
+  for (let i = 0; i < 3; i++) {
+    books.x[i] = 10 * i;
+    books.y[i] = -5;
+  }
+  garlic.shown = true;
+  garlic.scale = 1.8;
+  world.player.x = 40;
+  view.render(world);
+  expect(
+    shown('weapon.kingBible').map((p) => [p.matrix?.e13, p.matrix?.e23, p.matrix?.e11]),
+  ).toEqual(
+    expect.arrayContaining([
+      [0, -5, 1.25],
+      [10, -5, 1.25],
+      [20, -5, 1.25],
+    ]),
+  );
+  const [aura] = shown('weapon.garlic');
+  expect([aura?.matrix?.e13, aura?.matrix?.e11]).toEqual([40, 1.8]);
+  books.count = 0;
+  view.render(world);
+  expect(shown('weapon.kingBible')).toHaveLength(0);
+  view.clear();
+  view.begin();
+  view.render(world);
+  // A new run starts with the aura re-acquired from the same pool; nothing was created.
+  expect(shown('weapon.garlic')).toHaveLength(1);
+  expect(paints).toHaveLength(created);
 });

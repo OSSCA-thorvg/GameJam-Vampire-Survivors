@@ -10,6 +10,7 @@ import { createEnemyPools } from './enemies';
 import { createFxPools } from './fx';
 import { createGemPools } from './gems';
 import { createProjectilePools } from './projectiles';
+import { MAX_BOOKS } from './weapons/visuals';
 import type { World } from './world';
 
 /** Damage feedback: while invulnerable, the player sprite alternates between these opacities every `BLINK_SEC`. */
@@ -56,30 +57,39 @@ export interface GameView {
   clear(): void;
   /** Shows the ground, the player and the HUD for a new run, from the existing paints. */
   begin(): void;
-  /** Syncs the camera, ground, gems, enemies (with their hit flash), projectiles, player, effects and HUD from `world`. No `canvas.update()`/`render()`. */
+  /** Syncs the camera, ground, garlic aura, gems, enemies (with their hit flash), projectiles, books, player, effects and HUD from `world`. No `canvas.update()`/`render()`. */
   render(world: World): void;
 }
 
 export function createGameView({ TVG, library, layers, scale }: GameViewOptions): GameView {
   const ground = createGround(library, layers.ground);
+  // The garlic aura (#13) is created before the gems, so it draws under them in the same layer, and under the enemies.
+  const garlicPool = new PaintPool(library, 'weapon.garlic', layers.pickups, 1);
   const gemPools = createGemPools(library, layers.pickups);
   const enemyPools = createEnemyPools(library, layers.enemies);
   const projectilePools = createProjectilePools(library, layers.projectiles);
+  const bookPool = new PaintPool(library, 'weapon.kingBible', layers.projectiles, MAX_BOOKS);
   const fxPools = createFxPools(library, layers.fx);
   const playerPool = new PaintPool(library, 'player.warden', layers.player, 1);
   // Created after the player pool, so the HP bar draws above the sprite in the same layer.
   const hud = createHud(TVG, library, layers);
   const pools: readonly PaintPool[] = [
     ground.pool,
+    garlicPool,
     ...gemPools,
     ...enemyPools,
     ...projectilePools,
+    bookPool,
     playerPool,
     ...fxPools,
     ...hud.pools,
   ];
   let player = playerPool.get(0);
   let opacity = OPAQUE;
+  /** Book handles acquired, `shownBooks` of them; acquired or released only when the shown count changes. */
+  const bookHandles = new Int32Array(MAX_BOOKS);
+  let shownBooks = 0;
+  let garlicHandle = -1;
 
   const view: GameView = {
     enemyPools,
@@ -94,6 +104,8 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
     },
     clear() {
       for (const pool of pools) pool.releaseAll();
+      shownBooks = 0;
+      garlicHandle = -1;
       hud.setVisible(false);
     },
     begin() {
@@ -126,8 +138,11 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
         projectiles.cols.x,
         projectiles.cols.y,
         projectiles.cols.rot,
+        undefined,
+        projectiles.cols.scale,
       );
       world.fxBinding?.sync(fx, fx.cols.x, fx.cols.y, fx.cols.rot, fx.cols.flip, fx.cols.scale);
+      syncWeaponVisuals(world);
       setTransform(player, p.x, p.y, 0, 1, p.facingX < 0);
       const blink =
         p.invulnTime > 0 && Math.floor(p.invulnTime / BLINK_SEC) % 2 === 0 ? BLINK_DIM : OPAQUE;
@@ -147,6 +162,28 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
       });
     },
   };
+  /** Shows the King Bible books and the garlic aura (#13) from `world.weaponVisuals`, on the pooled paints. */
+  function syncWeaponVisuals(world: World): void {
+    const { books, garlic } = world.weaponVisuals;
+    const wanted = Math.min(books.count, MAX_BOOKS);
+    while (shownBooks < wanted) bookHandles[shownBooks++] = bookPool.acquire();
+    while (shownBooks > wanted) bookPool.release(bookHandles[--shownBooks] ?? 0);
+    for (let i = 0; i < shownBooks; i++)
+      setTransform(
+        bookPool.get(bookHandles[i] ?? 0),
+        books.x[i] ?? 0,
+        books.y[i] ?? 0,
+        0,
+        books.scale,
+      );
+    if (garlic.shown && garlicHandle < 0) garlicHandle = garlicPool.acquire();
+    if (!garlic.shown && garlicHandle >= 0) {
+      garlicPool.release(garlicHandle);
+      garlicHandle = -1;
+    }
+    if (garlicHandle >= 0)
+      setTransform(garlicPool.get(garlicHandle), world.player.x, world.player.y, 0, garlic.scale);
+  }
   /** Dims each flashing enemy, writing opacity only when it changes; a fresh slot's `shownOpacity` 0 forces a write. */
   function syncHitFlash(world: World): void {
     const { count, cols } = world.enemies;

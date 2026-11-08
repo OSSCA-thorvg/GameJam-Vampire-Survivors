@@ -49,8 +49,11 @@ describe('weapon system', () => {
     for (let level = 2; level <= 8; level++) expect(levelUpWeapon(world, 'whip')).toBe(true);
     expect(levelUpWeapon(world, 'whip')).toBe(false);
     expect(world.weapons[0]?.level).toBe(8);
-    expect(grantNextWeapon(world)).toBe('magicWand');
+    // `G` follows `WEAPON_LIST` until the six slots are full.
+    for (const id of ['magicWand', 'knife', 'axe', 'cross', 'kingBible'])
+      expect(grantNextWeapon(world)).toBe(id);
     expect(grantNextWeapon(world)).toBeNull();
+    expect(world.weapons.map((w) => w.slot)).toEqual([0, 1, 2, 3, 4, 5]);
     const full = quietWorld();
     const filler = world.weapons[0];
     if (!filler) throw new Error('no whip');

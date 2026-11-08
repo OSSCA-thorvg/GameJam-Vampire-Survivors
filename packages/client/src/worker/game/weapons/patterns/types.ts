@@ -6,6 +6,6 @@ import type { OwnedWeapon } from '../owned';
 export interface WeaponPatternModule {
   /** One shot of a burst; `shot` counts from 0 within the burst of `lv.amount` shots. */
   fire(ctx: WeaponContext, w: OwnedWeapon, lv: WeaponLevel, shot: number): void;
-  /** Every step, for persistent effects (orbiting books, auras; #13). */
+  /** Every step before the cooldown, for persistent effects (orbiting books, the garlic aura; #13). */
   update?(ctx: WeaponContext, w: OwnedWeapon, lv: WeaponLevel, dt: number): void;
 }
