@@ -10,8 +10,8 @@ describe('manifest', () => {
   it('accepts real entries and all referenced files exist', () => {
     const result = validateManifest(json);
     expect(result.errors).toEqual([]);
-    expect(Object.keys(result.manifest.assets)).toHaveLength(5);
-    expect(result.missing).toHaveLength(ASSET_IDS.length - 5);
+    expect(Object.keys(result.manifest.assets)).toHaveLength(ASSET_IDS.length);
+    expect(result.missing).toEqual([]);
     for (const entry of Object.values(result.manifest.assets))
       expect(existsSync(new URL(entry.file, assets))).toBe(true);
   });

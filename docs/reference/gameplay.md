@@ -21,6 +21,11 @@ Watch these, and add better ones with what to look for:
 
 Things to measure from footage and write down here: player move speed (screen widths per second), the minute enemies first fill the screen, the knockback distance on hit, how long the level-up choice takes, and when the first chest appears.
 
+### Readability at game speed (art, #5)
+
+- **Observed in this game** (source: the `?gallery` speed preview, 30 instances per mass ID drifting at 100 units/s over tiled `stage.ground`, issue #5 verification, 2026-11-08): the six enemies separate by silhouette first and color second: the bat by its wide wings, the ghoul by its hunched green bulk, the skeleton by a tall thin grey frame with a white skull, the wisp by a pale-blue teardrop, the brute by its large horned brown block, the wraith by a tall dark-purple banded column. The three gems share one diamond shape and separate only by color (blue, green, red, the red one slightly larger); that is enough at this speed. Size steps (32 → 40 → 56 → 64) make the heavier enemies read as heavier.
+- **How the original does it** (to check against the Steam store trailers and a long unedited run listed above, with timestamps): enemy types differ mostly by silhouette and size rather than by color, gem tiers by color on a shared shape, and pickups by a distinct shape. **[unverified]**: written while drawing the starter pack, without watching footage; replace the tag with the source and timestamp once checked, and tune `PREVIEW_SPEED` in `packages/client/src/worker/debug/gallery.ts` against the measured player speed.
+
 ## Core loop
 
 - The player only moves. Weapons fire automatically on their own cooldowns. **[unverified]**

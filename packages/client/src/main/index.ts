@@ -3,7 +3,7 @@
 import './style.css';
 import type { GameWorkerToMain, MainToWorker, WorkerToMain } from '../protocol/worker-messages';
 import { assertNever } from '../protocol/assert-never';
-import { installDebugTools, recordStats } from './debug';
+import { installDebugTools, recordStats, registerDebugKey } from './debug';
 import { createInput } from './input';
 import { checkSupport } from './support';
 import { installTestBridge, type MainTestBridge } from './test-bridge';
@@ -146,7 +146,10 @@ async function boot(): Promise<void> {
   });
   if (document.hidden) post({ type: 'visibility', hidden: true });
 
-  if (import.meta.env.DEV) installDebugTools(worker);
+  if (import.meta.env.DEV) {
+    if (debug?.gallery) registerDebugKey('KeyV', { kind: 'galleryPreview' });
+    installDebugTools(worker);
+  }
 }
 
 void boot();

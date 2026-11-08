@@ -52,6 +52,930 @@
     "font.hud": {
       "file": "fonts/hud.ttf",
       "format": "ttf"
+    },
+    "boss.death": {
+      "file": "bosses/death.svg",
+      "format": "svg",
+      "size": [
+        128,
+        128
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "boss.reaper10": {
+      "file": "bosses/reaper10.svg",
+      "format": "svg",
+      "size": [
+        112,
+        112
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "boss.reaper5": {
+      "file": "bosses/reaper5.svg",
+      "format": "svg",
+      "size": [
+        96,
+        96
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "enemy.brute": {
+      "file": "enemies/brute.svg",
+      "format": "svg",
+      "size": [
+        56,
+        56
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "enemy.ghoul": {
+      "file": "enemies/ghoul.svg",
+      "format": "svg",
+      "size": [
+        36,
+        40
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "enemy.skeleton": {
+      "file": "enemies/skeleton.svg",
+      "format": "svg",
+      "size": [
+        36,
+        44
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "enemy.wisp": {
+      "file": "enemies/wisp.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "enemy.wraith": {
+      "file": "enemies/wraith.svg",
+      "format": "svg",
+      "size": [
+        64,
+        64
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "fx.chestOpen": {
+      "file": "fx/chest-open.json",
+      "format": "lottie",
+      "size": [
+        128,
+        128
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "fx.enemyDeath": {
+      "file": "fx/enemy-death.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "fx.freeze": {
+      "file": "fx/freeze.svg",
+      "format": "svg",
+      "size": [
+        64,
+        64
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "fx.hit": {
+      "file": "fx/hit.svg",
+      "format": "svg",
+      "size": [
+        24,
+        24
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "fx.warning": {
+      "file": "fx/warning.svg",
+      "format": "svg",
+      "size": [
+        48,
+        48
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "gem.blue": {
+      "file": "pickups/gem-blue.svg",
+      "format": "svg",
+      "size": [
+        12,
+        16
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "gem.green": {
+      "file": "pickups/gem-green.svg",
+      "format": "svg",
+      "size": [
+        12,
+        16
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "gem.red": {
+      "file": "pickups/gem-red.svg",
+      "format": "svg",
+      "size": [
+        14,
+        18
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.passive.bracer": {
+      "file": "icons/passive-bracer.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.passive.candelabrador": {
+      "file": "icons/passive-candelabrador.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.passive.clover": {
+      "file": "icons/passive-clover.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.passive.emptyTome": {
+      "file": "icons/passive-empty-tome.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.passive.hollowHeart": {
+      "file": "icons/passive-hollow-heart.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.passive.pummarola": {
+      "file": "icons/passive-pummarola.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.passive.spellbinder": {
+      "file": "icons/passive-spellbinder.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.passive.spinach": {
+      "file": "icons/passive-spinach.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.weapon.axe": {
+      "file": "icons/weapon-axe.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.weapon.bloodyTear": {
+      "file": "icons/weapon-bloody-tear.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.weapon.cross": {
+      "file": "icons/weapon-cross.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.weapon.deathSpiral": {
+      "file": "icons/weapon-death-spiral.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.weapon.fireWand": {
+      "file": "icons/weapon-fire-wand.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.weapon.garlic": {
+      "file": "icons/weapon-garlic.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.weapon.heavenSword": {
+      "file": "icons/weapon-heaven-sword.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.weapon.hellfire": {
+      "file": "icons/weapon-hellfire.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.weapon.holyWand": {
+      "file": "icons/weapon-holy-wand.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.weapon.kingBible": {
+      "file": "icons/weapon-king-bible.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.weapon.knife": {
+      "file": "icons/weapon-knife.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.weapon.magicWand": {
+      "file": "icons/weapon-magic-wand.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.weapon.soulEater": {
+      "file": "icons/weapon-soul-eater.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.weapon.thousandEdge": {
+      "file": "icons/weapon-thousand-edge.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.weapon.unholyVespers": {
+      "file": "icons/weapon-unholy-vespers.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "icon.weapon.whip": {
+      "file": "icons/weapon-whip.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "pickup.chest": {
+      "file": "pickups/chest.svg",
+      "format": "svg",
+      "size": [
+        32,
+        28
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "pickup.floorChicken": {
+      "file": "pickups/floor-chicken.svg",
+      "format": "svg",
+      "size": [
+        24,
+        24
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "pickup.interference.eliteCall": {
+      "file": "pickups/interference-elite-call.svg",
+      "format": "svg",
+      "size": [
+        28,
+        28
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "pickup.interference.gemThief": {
+      "file": "pickups/interference-gem-thief.svg",
+      "format": "svg",
+      "size": [
+        28,
+        28
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "pickup.interference.swarm": {
+      "file": "pickups/interference-swarm.svg",
+      "format": "svg",
+      "size": [
+        28,
+        28
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "pickup.littleClover": {
+      "file": "pickups/little-clover.svg",
+      "format": "svg",
+      "size": [
+        24,
+        24
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "pickup.orologion": {
+      "file": "pickups/orologion.svg",
+      "format": "svg",
+      "size": [
+        24,
+        24
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "pickup.rosary": {
+      "file": "pickups/rosary.svg",
+      "format": "svg",
+      "size": [
+        24,
+        24
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "pickup.vacuum": {
+      "file": "pickups/vacuum.svg",
+      "format": "svg",
+      "size": [
+        24,
+        24
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "player.ember": {
+      "file": "characters/ember.svg",
+      "format": "svg",
+      "size": [
+        48,
+        48
+      ],
+      "anchor": [
+        0.5,
+        0.9
+      ]
+    },
+    "player.swift": {
+      "file": "characters/swift.svg",
+      "format": "svg",
+      "size": [
+        48,
+        48
+      ],
+      "anchor": [
+        0.5,
+        0.9
+      ]
+    },
+    "player.warden": {
+      "file": "characters/warden.svg",
+      "format": "svg",
+      "size": [
+        48,
+        48
+      ],
+      "anchor": [
+        0.5,
+        0.9
+      ]
+    },
+    "portrait.ember": {
+      "file": "characters/portrait-ember.svg",
+      "format": "svg",
+      "size": [
+        128,
+        128
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "portrait.swift": {
+      "file": "characters/portrait-swift.svg",
+      "format": "svg",
+      "size": [
+        128,
+        128
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "portrait.warden": {
+      "file": "characters/portrait-warden.svg",
+      "format": "svg",
+      "size": [
+        128,
+        128
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "stage.brazier": {
+      "file": "stage/brazier.svg",
+      "format": "svg",
+      "size": [
+        24,
+        40
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "stage.brazierBroken": {
+      "file": "stage/brazier-broken.svg",
+      "format": "svg",
+      "size": [
+        24,
+        20
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "stage.ground": {
+      "file": "stage/ground.svg",
+      "format": "svg",
+      "size": [
+        128,
+        128
+      ],
+      "anchor": [
+        0,
+        0
+      ]
+    },
+    "ui.hpBar": {
+      "file": "ui/hp-bar.svg",
+      "format": "svg",
+      "size": [
+        40,
+        6
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "ui.skull": {
+      "file": "ui/skull.svg",
+      "format": "svg",
+      "size": [
+        16,
+        16
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "ui.xpBar": {
+      "file": "ui/xp-bar.svg",
+      "format": "svg",
+      "size": [
+        400,
+        12
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "weapon.axe": {
+      "file": "weapons/axe.svg",
+      "format": "svg",
+      "size": [
+        28,
+        28
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "weapon.bloodyTear": {
+      "file": "weapons/bloody-tear.svg",
+      "format": "svg",
+      "size": [
+        180,
+        44
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "weapon.cross": {
+      "file": "weapons/cross.svg",
+      "format": "svg",
+      "size": [
+        28,
+        28
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "weapon.deathSpiral": {
+      "file": "weapons/death-spiral.svg",
+      "format": "svg",
+      "size": [
+        36,
+        36
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "weapon.fireWand": {
+      "file": "weapons/fire-wand.svg",
+      "format": "svg",
+      "size": [
+        20,
+        20
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "weapon.garlic": {
+      "file": "weapons/garlic.svg",
+      "format": "svg",
+      "size": [
+        100,
+        100
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "weapon.heavenSword": {
+      "file": "weapons/heaven-sword.svg",
+      "format": "svg",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "weapon.hellfire": {
+      "file": "weapons/hellfire.svg",
+      "format": "svg",
+      "size": [
+        40,
+        40
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "weapon.holyWand": {
+      "file": "weapons/holy-wand.svg",
+      "format": "svg",
+      "size": [
+        14,
+        14
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "weapon.kingBible": {
+      "file": "weapons/king-bible.svg",
+      "format": "svg",
+      "size": [
+        24,
+        28
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "weapon.knife": {
+      "file": "weapons/knife.svg",
+      "format": "svg",
+      "size": [
+        20,
+        6
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "weapon.magicWand": {
+      "file": "weapons/magic-wand.svg",
+      "format": "svg",
+      "size": [
+        12,
+        12
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "weapon.soulEater": {
+      "file": "weapons/soul-eater.svg",
+      "format": "svg",
+      "size": [
+        140,
+        140
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "weapon.thousandEdge": {
+      "file": "weapons/thousand-edge.svg",
+      "format": "svg",
+      "size": [
+        22,
+        6
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "weapon.unholyVespers": {
+      "file": "weapons/unholy-vespers.svg",
+      "format": "svg",
+      "size": [
+        26,
+        30
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    "weapon.whip": {
+      "file": "weapons/whip.svg",
+      "format": "svg",
+      "size": [
+        160,
+        40
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
     }
   }
 }

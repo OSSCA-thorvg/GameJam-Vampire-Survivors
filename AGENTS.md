@@ -12,7 +12,7 @@ Use Node 24: `nvm use`, `corepack enable`, `pnpm install`.
 - `pnpm format`, `pnpm lint:fix`: fixes. `pnpm test`: unit suites. `pnpm test:build`: requires built artifacts.
 - `pnpm verify:e2e --issue <N>`: browser smoke/native hidden-tab tests and cleanup (`--project chromium` selects headless smoke).
 
-Add asset IDs to `assets/CATALOG.md`, run `pnpm assets:sync`, then add the file and manifest entry; `/?gallery` in development previews drawable IDs and anchors. Fonts remain non-drawable manifest entries with their source/license records.
+Add asset IDs to `assets/CATALOG.md`, run `pnpm assets:sync`, then add the file (style guide and naming rule in `assets/README.md`) and manifest entry; `/?gallery` in development previews drawable IDs and anchors, and `V` there previews mass art at game speed. Fonts remain non-drawable manifest entries with their source/license records.
 
 Use two spaces, single quotes, semicolons, strict TypeScript, ESLint, and Prettier. Name colocated Vitest tests `*.test.ts`.
 

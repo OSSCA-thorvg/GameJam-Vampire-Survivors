@@ -56,8 +56,12 @@ export type GameMainToWorker = Exclude<MainToWorker, TestSnapshotRequest>;
 /** `WorkerToMain` without the test bridge reply: what the main thread's `switch` handles. */
 export type GameWorkerToMain = Exclude<WorkerToMain, TestSnapshotReply>;
 
-// Extended by later issues; this issue defines the first two. Dev builds only (main/debug.ts, worker/debug.ts).
-export type DebugCommand = { kind: 'togglePerfOverlay' } | { kind: 'fastForward'; seconds: number };
+// Extended by later issues (#2 defined the first two). Dev builds only (main/debug.ts, worker/debug.ts).
+export type DebugCommand =
+  | { kind: 'togglePerfOverlay' }
+  | { kind: 'fastForward'; seconds: number }
+  /** #5: toggles the `?gallery` speed preview (`KeyV`). */
+  | { kind: 'galleryPreview' };
 
 /**
  * Read-only worker state for verification (`window.__vsTest`, dev and e2e builds only). One flat object: fields
