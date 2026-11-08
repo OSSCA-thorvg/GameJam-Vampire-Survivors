@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { recomputeStats } from '../stats';
-import { createWorld, SYSTEMS } from '../world';
+import { SYSTEMS } from '../world';
+import { createBaseWorld } from '../base-world';
 import { contactDamageSystem } from './contact-damage';
 import { recoverySystem } from './recovery';
 
@@ -8,7 +9,7 @@ const DT = 1 / 60;
 
 describe('recovery', () => {
   it('heals recovery × time: 0.4 HP/s for 10 s heals 4 HP, never above maxHp', () => {
-    const world = createWorld({ seed: 1 });
+    const world = createBaseWorld({ seed: 1 });
     world.player.runModifiers.push({ stat: 'recovery', add: 0.4 });
     recomputeStats(world);
     world.player.hp = 50;
@@ -20,7 +21,7 @@ describe('recovery', () => {
   });
 
   it('does nothing with recovery 0 or at 0 HP, and runs right after contact damage', () => {
-    const world = createWorld({ seed: 1 });
+    const world = createBaseWorld({ seed: 1 });
     world.player.hp = 50;
     recoverySystem(world, 1);
     expect(world.player.hp).toBe(50);

@@ -4,13 +4,13 @@ import { cleanupSystem, damageEnemy } from './combat';
 import { spawnEnemy } from './enemies';
 import { createGameView } from './view';
 import { fakeGameView } from './view-test-helpers';
-import { createWorld } from './world';
+import { createBaseWorld } from './base-world';
 
 function setup() {
   const fake = fakeGameView();
   const view = createGameView(fake.options);
-  view.begin();
-  const world = createWorld({ seed: 1, enemyPools: view.enemyPools });
+  view.begin('warden');
+  const world = createBaseWorld({ seed: 1, enemyPools: view.enemyPools });
   const byId = (id: string) => fake.paints.filter((p) => p.id === id);
   return { ...fake, view, world, byId };
 }
@@ -34,14 +34,16 @@ it('creates every paint once: ground, garlic, gem, enemy, projectile, book and e
   expect(byId('gem.green')).toHaveLength(50);
   expect(byId('gem.red')).toHaveLength(50);
   expect(byId('ui.xpBar')).toHaveLength(1);
-  expect(byId('player.warden')).toHaveLength(1);
+  // One sprite per character (#14).
+  for (const id of ['player.warden', 'player.ember', 'player.swift', 'player.aurelia'])
+    expect(byId(id), id).toHaveLength(1);
   expect(byId('ui.hpBar')).toHaveLength(1);
   expect(byId('ui.skull')).toHaveLength(1);
   // The HP fill and the XP fill; the level, the timer and the kill counter.
   expect(byId('Shape')).toHaveLength(2);
   expect(byId('Text')).toHaveLength(3);
-  expect(view.countPaints()).toBe(1523);
-  expect(paints).toHaveLength(1528);
+  expect(view.countPaints()).toBe(1526);
+  expect(paints).toHaveLength(1531);
 });
 
 it('follows the camera, snapped to device pixels', () => {
@@ -123,7 +125,7 @@ it('hides everything on clear and shows the HUD again on begin', () => {
     'Text',
   ])
     expect(shown(id), id).toBe(0);
-  view.begin();
+  view.begin('warden');
   expect(shown('stage.ground')).toBe(96);
   expect(shown('player.warden')).toBe(1);
   expect(shown('ui.xpBar')).toBe(1);
@@ -132,11 +134,22 @@ it('hides everything on clear and shows the HUD again on begin', () => {
   expect(byId('Text').map((t) => t.text)).toEqual(['Lv 1', '00:00', '0']);
 });
 
+it("shows only the chosen character's sprite on begin (#14)", () => {
+  const { view, byId } = setup();
+  const shown = (id: string) => byId(id).filter((p) => p.visible).length;
+  view.begin('swift');
+  expect(shown('player.swift')).toBe(1);
+  expect(shown('player.warden') + shown('player.ember') + shown('player.aurelia')).toBe(0);
+  view.begin('aurelia');
+  expect(shown('player.aurelia')).toBe(1);
+  expect(shown('player.swift')).toBe(0);
+});
+
 it('dims a hit enemy to 140 while it flashes, writing opacity only on change, and draws bolts and effects', () => {
   const fake = fakeGameView();
   const view = createGameView(fake.options);
-  view.begin();
-  const world = createWorld({
+  view.begin('warden');
+  const world = createBaseWorld({
     seed: 1,
     enemyPools: view.enemyPools,
     projectilePools: view.projectilePools,
@@ -235,7 +248,7 @@ it('shows the King Bible books and the garlic aura from the weapon visuals, on t
   view.render(world);
   expect(shown('weapon.kingBible')).toHaveLength(0);
   view.clear();
-  view.begin();
+  view.begin('warden');
   view.render(world);
   // A new run starts with the aura re-acquired from the same pool; nothing was created.
   expect(shown('weapon.garlic')).toHaveLength(1);

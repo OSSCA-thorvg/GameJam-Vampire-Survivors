@@ -23,20 +23,20 @@ The weapon system (#10, #13, ADR 0008): owned weapons fire on their own cooldown
 
 ## How to get to it (user POV)
 
-Open the game URL and press Enter on "Start": the Whip is already equipped; stand still and bats arrive within a few seconds. Tap ArrowLeft to face left. Every other weapon comes from a level-up card (`level-up.md`): as preconditions, `G` (dev and e2e builds) grants the next weapon of `WEAPON_LIST` (one press for the Magic Wand, two for the Knife, three for the Axe, four for the Cross, five for the King Bible), and `L` grants the XP for the next level, whose cards offer Fire Wand and Garlic and every upgrade up to level 8. No server is needed.
+Open the game URL, press Enter on "Start" and Enter on the character select (the default Warden, #14): the Whip is already equipped; stand still and bats arrive within a few seconds. Tap ArrowLeft to face left. Every other weapon comes from a level-up card (`level-up.md`): as preconditions, `G` (dev and e2e builds) grants the next weapon of `WEAPON_LIST` (one press for the Magic Wand, two for the Knife, three for the Axe, four for the Cross, five for the King Bible), and `L` grants the XP for the next level, whose cards offer Fire Wand and Garlic and every upgrade up to level 8. No server is needed.
 
 ## Driving it
 
 ### Claude in Chrome
 
 1. `tabs_context_mcp` `{ createIfEmpty: true }`, use the group's new empty tab; `gif_creator` `start_recording`.
-2. `navigate` to `http://localhost:5180/`; `javascript_tool` `await window.__vsTest.waitFor((s) => s.state === 'title', 30000)`; `computer` `key` `Enter`; `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).weapons)` → `[{"id":"whip","level":1}]`.
+2. `navigate` to `http://localhost:5180/`; `javascript_tool` `await window.__vsTest.waitFor((s) => s.state === 'title', 30000)`; `computer` `key` `Enter` twice (Start, then Warden on the character select, #14); `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).weapons)` → `[{"id":"whip","level":1}]`.
 3. Wait about 6 s; take `screenshot`s in quick succession until one shows the arc to the right of the player (it shows for 0.15 s of every 1.35 s); `javascript_tool` `(await window.__vsTest.snapshot()).kills` → above 0 and equal to the HUD's skull counter on the screenshot (`zoom` the top right).
 4. `computer` `key` `ArrowLeft`; `javascript_tool` `(await window.__vsTest.snapshot()).player.facingX` → `-1`; `screenshot`s until one shows the arc on the left.
 5. `computer` `key` `g`; `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).weapons)` → whip and magicWand at level 1; `screenshot`s → a cyan bolt leaving the player toward the nearest bat, which disappears with a puff; read `projectiles` a few times → at most 600.
 6. `javascript_tool` `JSON.stringify(await window.__vsTest.waitFor((s) => s.state === 'results', 90000))`; `get_page_text` → Kills equal to that snapshot's `kills`; `screenshot` (the HUD counter shows the same number behind the dialog).
 7. `gif_creator` `stop_recording`, `export` `{ download: true, filename: "issue-<N>-weapons.gif" }`; `tabs_close_mcp` on the tab.
-8. The six weapons of #13, one fresh run each (new tab, `navigate`, Enter): press `g` the weapon's number of times (Knife 2, Axe 3, Cross 4, King Bible 5) or, for Fire Wand and Garlic, press `l` and the number of their card whenever offered (another passive card otherwise) until `JSON.stringify((await window.__vsTest.snapshot()).weapons)` lists it; `gif_creator` `start_recording`, wait 10 s answering each level-up with a passive card, take `screenshot`s about every 100 ms for 2 s → its motion as described above; then press `l` and its upgrade card until it shows `level: 8` → more knives, axes, crosses or books, faster fireballs, a larger ring; `gif_creator` `stop_recording`, `export`.
+8. The six weapons of #13, one fresh run each (new tab, `navigate`, Enter twice): press `g` the weapon's number of times (Knife 2, Axe 3, Cross 4, King Bible 5) or, for Fire Wand and Garlic, press `l` and the number of their card whenever offered (another passive card otherwise) until `JSON.stringify((await window.__vsTest.snapshot()).weapons)` lists it; `gif_creator` `start_recording`, wait 10 s answering each level-up with a passive card, take `screenshot`s about every 100 ms for 2 s → its motion as described above; then press `l` and its upgrade card until it shows `level: 8` → more knives, axes, crosses or books, faster fireballs, a larger ring; `gif_creator` `stop_recording`, `export`.
 9. Garlic and Cross with Candelabrador and Spinach: in each weapon's run at level 8, take Candelabrador and Spinach to 5 through `l` and their cards; `javascript_tool` `(await window.__vsTest.snapshot()).stats` → `area` and `might` 1.5; `screenshot` → the garlic ring (or the crosses) 1.5 times as large as before.
 
 The timed strike capture, the knockback measurement, journey 5, the fps measurement and the paint count need the Playwright journeys below.
@@ -730,6 +730,8 @@ test('weapons 14: the paint count stays flat across runs with every new weapon f
     await quit(0);
     for (const run of [1, 2]) {
       await page.keyboard.press('Enter');
+      await waitForSnapshot(page, (n) => n.state === 'characterSelect', 5_000);
+      await page.keyboard.press('Enter'); // the default Warden (#14)
       const s = await waitForSnapshot(page, (n) => n.state === 'playing', 5_000);
       rows.push({ at: `run ${String(run)} start`, paintsCreated: paints(s) });
       await waitForSnapshot(page, (n) => n.timeS >= 1, 5_000);

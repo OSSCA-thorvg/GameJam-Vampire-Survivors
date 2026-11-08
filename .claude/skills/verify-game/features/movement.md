@@ -4,8 +4,8 @@ The player walks in eight directions at one constant speed from the arrow keys o
 
 ## Sub-features
 
-- **Straight movement:** holding `ArrowRight` for 1 s raises `player.x` by 140 ± 10 (`BASE_MOVE_SPEED`, world units per second) and leaves `player.y` unchanged. W, A, S and D move up, left, down and right the same way.
-- **Diagonals:** holding two keys (`ArrowRight` + `ArrowDown`, `w` + `a`, `s` + `d`) for 1 s moves 140 ± 10 units of distance, with equal `|dx|` and `|dy|` (diagonal equals straight, not 198).
+- **Straight movement:** holding `ArrowRight` for 1 s raises `player.x` by 133 ± 10 (`BASE_MOVE_SPEED` 140 × the character's `moveSpeed`, 0.95 for the default Warden, #14; world units per second) and leaves `player.y` unchanged. W, A, S and D move up, left, down and right the same way.
+- **Diagonals:** holding two keys (`ArrowRight` + `ArrowDown`, `w` + `a`, `s` + `d`) for 1 s moves 133 ± 10 units of distance, with equal `|dx|` and `|dy|` (diagonal equals straight, not 188). Other characters' speeds are in `character-select.md`.
 - **Facing:** `player.facingX` is `-1` after a left input and `1` after a right input; it keeps its value when the input becomes vertical or stops. The `player.warden` sprite is mirrored when facing left (its darker shield side swaps from right to left on screen).
 - **Stop:** releasing every key stops the player at once: `player` is unchanged over the next 500 ms while `steps` keep rising.
 - **Tab switch stops movement:** holding a key and switching to another tab and back leaves the player stopped (#2's input clearing on blur and hide); the `'pause'` policy steps nothing while hidden, and the run comes back under the pause overlay (#9): after "Resume" the player stays where it was while `steps` rise.
@@ -14,14 +14,14 @@ The player walks in eight directions at one constant speed from the arrow keys o
 
 ## How to get to it (user POV)
 
-Open the game URL and press Enter on the title screen's "Start" (#9): the run starts with the player at `(0, 0)` facing right. Hold arrow keys or WASD. No server and no debug key are needed. `?gallery` and `?stress` show no title screen and create no run. Enemies hurt the player from about 5 s on and a player standing still dies in 15–30 s (`player-health.md`), so keep journeys short or keep moving.
+Open the game URL, press Enter on the title screen's "Start" (#9) and Enter on the character select (the default Warden, #14): the run starts with the player at `(0, 0)` facing right. Hold arrow keys or WASD. No server and no debug key are needed. `?gallery` and `?stress` show no title screen and create no run. Enemies hurt the player from about 5 s on and a player standing still dies in 15–30 s (`player-health.md`), so keep journeys short or keep moving.
 
 ## Driving it
 
 ### Claude in Chrome
 
 1. `tabs_context_mcp` `{ createIfEmpty: true }`, use the group's new empty tab (or `tabs_create_mcp`); `gif_creator` `start_recording`.
-2. `navigate` to `http://localhost:5180/`; `javascript_tool` `await window.__vsTest.waitFor((s) => s.state === 'title', 30000)`; `computer` `key` `Enter` (Start, #9); `javascript_tool` `JSON.stringify(await window.__vsTest.waitFor((s) => s.state === 'playing', 5000))` → `player: { x: 0, y: 0, facingX: 1, hp: 100, maxHp: 100, invulnerable: false }`, no `testScene`; `computer` `screenshot`.
+2. `navigate` to `http://localhost:5180/`; `javascript_tool` `await window.__vsTest.waitFor((s) => s.state === 'title', 30000)`; `computer` `key` `Enter` twice (Start, #9; Warden, #14); `javascript_tool` `JSON.stringify(await window.__vsTest.waitFor((s) => s.state === 'playing', 5000))` → `player: { x: 0, y: 0, facingX: 1, hp: 120, maxHp: 120, invulnerable: false }`, no `testScene`; `computer` `screenshot`.
 3. `computer` `key` `ArrowLeft` with `repeat: 30`, `screenshot`, then read the snapshot → `player.x` below 0, `facingX: -1`, the sprite mirrored and still at the centre.
 4. `computer` `key` `ArrowUp` with `repeat: 30` → `facingX` still `-1`, `player.y` below 0; read the snapshot twice 500 ms apart → `player` unchanged, `steps` higher; `screenshot` and zoom on tile corners near the view edges.
 5. `gif_creator` `stop_recording` and `export` `{ download: true, filename: "issue-<N>-movement.gif" }`; `tabs_close_mcp` on the tab.
@@ -147,18 +147,18 @@ test('movement: 8 directions at one speed, facing, stop, camera and ground', asy
     expect(ready.testScene).toBeUndefined();
     await shotWithoutSeams(page, ev, 'start');
 
-    // 1. ArrowRight for 1 s: x grows by 140 ± 10, y unchanged.
+    // 1. ArrowRight for 1 s: x grows by 133 ± 10 (Warden, 140 × 0.95, #14), y unchanged.
     const right = await hold(page, ['ArrowRight'], 1000);
     ev.json('01-arrow-right', right);
-    expect(right.dx).toBeGreaterThan(130);
-    expect(right.dx).toBeLessThan(150);
+    expect(right.dx).toBeGreaterThan(123);
+    expect(right.dx).toBeLessThan(143);
     expect(right.dy).toBe(0);
 
-    // 2. ArrowRight + ArrowDown for 1 s: the distance is 140 ± 10 (diagonal equals straight).
+    // 2. ArrowRight + ArrowDown for 1 s: the distance is 133 ± 10 (diagonal equals straight).
     const diagonal = await hold(page, ['ArrowRight', 'ArrowDown'], 1000);
     ev.json('02-diagonal', diagonal);
-    expect(diagonal.dist).toBeGreaterThan(130);
-    expect(diagonal.dist).toBeLessThan(150);
+    expect(diagonal.dist).toBeGreaterThan(123);
+    expect(diagonal.dist).toBeLessThan(143);
     expect(Math.abs(diagonal.dx - diagonal.dy)).toBeLessThan(1e-6);
 
     // 3. W, A, S, D, each and diagonally.
@@ -318,9 +318,9 @@ test('movement: switching tabs while holding a key stops the player', async ({
 
 - Since #11 the HUD's XP bar spans the top edge: the seam check skips the top band (16 view units) and no longer checks the top edge for gaps, and the journeys answer level-up dialogs with `answerLevelUps`; a hold during which the level rose is repeated (up to 3 times), since the dialog froze part of it, and the seam check skips frames with the dialog, which dims the whole view (2026-11-08, #11).
 - The 30 s diagonal run (step 5) runs into relocated enemies ahead: one #9 run ended it at 15 HP of 100. It starts a fresh run for that reason, but a death on the way remains possible until the invulnerability precondition exists (`KeyI`, #17); if it dies (the trail stops short, `state: 'results'`), rerun once and report it, never shorten the run (2026-11-08, #9).
-- Since #9 the run starts from the title screen and the player takes contact damage: `startRun` (`e2e/helpers.ts`) presses Enter on "Start"; a long journey that stands still dies and ends on the results screen. Hiding the tab mid-run brings the pause overlay back (2026-11-08, #9).
+- Since #9 the run starts from the title screen and the player takes contact damage: `startRun` (`e2e/helpers.ts`) presses Enter on "Start" and, since #14, Enter on the character select (Warden); a long journey that stands still dies and ends on the results screen. Hiding the tab mid-run brings the pause overlay back (2026-11-08, #9).
 - Each extension `key` press is an instant down and up, so the extension cannot prove distances per second; use the Playwright holds (2026-11-08, #7).
-- `holdKeys` timing jitters by tens of milliseconds, and the release reaches the worker a step or two later: one hold measured 142.3 units for a nominal 1 s. The journey allows 140 ± 10; one run of five failed once in #7 (its evidence was overwritten before it was read), so rerun once before treating a single miss as a regression (2026-11-08, #7).
+- `holdKeys` timing jitters by tens of milliseconds, and the release reaches the worker a step or two later: one hold measured 142.3 units for a nominal 1 s. The journey allowed 140 ± 10 (133 ± 10 since #14 made Warden, at 0.95 move speed, the default); one run of five failed once in #7 (its evidence was overwritten before it was read), so rerun once before treating a single miss as a regression (2026-11-08, #7).
 - Seams only show at view scales where a tile edge falls between device pixels: at 1280 × 720 or 1000 × 563 the tiles land on whole pixels and edge-to-edge tiles look seamless. The fractional journey uses 1005 × 565 (100.5 device pixels per tile); with the 1-unit overlap removed it finds seam rows and columns in every screenshot, with it none (2026-11-08, #7).
 - `hidePage` starts hidden: call `show()` before pressing keys, or the presses go to a hidden page and the player never moves (2026-11-08, #7).
 - The starter `player.warden` art is small and nearly symmetric; facing is read from `player.facingX` and confirmed on screenshots by the darker shield side (2026-11-08, #7).

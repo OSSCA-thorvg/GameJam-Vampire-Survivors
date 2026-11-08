@@ -131,12 +131,16 @@ export async function openGame(page: Page, path = '/'): Promise<GameSnapshot> {
 }
 
 /**
- * Loads the game, waits for the title screen and presses Enter on "Start" (#9): resolves with the first `playing`
- * snapshot. Real keyboard input; the run has a fresh random seed.
+ * Loads the game, waits for the title screen, presses Enter on "Start" (#9), then on the character select (#14)
+ * presses ArrowRight `rightPresses` times (0: the default Warden; 1 Ember, 2 Swift, 3 Aurelia) and Enter: resolves
+ * with the first `playing` snapshot. Real keyboard input; the run has a fresh random seed.
  */
-export async function startRun(page: Page, path = '/'): Promise<GameSnapshot> {
+export async function startRun(page: Page, path = '/', rightPresses = 0): Promise<GameSnapshot> {
   await openGame(page, path);
   await waitForSnapshot(page, (s) => s.state === 'title', 5_000);
+  await page.keyboard.press('Enter');
+  await waitForSnapshot(page, (s) => s.state === 'characterSelect', 5_000);
+  for (let i = 0; i < rightPresses; i++) await page.keyboard.press('ArrowRight');
   await page.keyboard.press('Enter');
   return waitForSnapshot(page, (s) => s.state === 'playing', 5_000);
 }

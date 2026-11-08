@@ -22,11 +22,15 @@ test('boot: the worker starts ThorVG with gl, Enter on the title starts a run th
     expect(ready.renderer).toBe('gl');
     await expect(page.locator('#app canvas')).toHaveCount(1);
 
-    // The title screen (#9): Start is focused, and Enter starts the run.
+    // The title screen (#9): Start is focused, and Enter opens the character select (#14), where Enter starts the run.
     const atTitle = await waitForSnapshot(page, (s) => s.state === 'title', 5_000);
     expect(atTitle.player).toBeNull();
     await expect(page.getByRole('button', { name: 'Start' })).toBeFocused();
     await ev.shot('title');
+    await page.keyboard.press('Enter');
+    await waitForSnapshot(page, (s) => s.state === 'characterSelect', 5_000);
+    await expect(page.getByRole('option', { name: 'Warden', selected: true })).toBeFocused();
+    await ev.shot('character-select');
     await page.keyboard.press('Enter');
     const started = await waitForSnapshot(page, (s) => s.state === 'playing', 5_000);
     await expect(page.getByRole('button', { name: 'Start' })).toHaveCount(0);

@@ -213,6 +213,7 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         registerSnapshotField('kills', () => runs.world?.stats.kills ?? 0);
         registerSnapshotField('projectiles', () => runs.world?.projectiles.count ?? 0);
         registerSnapshotField('weapons', () => (runs.world ? readWeapons(runs.world) : []));
+        registerSnapshotField('characterId', () => runs.world?.characterId ?? null);
         registerSnapshotField('passives', () => (runs.world ? readPassives(runs.world) : []));
         registerSnapshotField('stats', () => (runs.world ? { ...runs.world.player.stats } : null));
         registerSnapshotField('damageDealt', () =>

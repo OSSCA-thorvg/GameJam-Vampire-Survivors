@@ -51,7 +51,11 @@ export {
   effAmount,
   effSpeed,
   effDuration,
+  STAT_LABELS,
+  formatModifier,
 } from './content/stats.js';
 export type { StatId, StatBlock, StatModifier } from './content/stats.js';
 export { PASSIVES } from './content/passives.js';
 export type { PassiveDef, PassiveId } from './content/passives.js';
+export { CHARACTERS, findCharacter } from './content/characters.js';
+export type { CharacterDef, CharacterId } from './content/characters.js';

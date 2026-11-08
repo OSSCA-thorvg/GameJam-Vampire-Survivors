@@ -1,8 +1,10 @@
 // The app state machine (ADR 0009): the only code that mounts screens. Each transition unmounts the old screen,
 // mounts the new one and tells the worker. The DOM never reads game state; what it shows arrives as messages (ADR 0004).
+import { CHARACTERS, type CharacterId } from '@vs/shared';
 import { assertNever } from '../protocol/assert-never';
 import type { LevelUpOption, MainToWorker, RunStats } from '../protocol/worker-messages';
 import type { AssetUrl } from './ui/asset-url';
+import { mount as mountCharacterSelect, type CharacterSelectProps } from './ui/character-select';
 import type { Screen } from './ui/dom';
 import { mount as mountLevelUp } from './ui/levelup';
 import { mount as mountPause } from './ui/pause';
@@ -12,6 +14,8 @@ import './ui/styles.css';
 
 export type AppState =
   | { name: 'title' }
+  /** #14: choosing the character before a run. */
+  | { name: 'characterSelect'; selectedId: CharacterId }
   | { name: 'playing'; paused: boolean }
   /** #11: the worker paused the run for a level-up choice. */
   | { name: 'levelUp'; level: number; options: LevelUpOption[] }
@@ -19,6 +23,10 @@ export type AppState =
 
 export type AppEvent =
   | { type: 'start' }
+  /** #14: on the character select, move the selection, start the run, or go back to the title. */
+  | { type: 'select'; id: CharacterId }
+  | { type: 'confirm' }
+  | { type: 'back' }
   | { type: 'pauseToggle' }
   | { type: 'quitToTitle' }
   | { type: 'gameOver'; stats: RunStats }
@@ -29,11 +37,36 @@ export type AppEvent =
   /** #11: the player chose option `index` on the level-up screen. */
   | { type: 'chosen'; index: number };
 
-/** Pure transition function. An event that does not apply to the state returns the same state object. */
-export function reduce(state: AppState, event: AppEvent): AppState {
+/** The character the select screen starts on when none was chosen yet this session. */
+export const DEFAULT_CHARACTER_ID: CharacterId = CHARACTERS[0]?.id ?? 'warden';
+
+/**
+ * Pure transition function. An event that does not apply to the state returns the same state object. `lastCharacter`
+ * is the character chosen last this session (#14), where the select screen starts.
+ */
+export function reduce(
+  state: AppState,
+  event: AppEvent,
+  lastCharacter: CharacterId = DEFAULT_CHARACTER_ID,
+): AppState {
   switch (state.name) {
     case 'title':
-      return event.type === 'start' ? { name: 'playing', paused: false } : state;
+      return event.type === 'start'
+        ? { name: 'characterSelect', selectedId: lastCharacter }
+        : state;
+    case 'characterSelect':
+      switch (event.type) {
+        case 'select':
+          return event.id === state.selectedId || !CHARACTERS.some((c) => c.id === event.id)
+            ? state
+            : { name: 'characterSelect', selectedId: event.id };
+        case 'confirm':
+          return { name: 'playing', paused: false };
+        case 'back':
+          return { name: 'title' };
+        default:
+          return state;
+      }
     case 'playing':
       switch (event.type) {
         case 'pauseToggle':
@@ -63,24 +96,30 @@ export function reduce(state: AppState, event: AppEvent): AppState {
   }
 }
 
-/** The messages a transition sends to the worker, in order. `event` is the one that caused it. */
+/**
+ * The messages a transition sends to the worker, in order. `event` is the one that caused it. A run starts as the
+ * character confirmed on the select screen, or as `lastCharacter` on Retry (#14).
+ */
 export function effects(
   from: AppState,
   to: AppState,
   seed: () => number,
   event?: AppEvent,
+  lastCharacter: CharacterId = DEFAULT_CHARACTER_ID,
 ): MainToWorker[] {
   if (from === to) return [];
   // The worker resumes by itself once no level-up is pending, or posts the next `levelUp`.
   if (from.name === 'levelUp')
     return event?.type === 'chosen' ? [{ type: 'levelUpChoice', index: event.index }] : [];
   if (to.name === 'levelUp') return [];
-  if (to.name === 'playing' && from.name !== 'playing')
-    // #14 makes the character a choice.
-    return [{ type: 'startRun', seed: seed(), characterId: 'warden' }];
+  if (to.name === 'playing' && from.name !== 'playing') {
+    const characterId = from.name === 'characterSelect' ? from.selectedId : lastCharacter;
+    return [{ type: 'startRun', seed: seed(), characterId }];
+  }
   if (to.name === 'playing' && from.name === 'playing')
     return to.paused === from.paused ? [] : [{ type: to.paused ? 'pause' : 'resume' }];
-  if (to.name === 'title') return [{ type: 'endRun' }];
+  // Back from the character select: no run was started.
+  if (to.name === 'title' && from.name !== 'characterSelect') return [{ type: 'endRun' }];
   return [];
 }
 
@@ -95,7 +134,8 @@ const randomSeed = (): number => crypto.getRandomValues(new Uint32Array(1))[0] ?
 /**
  * Starts the app on the title screen, mounting screens into `root`. Escape while playing toggles the pause; hiding the
  * tab while playing pauses (the worker's `'pause'` background policy already stops the simulation, and the overlay
- * stays until the player resumes). The level-up screen (#11) ignores both; `iconUrl` resolves its icons.
+ * stays until the player resumes). The level-up screen (#11) ignores both; `iconUrl` resolves its icons and the
+ * character select's portraits (#14).
  */
 export function createApp(
   root: HTMLElement,
@@ -106,11 +146,38 @@ export function createApp(
   const doc = root.ownerDocument;
   let state: AppState = { name: 'title' };
   let screen: Screen<never> | null = null;
+  /** Kept only in memory for this session (#14); nothing is persisted between runs. */
+  let lastCharacter = DEFAULT_CHARACTER_ID;
+  /** The mounted select screen, updated in place while the selection moves. */
+  let select: Screen<CharacterSelectProps> | null = null;
+  const selectProps = (selectedId: CharacterId): CharacterSelectProps => ({
+    characters: CHARACTERS,
+    selectedId,
+    assetUrl: iconUrl,
+    onSelect: (id) => {
+      app.dispatch({ type: 'select', id });
+    },
+    onConfirm: () => {
+      app.dispatch({ type: 'confirm' });
+    },
+    onBack: () => {
+      app.dispatch({ type: 'back' });
+    },
+  });
 
   const show = (): void => {
+    if (select && state.name === 'characterSelect') {
+      select.update(selectProps(state.selectedId));
+      return;
+    }
     screen?.unmount();
     screen = null;
+    select = null;
     switch (state.name) {
+      case 'characterSelect':
+        select = mountCharacterSelect(root, selectProps(state.selectedId));
+        screen = select;
+        break;
       case 'title':
         screen = mountTitle(root, {
           onStart: () => {
@@ -160,9 +227,11 @@ export function createApp(
       return state;
     },
     dispatch(event) {
-      const next = reduce(state, event);
+      const next = reduce(state, event, lastCharacter);
       if (next === state) return;
-      const messages = effects(state, next, seed, event);
+      const messages = effects(state, next, seed, event, lastCharacter);
+      if (state.name === 'characterSelect' && next.name === 'playing')
+        lastCharacter = state.selectedId;
       state = next;
       show();
       for (const message of messages) post(message);
