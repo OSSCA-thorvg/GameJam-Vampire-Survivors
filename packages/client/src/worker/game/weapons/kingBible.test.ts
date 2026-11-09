@@ -5,20 +5,21 @@ import { kingBible } from './patterns/kingBible';
 import { weaponSystem } from './system';
 
 describe('king bible', () => {
-  it('orbits its books at orbitRadius × area around the player, and leaves a visible gap', () => {
+  it('orbits the moving torso at orbitRadius × area and leaves a visible gap', () => {
     const { world } = armed('kingBible', 2);
     withStats(world, [{ stat: 'area', add: 0.2 }]);
     world.player.x = 30;
     world.player.y = -20;
     const counts: number[] = [];
     for (let i = 0; i < 60 * 13; i++) {
+      world.player.y += 1;
       weaponSystem(world, DT);
       world.time += DT;
       const { books } = world.weaponVisuals;
       counts.push(books.count);
       for (let b = 0; b < books.count; b++)
         expect(
-          Math.hypot((books.x[b] ?? 0) - 30, (books.y[b] ?? 0) + 20),
+          Math.hypot((books.x[b] ?? 0) - 30, (books.y[b] ?? 0) - (world.player.y - 19.2)),
           `step ${String(i)}`,
         ).toBeCloseTo(75 * 1.2, 3);
     }
@@ -36,8 +37,8 @@ describe('king bible', () => {
   it('hits an enemy inside the ring at most once per hitCooldown', () => {
     const { world, w } = armed('kingBible');
     const lv = { ...effectiveLevel(world, w), speed: 0 };
-    // A still book at angle 0, 75 units right of the player, over a ghoul.
-    const ghoul = target(world, 'ghoul', 75, 0);
+    // A still book at angle 0, 75 units right of the torso, over a ghoul.
+    const ghoul = target(world, 'ghoul', 75, -19.2);
     w.activeLeft = 10;
     const hits: number[] = [];
     let hp = world.enemies.cols.hp[ghoul] ?? 0;

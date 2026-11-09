@@ -20,9 +20,10 @@ describe('knife', () => {
       2,
       6.5,
     ]);
+    expect(p.y[0]).toBeCloseTo(-19.2, 4);
     flyProjectiles(world, 30);
     expect(p.x[0]).toBeCloseTo(0, 4);
-    expect(p.y[0]).toBeCloseTo(250, 2);
+    expect(p.y[0]).toBeCloseTo(250 - 19.2, 2);
   });
 
   it('spreads a burst sideways, alternating sides, 0.05 s apart', () => {
@@ -39,8 +40,9 @@ describe('knife', () => {
     }
     // 0.05 s is 3 steps.
     expect(fireSteps).toEqual([1, 4, 7, 10, 13, 16]);
-    const ys = Array.from(world.projectiles.cols.y.subarray(0, 6), (y) => Math.round(y));
-    expect(ys).toEqual([0, 1, -1, 2, -2, 3].map((k) => k * KNIFE_SPREAD));
+    for (const [i, offset] of [0, 1, -1, 2, -2, 3].entries()) {
+      expect(world.projectiles.cols.y[i]).toBeCloseTo(-19.2 + offset * KNIFE_SPREAD, 4);
+    }
     expect(Array.from(world.projectiles.cols.vx.subarray(0, 6))).toEqual(Array(6).fill(500));
   });
 

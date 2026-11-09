@@ -111,15 +111,14 @@ function startScenario(name: keyof typeof STRESS_SCENARIOS) {
 }
 
 // Heavy simulation: explicit timeout as in #80; CI runners are several times slower.
-// The pools grow while the weapons' own shots and the emitter's waves settle: measured, the last projectile Paint is
-// created about 8 simulated seconds in (3 to 6 of them after the 5 s warm-up); none after 10 s.
+// The pools grow while the weapons' own shots and the emitter's waves settle. Measure stability after 15 s.
 it('keeps the projectile store filled in projectiles-max and projectiles-1800, and the pools settle', () => {
   for (const [name, keep] of [
     ['projectiles-max', PROJECTILE_CAP],
     ['projectiles-1800', 1800],
   ] as const) {
     const { world, view, step } = startScenario(name);
-    step(60 * 10);
+    step(60 * 15);
     const afterWarmup = view.countPaints();
     for (let s = 0; s < 4; s++) {
       step(60);

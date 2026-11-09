@@ -5,16 +5,17 @@ import { garlic, GARLIC_ART_RING_RATIO, garlicDrawScale, GARLIC_RADIUS } from '.
 import { weaponSystem } from './system';
 
 describe('garlic', () => {
-  it('damages and pushes an enemy inside the radius and not one outside it', () => {
+  it('damages and pushes an enemy inside the torso-centered aura and leaves one below it alone', () => {
     const { world, w } = armed('garlic');
     // A bat has radius 12: it overlaps the 50-unit aura up to 62 units away.
-    const inside = target(world, 'bat', 55, 0);
-    const outside = target(world, 'bat', 0, 70);
+    const inside = target(world, 'bat', 30, -68);
+    const outside = target(world, 'bat', 0, 50);
     indexEnemies(world);
     garlic.fire(world.weaponContext, w, effectiveLevel(world, w), 0);
     expect(world.enemies.cols.hp[inside]).toBe(995);
     expect(world.enemies.cols.hp[outside]).toBe(1000);
     expect(world.enemies.cols.kbX[inside]).toBeGreaterThan(0);
+    expect(world.enemies.cols.kbY[inside]).toBeLessThan(0);
   });
 
   it('ticks on its cooldown, is always shown and grows with area', () => {

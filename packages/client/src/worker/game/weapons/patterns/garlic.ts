@@ -42,7 +42,10 @@ const found = new Int32Array(512);
 export const garlic: WeaponPatternModule = {
   fire(ctx, w, lv, shot) {
     if (shot > 0) return;
-    const { x: px, y: py } = ctx.player;
+    const {
+      player: { x: px },
+      attackY: py,
+    } = ctx;
     const radius = GARLIC_RADIUS * lv.area;
     const { cols } = ctx.enemies;
     const { x: ex, y: ey } = cols;

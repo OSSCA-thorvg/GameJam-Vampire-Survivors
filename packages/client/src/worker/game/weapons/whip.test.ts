@@ -23,14 +23,16 @@ function armed(level: number) {
 describe('whip', () => {
   it('damages enemies inside the box on the facing side, pushing them away, and none outside it', () => {
     const { world, w } = armed(1);
+    const torsoY = -19.2;
     const inside = [
-      target(world, 'bat', 30, 0),
-      target(world, 'bat', WHIP_WIDTH - 5, 15),
-      // The box edge is at y = 20; a bat of radius 12 at y = 30 still overlaps it.
-      target(world, 'bat', 80, WHIP_HEIGHT / 2 + 10),
+      target(world, 'bat', 30, torsoY),
+      target(world, 'bat', WHIP_WIDTH - 5, torsoY + 15),
+      // A bat of radius 12 overlaps the upper edge from 10 units outside the box.
+      target(world, 'bat', 80, torsoY - WHIP_HEIGHT / 2 - 10),
     ].map((s) => world.enemies.uid[s] ?? -1);
     const outside = [
-      target(world, 'bat', 80, 60),
+      // This bat would overlap a strike centered on the feet.
+      target(world, 'bat', 80, 25),
       target(world, 'bat', WHIP_WIDTH + 20, 0),
       target(world, 'bat', -40, 0),
     ].map((s) => world.enemies.uid[s] ?? -1);
@@ -39,11 +41,12 @@ describe('whip', () => {
     const hp = hpByUid(world);
     expect(inside.map((uid) => hp.get(uid))).toEqual([990, 990, 990]);
     expect(outside.map((uid) => hp.get(uid))).toEqual([1000, 1000, 1000]);
-    // Knockback points from the player to the enemy: the first bat is pushed straight right.
+    // Knockback points from the torso to the enemy: the first bat is pushed straight right.
     expect(world.enemies.cols.kbX[0]).toBeCloseTo(L1.knockback, 4);
     expect(world.enemies.cols.kbY[0]).toBeCloseTo(0, 4);
     // The strike effect sits over the box, unflipped on the right.
     expect(world.fx.cols.x[world.fx.count - 1]).toBe(WHIP_WIDTH / 2);
+    expect(world.fx.cols.y[world.fx.count - 1]).toBeCloseTo(torsoY, 4);
     expect(world.fx.cols.flip[world.fx.count - 1]).toBe(0);
   });
 

@@ -18,16 +18,19 @@ function armed() {
 }
 
 describe('magic wand', () => {
-  it('fires at the nearest of three enemies at its speed, with its pierce, lifetime and radius', () => {
+  it('aims at the enemy nearest the torso and launches from there with the configured bolt stats', () => {
     const { world, w } = armed();
-    target(world, 'bat', 100 + 300, 100);
+    // The lower bat is closer to the feet, but the upper bat is closer to the torso.
+    target(world, 'bat', 100, 100 + 190);
     target(world, 'bat', 100, 100 - 200);
     target(world, 'bat', 100 - 250, 100 + 250);
     indexEnemies(world);
     magicWand.fire(world.weaponContext, w, L1, 0);
     const p = world.projectiles.cols;
     expect(world.projectiles.count).toBe(1);
-    expect([p.x[0], p.y[0]]).toEqual([100, 100]);
+    expect(p.x[0]).toBe(100);
+    expect(p.y[0]).toBeCloseTo(80.8, 4);
+    expect(world.player).toMatchObject({ x: 100, y: 100 });
     expect(p.vx[0]).toBeCloseTo(0, 4);
     expect(p.vy[0]).toBeCloseTo(-L1.speed, 4);
     expect(p.rot[0]).toBeCloseTo(-90, 4);

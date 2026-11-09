@@ -19,11 +19,13 @@ describe('fire wand', () => {
     for (let i = 0; i < 60; i++) {
       fireWand.fire(world.weaponContext, w, lv, 0);
       const k = world.projectiles.count - 1;
-      const vx = world.projectiles.cols.vx[k] ?? 0;
-      const vy = world.projectiles.cols.vy[k] ?? 0;
-      expect(Math.hypot(vx, vy)).toBeCloseTo(375, 2);
+      const { y: launchY, vx, vy } = world.projectiles.cols;
+      expect(launchY[k]).toBeCloseTo(-19.2, 4);
+      const dx = vx[k] ?? 0;
+      const dy = vy[k] ?? 0;
+      expect(Math.hypot(dx, dy)).toBeCloseTo(375, 2);
       const aimed = onScreen.find(
-        ([x, y]) => Math.abs(Math.atan2(y, x) - Math.atan2(vy, vx)) < 1e-4,
+        ([x, y]) => Math.abs(Math.atan2(y + 19.2, x) - Math.atan2(dy, dx)) < 1e-4,
       );
       expect(aimed, `shot ${String(i)}`).toBeDefined();
       seen.add(String(aimed));

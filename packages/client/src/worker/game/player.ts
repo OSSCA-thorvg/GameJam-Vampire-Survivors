@@ -42,6 +42,13 @@ export interface PlayerState {
   readonly runModifiers: StatModifier[];
 }
 
+/** All four player sprites are 48 units high, with a y anchor at 0.9 and a center at 0.5. */
+const ATTACK_HEIGHT_ABOVE_FEET = 19.2;
+
+export function playerAttackY(player: Pick<PlayerState, 'y'>): number {
+  return player.y - ATTACK_HEIGHT_ABOVE_FEET;
+}
+
 /** A player at the origin facing right with full HP, moving at `BASE_MOVE_SPEED` (#14 scales it per character). */
 export function createPlayer(): PlayerState {
   return {

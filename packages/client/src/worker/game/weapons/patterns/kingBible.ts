@@ -37,7 +37,10 @@ export const kingBible: WeaponPatternModule = {
     const reach = BOOK_RADIUS * lv.area;
     const cooldown = lv.hitCooldown ?? 0;
     const hitT = ctx.enemyHitTimes[w.slot];
-    const { x: px, y: py } = ctx.player;
+    const {
+      player: { x: px },
+      attackY: py,
+    } = ctx;
     const { cols } = ctx.enemies;
     const { x: ex, y: ey } = cols;
     const now = ctx.time;

@@ -26,7 +26,10 @@ const opts: ProjectileOptions = {
  */
 export const cross: WeaponPatternModule = {
   fire(ctx, w, lv) {
-    const { x, y } = ctx.player;
+    const {
+      player: { x },
+      attackY: y,
+    } = ctx;
     const dir = aimAt(ctx, ctx.nearest(x, y, CROSS_RANGE));
     opts.damage = lv.damage;
     opts.weaponSlot = w.slot;
