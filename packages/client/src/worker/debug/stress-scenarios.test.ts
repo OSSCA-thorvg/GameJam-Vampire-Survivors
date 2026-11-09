@@ -110,6 +110,7 @@ function startScenario(name: keyof typeof STRESS_SCENARIOS) {
   return { world, view, step, peak: () => peak };
 }
 
+// Heavy simulation: explicit timeout as in #80; CI runners are several times slower.
 // The pools grow while the weapons' own shots and the emitter's waves settle: measured, the last projectile Paint is
 // created about 8 simulated seconds in (3 to 6 of them after the 5 s warm-up); none after 10 s.
 it('keeps the projectile store filled in projectiles-max and projectiles-1800, and the pools settle', () => {
@@ -126,7 +127,7 @@ it('keeps the projectile store filled in projectiles-max and projectiles-1800, a
     }
     expect(view.countPaints(), name).toBe(afterWarmup);
   }
-});
+}, 30_000);
 
 it('projectiles-frozen freezes the enemies for good and spawns them out to 1100 units', () => {
   const { world, step } = startScenario('projectiles-frozen');
@@ -141,4 +142,4 @@ it('projectiles-frozen freezes the enemies for good and spawns them out to 1100 
   }
   expect(farthest).toBeGreaterThan(620);
   expect(farthest).toBeLessThanOrEqual(1100 + 1);
-});
+}, 30_000);
