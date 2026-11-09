@@ -7,6 +7,7 @@ import {
   pageErrors,
   snapshot,
   startEvidence,
+  startRun,
   waitForSnapshot,
 } from './helpers';
 
@@ -68,6 +69,57 @@ test('boot: an unsupported browser gets the DOM message (?forceUnsupported, dev 
     await expect(app.getByRole('listitem')).toContainText(['webgl2-offscreen']);
     await expect(page.locator('#app canvas')).toHaveCount(0);
     await ev.shot('unsupported-message');
+  } finally {
+    ev.flush();
+  }
+});
+
+test('boot: a worker error after ready keeps the run and shows the runtime error notice (#123)', async ({
+  page,
+}, testInfo) => {
+  const ev = startEvidence(page, 'boot-runtime-error');
+  noteEvidence(testInfo, ev);
+  try {
+    await startRun(page);
+    await ev.shot('playing-before-error');
+    // An uncaught error outside the loop (a timer), so the worker keeps stepping (the issue's Context).
+    const worker = page.workers()[0];
+    if (!worker) throw new Error('no game worker');
+    await worker.evaluate(() => {
+      setTimeout(() => {
+        throw new Error('runtime probe');
+      }, 0);
+    });
+    const notice = page.locator('#runtime-error');
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText('Something went wrong in the game. Reload to start again.');
+    await expect(notice.locator('.runtime-error-detail')).toContainText('runtime probe');
+    await expect(notice.getByRole('button', { name: 'Reload' })).toBeVisible();
+    await expect(page.locator('#screens')).toHaveCount(1);
+    await expect(page.locator('#app canvas')).toHaveCount(1);
+    await expect(page.getByText('The game could not start.')).toHaveCount(0);
+    const after = await snapshot(page);
+    ev.json('snapshot-after-error', after);
+    expect(after.state).toBe('playing');
+    expect(after.runtimeErrors).toBe(1);
+    await ev.shot('notice-shown');
+
+    // The thrown error was outside the loop: the run's clock keeps rising.
+    await page.waitForTimeout(2_000);
+    const later = await snapshot(page);
+    ev.json('snapshot-2s-later', later);
+    expect(later.timeS).toBeGreaterThan(after.timeS + 1);
+    expect(later.state).toBe('playing');
+    expect(
+      ev.pageLog.some((l) =>
+        l.includes('[vs] game worker runtime error: Uncaught Error: runtime probe at '),
+      ),
+    ).toBe(true);
+
+    await notice.getByRole('button', { name: 'Dismiss' }).click();
+    await expect(notice).toHaveCount(0);
+    await ev.shot('dismissed');
+    expect((await snapshot(page)).state).toBe('playing');
   } finally {
     ev.flush();
   }

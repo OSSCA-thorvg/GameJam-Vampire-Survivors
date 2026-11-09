@@ -9,6 +9,7 @@ Loading the page starts the game worker, which initializes ThorVG with the `gl` 
 - **Title screen (#9):** the "Start" button is focused; Enter starts a run (`state: 'playing'`) and removes the screen. The title, pause and results screens are in `run-flow.md`.
 - **The run steps:** `steps` keeps rising (60 per second; it also counts on the title screen) and `timeS` (the run's simulated seconds, registered by #7, 0 outside a run) rises with it. #2's test scene and #31's `testScene` field are gone (#7).
 - **Keyboard moves the player:** holding `ArrowRight` raises `player.x` (133 units per second for the default Warden: `BASE_MOVE_SPEED` 140 × 0.95, #14) and leaves `player.y` unchanged. Distances, diagonals, facing, the camera and the ground are in `movement.md`.
+- **Runtime worker error (#123):** an uncaught error thrown in the worker after `ready` keeps the current screen mounted (`state` unchanged), logs `[vs] game worker runtime error: <message> at <file>:<line>:<col>` and shows `#runtime-error` (role `alert`, top centre, outside the canvas) with "Something went wrong in the game. Reload to start again.", the message in `.runtime-error-detail`, and Reload and Dismiss buttons; repeats keep one notice with `(<n> errors)`, Dismiss removes it, and `runtimeErrors` counts the reports. An error before `ready` still replaces the page with "The game could not start.".
 - **Unsupported browser:** `/?forceUnsupported=<name>` (dev and e2e builds only) shows "This game needs a recent Chrome, Edge, Firefox or Safari 17+" with `<name>` in the list, and no canvas.
 
 ## How to get to it (user POV)
@@ -29,7 +30,7 @@ Open the game URL, wait for the title screen and press Enter ("Start" is focused
 
 ### Playwright
 
-The spec is `e2e/smoke.spec.ts` (the CI gate). Run it with `pnpm verify:e2e` (launches and cleans up itself), or against a launched client with `VERIFY_EVIDENCE_DIR=$PWD/verification/issue-<N> pnpm exec playwright test -c e2e/playwright.config.ts smoke`. It saves `boot/` (`01-ready.png`, `02-title.png`, `03-stepping.png`, `04-after-arrow-right.png`, `snapshot-*.json`, `page-console.log`, `worker-console.log`) and `boot-unsupported/`.
+The spec is `e2e/smoke.spec.ts` (the CI gate), including the runtime worker error journey (#123): after `startRun(page)` it runs `page.workers()[0].evaluate(() => { setTimeout(() => { throw new Error('runtime probe'); }, 0); })`, expects `#runtime-error` with `runtime probe`, `state: 'playing'`, `runtimeErrors: 1`, `timeS` still rising 2 s later (the error was outside the loop), then clicks Dismiss and expects the notice gone. Run it with `pnpm verify:e2e` (launches and cleans up itself), or against a launched client with `VERIFY_EVIDENCE_DIR=$PWD/verification/issue-<N> pnpm exec playwright test -c e2e/playwright.config.ts smoke`. It saves `boot/` (`01-ready.png`, `02-title.png`, `03-stepping.png`, `04-after-arrow-right.png`, `snapshot-*.json`, `page-console.log`, `worker-console.log`), `boot-unsupported/` and `boot-runtime-error/` (`01-playing-before-error.png`, `02-notice-shown.png`, `03-dismissed.png`, the snapshots and logs).
 
 ## Gotchas
 
@@ -38,3 +39,4 @@ The spec is `e2e/smoke.spec.ts` (the CI gate). Run it with `pnpm verify:e2e` (la
 - `gif_creator` only records frames on screenshots and navigations, not key presses: take a screenshot after every action (#31).
 - `fps` follows the display: about 120 in real Chrome on a 120 Hz screen, about 55–60 in headless SwiftShader (#31). Steps stay at 60 per second either way.
 - Headed Chromium requests a favicon; #48 serves `/ui/favicon.svg`, so any `Failed to load resource` in `pageErrors()` is a real failure (the URL is in the log line).
+- The runtime worker error journey has no Claude in Chrome variant: only Playwright can evaluate code inside the worker (`page.workers()`). An error thrown from `worker.evaluate` has an empty filename, so its log line ends in `at :<line>:<col>`; Playwright also lists it as a `[pageerror]` (#123).

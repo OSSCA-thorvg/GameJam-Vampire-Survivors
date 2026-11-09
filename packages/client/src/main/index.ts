@@ -11,6 +11,11 @@ import { loadAssetUrls, type AssetUrl } from './ui/asset-url';
 import { logStressProgress, showStressResult } from './stress-results';
 import { installTestBridge, registerMainSnapshotField, type MainTestBridge } from './test-bridge';
 import { createResizer } from './resize';
+import {
+  createRuntimeErrorReporter,
+  routeWorkerError,
+  type WorkerErrorLike,
+} from './runtime-error';
 import { computeViewport, type Viewport } from './viewport';
 
 function appRoot(): HTMLElement {
@@ -155,6 +160,11 @@ async function boot(): Promise<void> {
   const perf = new URLSearchParams(location.search).has('perf');
   /** Milliseconds from navigation to `assetsReady` (#22's asset load time), once it arrived. */
   let loadMs: number | null = null;
+  /** Set by the worker's `ready` message (#123): `error` events before it are boot failures, later ones runtime errors. */
+  let workerReady = false;
+  const runtimeErrors = createRuntimeErrorReporter(document.body);
+  if (import.meta.env.DEV || import.meta.env.MODE === 'e2e')
+    registerMainSnapshotField('runtimeErrors', () => runtimeErrors.count);
 
   let testBridge: MainTestBridge | null = null;
   if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') testBridge = installTestBridge(post);
@@ -179,6 +189,7 @@ async function boot(): Promise<void> {
       case 'ready':
         if (import.meta.env.DEV) console.warn('[vs] worker ready, renderer:', message.renderer);
         if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') testBridge?.onReady();
+        workerReady = true;
         startApp();
         break;
       case 'loadProgress':
@@ -223,11 +234,16 @@ async function boot(): Promise<void> {
         assertNever(message);
     }
   });
-  worker.addEventListener('error', (event) => {
+  /** Before `ready`: the worker failed to load or evaluate, so the page is replaced by the boot failure. */
+  const fatal = (event: WorkerErrorLike): void => {
     console.error(
       `[vs] game worker error: ${event.message} at ${event.filename}:${String(event.lineno)}:${String(event.colno)}`,
     );
     showMessage('The game could not start.', [event.message || 'The game worker failed to load.']);
+  };
+  // After `ready` the screens stay mounted and a notice offers Reload (#123); this path never terminates the worker.
+  worker.addEventListener('error', (event) => {
+    routeWorkerError(workerReady, event, fatal, runtimeErrors);
   });
 
   let debug: { gallery: boolean; stress: string } | undefined;
