@@ -6,7 +6,7 @@ A 2-player versus match (#20, ADRs 0004, 0005, 0006, 0009, 0011): after the lobb
 
 - **Start:** at the countdown's zero both pages switch to `state: 'versusPlaying'`; the worker logs `[worker] background policy: simulate` and `[worker] run started, seed <matchStart.seed>`. Snapshot `mode: 'versus'`. Escape does not pause and a hidden tab keeps simulating.
 - **Same seed:** with no movement for the first 10 s of simulated time, the two pages' `spawnLog` entries (`{ enemyId, timeS }`, the first 64 spawner spawns) with `timeS < 10` are identical. After that the worlds diverge with input; they are never synchronized.
-- **Status relay:** each page sends `status { hp, maxHp, level, kills, alive, elapsedMs }` 2–4 times per second (never two within 250 ms: the client waits 260 ms) and receives the opponent's `peerStatus` at the same rate. The panel (`aside` "Opponents", top right) shows one row per opponent: nickname (`.opponent-name`), an HP bar (`role="meter"` "HP", `aria-valuetext` `hp / maxHp`), `Lv n` and `Kills n`; the values change while the other player plays, and HP falls while the other is hit.
+- **Status relay:** each page sends `status { hp, maxHp, level, kills, alive, elapsedMs }` 2–4 times per second (never two within 250 ms: the client waits 260 ms) and receives the opponent's `peerStatus` at the same rate. The panel (`aside` "Opponents", top right; since #115 at the opponent pane's top left, as its label strip) shows one row per opponent: nickname (`.opponent-name`), an HP bar (`role="meter"` "HP", `aria-valuetext` `hp / maxHp`), `Lv n` and `Kills n`; the values change while the other player plays, and HP falls while the other is hit.
 - **Badges** (`data-badge` on `.opponent`): `away` while the opponent's tab is hidden (`peerAway`), `disconnected` when their socket closed (`roomState.connected: false`), `dead` and `forfeited` (`playerEliminated` `died`/`afk`); an eliminated row is greyed and struck through (`data-out="true"`).
 - **Death:** the dead player's world freezes, dimmed to 40%, under the ThorVG line "You were defeated - waiting for the match to end" (snapshot `defeated: true`); it sends `died { kills, elapsedMs }`. When the result arrives the survivor sees "Win", the dead player "Lose" (`.versus-result h2`), without a reload. The ranking table lists nickname (" (you)" on this player), "alive" or why the player is out ("dead", "disconnected", "forfeited"), and kills. On `matchResult` the worker gets `forceEnd`: its `steps` stop and the last frame stays under the result.
 - **Disconnect:** closing one page mid-match shows `disconnected` on the other's panel at once; about 10 s later (`DISCONNECT_GRACE_MS`) the other gets `playerEliminated { reason: 'disconnected' }` and "Win".
@@ -16,10 +16,12 @@ A 2-player versus match (#20, ADRs 0004, 0005, 0006, 0009, 0011): after the lobb
 - **Server lost:** when the socket leaves `open` during the match the banner says "Disconnected from server — result unavailable", nothing more is sent, the world plays on, and the local end shows "Unofficial result" with the local time, kills and level and only "Leave". Snapshot `versus.offline: true`.
 - **Rematch and Leave:** Rematch returns both to the same room's lobby (`state: 'lobby'`, same `.room-code`), showing "Waiting for the room to reset" until the server's reset 5 s after the result, then every row `data-ready="false"` and Ready enabled. Leave sends `leaveRoom` and returns to the title.
 - **Dialogs:** level-ups and chests still open over the versus world and pause only it (`versus.overlay` is `'levelUp'` or `'chest'`; `state` stays `'versusPlaying'`); while one is open no `status` is sent.
-- **Single player** is unchanged: `mode: 'single'`, no game WebSocket, no panel, #17's results screen on death.
+- **Single player** is unchanged: `mode: 'single'`, no game WebSocket, no panel, #17's results screen on death, one full view (`layout.layout: 'single'`, no "YOU" label).
+- **Split view (#115, ADR 0018):** from `versusPlaying` until leaving `versusResult` the canvas shows two equal 16:9 panes, own first, with a 16-unit gap that shows only the page background: `columns` (left/right) when `min(W / 2576, H / 720) >= min(W / 1280, H / 1456)`, else `rows` (top/bottom): 1600 × 900 is `columns`, 1440 × 900, 900 × 1400 and 1000 × 1000 are `rows`. A resize that crosses the layout switches it at once, and the worker draws the new layout on its next frame; size changes within one layout keep the trailing 100 ms debounce (`main/resize.ts`), so a window drag resizes the canvas once. The own pane is labelled "YOU" (ThorVG, bottom left) and keeps its HUD, the "Sent <label>" toast, the defeat dim and line; `.versus-banner` sits at its bottom centre and `.interference-banners` at its top centre. The result screen covers the last split frame; Rematch or Leave returns to one view.
+- **Opponent pane (#115):** labelled "OPPONENT" (ThorVG) with the opponent's `mm:ss`, and the opponent panel as its DOM label strip (the nickname via `textContent`, so `<b>Ann</b>` shows as text). It draws the opponent's ground, enemies (elites at 1.5×), idle gems, pickups (interference ones included), sprite (mirrored when facing left) and HP bar from the newest relayed view, 200 ms behind real time with the player position interpolated, so it follows the opponent within about 45 units while walking; no projectiles, effects, weapons, lights, chests, hit flash, elite markers or frost. Caps: 160 enemies, 48 gems, 8 pickups; it creates no paint after boot. "AWAY" dims it to 60% while the opponent's tab is hidden or their socket is closed, "OUT" to 40% once they are eliminated.
 - **Interference (#21):** enemy kills drop Swarm, Gem Thief and Elite Call pickups from 1:00; collecting one sends it to the opponent's world, whose banner names the sender. Journeys in `interference.md`.
-- **View stream (#114, ADR 0018):** each page sends `view { view }` (a quantized `PlayerView` of its own world: player position, facing, character, HP permille and `[kind, dx, dy]` triples of nearby enemies, idle gems and pickups) 9–10 times per second, never two within 110 ms, never while its tab is hidden, after its death or after the result; each body is at most 3072 bytes. The server relays it unchanged as `peerView { playerId, view }`; the worker keeps the opponent's last 3 (`opponentFeed`). Swarm, Gem Thief and Elite Call sent to the opponent show up in the sender's `opponentFeed` (enemies, gems 0, elites ≥ 1). Single player sends none (`viewOut` stays `null`). Nothing draws the feed yet: the split panes are #115.
-- Snapshot fields: `spawnLog`, `mode`, `defeated`, `viewOut` (`{ t, x, y, enemies, elites, gems, pickups, sent }` of the last view posted, or `null`) and `opponentFeed` (`{ t, x, y, facing, character, hpPermille, enemies, elites, gems, pickups, received }` of the newest received, or `null`) (worker), `versus` (`{ overlay, offline }` or `null`, main) and `state` (`'versusPlaying'`, `'versusResult'`).
+- **View stream (#114, ADR 0018):** each page sends `view { view }` (a quantized `PlayerView` of its own world: player position, facing, character, HP permille and `[kind, dx, dy]` triples of nearby enemies, idle gems and pickups) 9–10 times per second, never two within 110 ms, never while its tab is hidden, after its death or after the result; each body is at most 3072 bytes. The server relays it unchanged as `peerView { playerId, view }`; the worker keeps the opponent's last 3 (`opponentFeed`). Swarm, Gem Thief and Elite Call sent to the opponent show up in the sender's `opponentFeed` (enemies, gems 0, elites ≥ 1). Single player sends none (`viewOut` stays `null`). The opponent pane draws the feed (#115, below).
+- Snapshot fields: `spawnLog`, `mode`, `defeated`, `panes` (`{ layout, opponentVisible, youLabel }`), `opponentPane` (`{ cameraX, cameraY, enemiesShown, gemsShown, pickupsShown, state: 'live' | 'away' | 'out', paintsCreated }`), `viewOut` (`{ t, x, y, enemies, elites, gems, pickups, sent }` of the last view posted, or `null`) and `opponentFeed` (`{ t, x, y, facing, character, hpPermille, enemies, elites, gems, pickups, received }` of the newest received, or `null`) (worker), `versus` (`{ overlay, offline }` or `null`, main), `layout` (`{ layout, panes }`, main) and `state` (`'versusPlaying'`, `'versusResult'`).
 
 ## How to get to it (user POV)
 
@@ -49,7 +51,10 @@ Save these files under `verification/issue-<N>/journeys/` (the native spec in `j
 
 - Journey 8 (#114, the view stream): `VERIFY_JOURNEYS=verification/issue-<N>/journeys VERIFY_EVIDENCE_DIR=$PWD/verification/issue-<N> pnpm exec playwright test -c e2e/playwright.config.ts --project chromium -g "versus 8"`, and journey 8b (native hidden tab): `VERIFY_JOURNEYS=verification/issue-<N>/journeys/native VERIFY_EVIDENCE_DIR=$PWD/verification/issue-<N> pnpm exec playwright test -c e2e/playwright.config.ts --project chromium -g "versus 8b"` (the `hidden-tab` project matches only files named `hidden-tab.spec.ts`; the spec still owns its headed native browser). Both need the server rebuilt for protocol 2 (`pnpm server:up`).
 
-Evidence per journey and player: `versus-<n>-<name>/<a|b>/` with screenshots, `page-console.log`, `worker-console.log`, `ws-frames.log` and JSON (`spawn-logs.json`, `panel-rate.json`, `hp-seen-by-b.json`, `death.json`, `disconnect.json`, `time-limit.json`, `single.json`, `hidden-20s.json`, `hidden-35s.json`, `deadline.json`, `offline.json`, `view-rate.json`, `view-interference.json`, `single-view.json`, `view-hidden.json`).
+- Journey 9 (#115, split panes, headless): `VERIFY_JOURNEYS=verification/issue-<N>/journeys VERIFY_EVIDENCE_DIR=$PWD/verification/issue-<N> pnpm exec playwright test -c e2e/playwright.config.ts --project chromium -g "versus 9"` (needs `versus-helpers.ts` beside it).
+- Journey 10 (#115, render rate and paint counts) and 10b (single player at 1600 × 900): the same command with `-g "versus 10"`, still in the headless `chromium` project: the spec launches its own headed Chromium for the two measured pages with `--window-position=-2400,-2400 --window-size=1600,1000`, never brings it to the front and closes it at once; player B stays headless. Do not run it with `VERIFY_HEADED=1`. Record the load average with each run and rerun when it is above 20.
+
+Evidence per journey and player: `versus-<n>-<name>/<a|b>/` with screenshots, `page-console.log`, `worker-console.log`, `ws-frames.log` and JSON (`spawn-logs.json`, `panel-rate.json`, `hp-seen-by-b.json`, `death.json`, `disconnect.json`, `time-limit.json`, `single.json`, `hidden-20s.json`, `hidden-35s.json`, `deadline.json`, `offline.json`, `view-rate.json`, `view-interference.json`, `single-view.json`, `view-hidden.json`, `split-panes.json`, `perf.json`, `single-view.json`).
 
 `versus-helpers.ts`:
 
@@ -1169,6 +1174,663 @@ test('versus 8b (native hidden tab): no view while hidden, the first within 200 
 });
 ```
 
+`split-panes.spec.ts` (journey 9):
+
+```ts
+// versus-match.md journey 9 (#115, ADR 0018): the split panes between two browser contexts against the Docker server.
+// Debug keys reach preconditions only: `I` (invulnerable) and `J` (an interference pickup 48 units right).
+import { expect, test, type Page } from '@playwright/test';
+import {
+  noteEvidence,
+  pageErrors,
+  snapshot,
+  waitForSnapshot,
+  type GameSnapshot,
+} from '../../../e2e/helpers';
+import { answerDialogs, player, startMatch, type Player } from './versus-helpers';
+
+interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+interface OpponentPane {
+  cameraX: number;
+  cameraY: number;
+  enemiesShown: number;
+  gemsShown: number;
+  pickupsShown: number;
+  state: string;
+  paintsCreated: number;
+}
+const layoutOf = (s: GameSnapshot) => (s.layout as { layout: string; panes: number }).layout;
+const panesOf = (s: GameSnapshot) =>
+  s.panes as { layout: string; opponentVisible: boolean; youLabel: boolean };
+const pane = (s: GameSnapshot) => s.opponentPane as OpponentPane;
+const px = (s: GameSnapshot) => (s.player as { x: number } | null)?.x ?? NaN;
+const viewOut = (s: GameSnapshot) =>
+  (s.viewOut as { enemies: number; gems: number; elites: number } | null) ?? null;
+
+/** The two pane rects in window CSS pixels, from the variables `main/index.ts` writes on `#screens`. */
+async function paneRects(page: Page): Promise<{ self: Rect; opp: Rect; canvas: Rect }> {
+  return page.evaluate(() => {
+    const el = document.getElementById('screens');
+    if (!el) throw new Error('#screens missing');
+    const st = getComputedStyle(el);
+    const read = (p: string): Rect => ({
+      x: parseFloat(st.getPropertyValue(`--${p}-x`)),
+      y: parseFloat(st.getPropertyValue(`--${p}-y`)),
+      width: parseFloat(st.getPropertyValue(`--${p}-w`)),
+      height: parseFloat(st.getPropertyValue(`--${p}-h`)),
+    });
+    const c = document.querySelector('canvas')?.getBoundingClientRect();
+    if (!c) throw new Error('canvas missing');
+    return {
+      self: read('self'),
+      opp: read('opp'),
+      canvas: { x: c.x, y: c.y, width: c.width, height: c.height },
+    };
+  });
+}
+
+/**
+ * Screenshots the page and returns the RGB of every device pixel along a line (window CSS coordinates), decoded in
+ * the page itself (no image dependency in the journey).
+ */
+async function sampleLine(
+  page: Page,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  n: number,
+): Promise<number[][]> {
+  const png = (await page.screenshot()).toString('base64');
+  return page.evaluate(
+    async ({ png, from, to, n }) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${png}`;
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      const g = c.getContext('2d');
+      if (!g) throw new Error('2d');
+      g.drawImage(img, 0, 0);
+      const k = img.width / innerWidth;
+      const out: number[][] = [];
+      for (let i = 0; i < n; i++) {
+        const x = Math.round((from.x + ((to.x - from.x) * i) / (n - 1)) * k);
+        const y = Math.round((from.y + ((to.y - from.y) * i) / (n - 1)) * k);
+        const d = g.getImageData(x, y, 1, 1).data;
+        out.push([d[0] ?? 0, d[1] ?? 0, d[2] ?? 0]);
+      }
+      return out;
+    },
+    { png, from, to, n },
+  );
+}
+
+const isBackground = (rgb: number[]) => rgb.every((v) => v <= 8);
+
+/** A creates a room as `nickA`, B joins as `nickB`; both end in the lobby. */
+async function meetAs(a: Player, b: Player, nickA: string, nickB: string): Promise<string> {
+  const toEntry = async (page: Page) => {
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await waitForSnapshot(page, (s) => s.state === 'characterSelect', 5_000);
+    await page.keyboard.press('Enter');
+    await waitForSnapshot(page, (s) => s.state === 'multiplayerEntry', 5_000);
+    await expect(page.locator('.multiplayer-entry .status')).toHaveText('', { timeout: 5_000 });
+  };
+  await toEntry(a.page);
+  await a.page.keyboard.type(nickA);
+  await a.page.keyboard.press('Enter');
+  await waitForSnapshot(a.page, (s) => s.state === 'lobby', 5_000);
+  const code = (await a.page.locator('.room-code').textContent()) ?? '';
+  await toEntry(b.page);
+  await b.page.keyboard.type(nickB);
+  await b.page.getByRole('button', { name: 'Join room' }).click();
+  await b.page.keyboard.type(code);
+  await b.page.keyboard.press('Enter');
+  await waitForSnapshot(b.page, (s) => s.state === 'lobby', 5_000);
+  return code;
+}
+
+async function invulnerable(p: Player): Promise<void> {
+  await p.page.keyboard.press('i');
+  await waitForSnapshot(p.page, (s) => s.debugInvulnerable === true, 2_000);
+}
+
+/** Layout, equal 16:9 panes and a background-only gap; returns what was measured. */
+async function checkSplit(p: Player, expected: 'columns' | 'rows', name: string) {
+  const s = await snapshot(p.page);
+  const r = await paneRects(p.page);
+  const gapLine =
+    expected === 'columns'
+      ? {
+          from: {
+            x: r.self.x + r.self.width + (r.opp.x - r.self.x - r.self.width) / 2,
+            y: r.self.y + 4,
+          },
+          to: {
+            x: r.self.x + r.self.width + (r.opp.x - r.self.x - r.self.width) / 2,
+            y: r.self.y + r.self.height - 4,
+          },
+        }
+      : {
+          from: {
+            x: r.self.x + 4,
+            y: r.self.y + r.self.height + (r.opp.y - r.self.y - r.self.height) / 2,
+          },
+          to: {
+            x: r.self.x + r.self.width - 4,
+            y: r.self.y + r.self.height + (r.opp.y - r.self.y - r.self.height) / 2,
+          },
+        };
+  const gap = await sampleLine(p.page, gapLine.from, gapLine.to, 60);
+  // Inside both panes, next to the gap: world pixels (the ground), not background.
+  const inside =
+    expected === 'columns'
+      ? await sampleLine(
+          p.page,
+          { x: r.self.x + r.self.width - 3, y: r.self.y + r.self.height / 2 },
+          { x: r.opp.x + 3, y: r.opp.y + r.opp.height / 2 },
+          2,
+        )
+      : await sampleLine(
+          p.page,
+          { x: r.self.x + r.self.width / 2, y: r.self.y + r.self.height - 3 },
+          { x: r.opp.x + r.opp.width / 2, y: r.opp.y + 3 },
+          2,
+        );
+  await p.ev.shot(name);
+  const result = {
+    layout: layoutOf(s),
+    panes: panesOf(s),
+    rects: r,
+    gapBackground: gap.filter(isBackground).length,
+    gapSamples: gap.length,
+    gapNonBackground: gap.filter((c) => !isBackground(c)),
+    inside,
+  };
+  expect(result.layout).toBe(expected);
+  expect(result.panes).toEqual({ layout: expected, opponentVisible: true, youLabel: true });
+  expect(r.self.width).toBeCloseTo(r.opp.width, 6);
+  expect(r.self.height).toBeCloseTo(r.opp.height, 6);
+  expect(r.self.width / r.self.height).toBeCloseTo(16 / 9, 3);
+  expect(result.gapBackground).toBe(gap.length);
+  for (const c of inside) expect(isBackground(c)).toBe(false);
+  return result;
+}
+
+test('versus 9: split panes show both worlds, labelled, following, with interference and states', async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(300_000);
+  const a = await player(browser, 'versus-9-split-panes/a');
+  const b = await player(browser, 'versus-9-split-panes/b');
+  noteEvidence(testInfo, a.ev);
+  const evidence: Record<string, unknown> = {};
+  let bOpen = true;
+  try {
+    for (const p of [a, b]) await p.page.setViewportSize({ width: 1600, height: 900 });
+    await meetAs(a, b, '<b>Ann</b>', 'Bob');
+    await startMatch(a, b);
+    for (const p of [a, b]) await invulnerable(p);
+    const stopA = answerDialogs(a.page);
+    const stopB = answerDialogs(b.page);
+    await waitForSnapshot(
+      a.page,
+      (s) => s.timeS > 2 && ((s.opponentFeed as { received: number } | null)?.received ?? 0) > 5,
+      10_000,
+    );
+
+    // Layout and labels at 1600 × 900, then 900 × 1400 within 300 ms, and back.
+    evidence.columns = await checkSplit(a, 'columns', 'a-columns-1600x900');
+    // Timed inside the page: from the window's resize event to the reply of the first snapshot that shows `rows` in
+    // both threads (an upper bound), and when that snapshot was requested (a lower bound).
+    const timing = a.page.evaluate(
+      () =>
+        new Promise<{ upperMs: number; lowerMs: number; roundTripMs: number; polls: number }>(
+          (resolve) => {
+            window.addEventListener(
+              'resize',
+              () => {
+                const t0 = performance.now();
+                let polls = 0;
+                const poll = async (): Promise<void> => {
+                  const asked = performance.now();
+                  const s = await (
+                    globalThis as unknown as {
+                      __vsTest: { snapshot(): Promise<Record<string, unknown>> };
+                    }
+                  ).__vsTest.snapshot();
+                  polls++;
+                  const now = performance.now();
+                  const main = (s.layout as { layout: string }).layout;
+                  const worker = (s.panes as { layout: string }).layout;
+                  if (main === 'rows' && worker === 'rows')
+                    resolve({
+                      upperMs: now - t0,
+                      lowerMs: asked - t0,
+                      roundTripMs: now - asked,
+                      polls,
+                    });
+                  else setTimeout(() => void poll(), 10);
+                };
+                void poll();
+              },
+              { once: true },
+            );
+          },
+        ),
+    );
+    await a.page.setViewportSize({ width: 900, height: 1400 });
+    evidence.rowsTiming = await timing;
+    const rows = await waitForSnapshot(a.page, (s) => panesOf(s).layout === 'rows', 2_000);
+    evidence.rowsSnapshotLayout = { layout: rows.layout, panes: rows.panes };
+    await a.page.waitForTimeout(150);
+    evidence.rows = await checkSplit(a, 'rows', 'a-rows-900x1400');
+    expect((evidence.rowsTiming as { lowerMs: number }).lowerMs).toBeLessThanOrEqual(300);
+    await a.page.setViewportSize({ width: 1440, height: 900 });
+    await waitForSnapshot(a.page, (s) => panesOf(s).layout === 'rows', 2_000);
+    await a.page.waitForTimeout(150);
+    evidence.rows1440 = await checkSplit(a, 'rows', 'a-rows-1440x900');
+    await a.page.setViewportSize({ width: 1600, height: 900 });
+    await waitForSnapshot(a.page, (s) => panesOf(s).layout === 'columns', 2_000);
+
+    // B's label strip: the nickname as text, never markup.
+    const name = b.page.locator('.opponent-panel .opponent-name').first();
+    evidence.bLabelStrip = {
+      text: await name.textContent(),
+      elementChildren: await name.evaluate((el) => el.children.length),
+      box: await b.page.locator('.opponent-panel').boundingBox(),
+      oppPane: (await paneRects(b.page)).opp,
+    };
+    expect(await name.textContent()).toBe('<b>Ann</b>');
+    expect(await name.evaluate((el) => el.children.length)).toBe(0);
+    await b.ev.shot('b-label-strip');
+
+    // B walks right for 3 s: A's opponent pane follows within 60 units.
+    const follow: unknown[] = [];
+    let worst = 0;
+    await b.page.keyboard.down('ArrowRight');
+    const walkFrom = Date.now();
+    while (Date.now() - walkFrom < 3_000) {
+      const [sa, sb] = await Promise.all([snapshot(a.page), snapshot(b.page)]);
+      const d = Math.abs(pane(sa).cameraX - px(sb));
+      worst = Math.max(worst, d);
+      follow.push({ at: Date.now() - walkFrom, cameraX: pane(sa).cameraX, bX: px(sb), d });
+      await a.page.waitForTimeout(100);
+    }
+    await b.page.keyboard.up('ArrowRight');
+    await a.page.waitForTimeout(600);
+    const [fa, fb] = await Promise.all([snapshot(a.page), snapshot(b.page)]);
+    evidence.follow = {
+      worstWhileWalking: worst,
+      settled: pane(fa).cameraX - px(fb),
+      samples: follow,
+    };
+    await a.ev.shot('a-after-b-walked');
+    expect(worst).toBeLessThanOrEqual(60);
+    expect(Math.abs(pane(fa).cameraX - px(fb))).toBeLessThanOrEqual(2);
+    expect(Math.abs(pane(fa).cameraY - ((fb.player as { y: number }).y ?? 0))).toBeLessThanOrEqual(
+      2,
+    );
+
+    // Interference from B: the toast in B's own pane, A's banner inside A's own pane, the effect in B's opponent pane.
+    const collect = async (kind: string) => {
+      await b.page.keyboard.press('j');
+      await waitForSnapshot(b.page, (s) => (s.interferenceOnGround as number) >= 1, 2_000);
+      await b.page.keyboard.down('ArrowRight');
+      await waitForSnapshot(b.page, (s) => s.interferenceOnGround === 0, 5_000);
+      await b.page.keyboard.up('ArrowRight');
+      return { kind, at: Date.now() };
+    };
+    const swarm = await collect('swarm');
+    await b.ev.shot('b-sent-swarm-toast');
+    await waitForSnapshot(a.page, (s) => (s.banners as string[]).length > 0, 3_000);
+    const banner = await a.page.locator('.interference-banners').boundingBox();
+    const aRects = await paneRects(a.page);
+    await a.ev.shot('a-incoming-banner');
+    const inside = (r: Rect, box: Rect | null) =>
+      box !== null &&
+      box.x >= r.x &&
+      box.y >= r.y &&
+      box.x + box.width <= r.x + r.width &&
+      box.y + box.height <= r.y + r.height;
+    evidence.banner = { box: banner, self: aRects.self, inside: inside(aRects.self, banner) };
+    expect(inside(aRects.self, banner)).toBe(true);
+    const mirror = { tries: 0, last: null as unknown };
+    const deadline = swarm.at + 10_000;
+    let mirrored = false;
+    while (Date.now() < deadline) {
+      const [sa, sb] = await Promise.all([snapshot(a.page), snapshot(b.page)]);
+      const want = Math.min(viewOut(sa)?.enemies ?? 0, 160);
+      mirror.tries++;
+      mirror.last = {
+        aEnemies: sa.enemies,
+        aViewEnemies: viewOut(sa)?.enemies,
+        bShown: pane(sb).enemiesShown,
+      };
+      if (
+        (sa.enemies as number) >= 30 &&
+        Math.abs(pane(sb).enemiesShown - want) <= 5 &&
+        want >= 30
+      ) {
+        mirrored = true;
+        break;
+      }
+      await a.page.waitForTimeout(100);
+    }
+    evidence.swarm = { mirrored, afterMs: Date.now() - swarm.at, ...mirror };
+    await b.ev.shot('b-opponent-pane-swarm');
+    expect(mirrored).toBe(true);
+
+    const gemsBefore = pane(await snapshot(b.page)).gemsShown;
+    await collect('gemThief');
+    await waitForSnapshot(a.page, (s) => s.gems === 0, 5_000);
+    const gemsZeroAt = Date.now();
+    await waitForSnapshot(b.page, (s) => pane(s).gemsShown === 0, 2_000);
+    evidence.gemThief = { gemsShownBefore: gemsBefore, paneZeroAfterMs: Date.now() - gemsZeroAt };
+    await b.ev.shot('b-opponent-pane-no-gems');
+    expect(evidence.gemThief).toMatchObject({ paneZeroAfterMs: expect.any(Number) });
+    expect((evidence.gemThief as { paneZeroAfterMs: number }).paneZeroAfterMs).toBeLessThanOrEqual(
+      500,
+    );
+
+    await collect('eliteCall');
+    const elite = await waitForSnapshot(
+      b.page,
+      (s) => ((s.opponentFeed as { elites: number } | null)?.elites ?? 0) >= 1,
+      3_000,
+    );
+    await b.page.waitForTimeout(400);
+    evidence.eliteCall = { feed: elite.opponentFeed, pane: pane(await snapshot(b.page)) };
+    await b.ev.shot('b-opponent-pane-elite');
+
+    // States and end: B's page closes; A's opponent pane dims "AWAY", then the result arrives.
+    await stopB();
+    await b.close();
+    bOpen = false;
+    const closedAt = Date.now();
+    const away = await waitForSnapshot(a.page, (s) => pane(s).state === 'away', 2_000);
+    evidence.away = { afterMs: Date.now() - closedAt, pane: pane(away) };
+    await a.ev.shot('a-opponent-away');
+    expect((evidence.away as { afterMs: number }).afterMs).toBeLessThanOrEqual(1_000);
+    const result = await waitForSnapshot(a.page, (s) => s.state === 'versusResult', 20_000);
+    evidence.result = {
+      afterMs: Date.now() - closedAt,
+      opponentState: pane(result).state,
+      layout: result.layout,
+      panes: panesOf(result),
+    };
+    await a.ev.shot('a-result-over-split');
+    await stopA();
+    await a.page.getByRole('button', { name: 'Leave' }).click();
+    const back = await waitForSnapshot(a.page, (s) => s.state === 'title', 5_000);
+    evidence.afterLeave = { layout: back.layout, panes: panesOf(back) };
+    await a.ev.shot('a-title-single');
+    expect(layoutOf(back)).toBe('single');
+    expect(panesOf(back)).toEqual({ layout: 'single', opponentVisible: false, youLabel: false });
+    expect(pageErrors(a.ev)).toEqual([]);
+  } finally {
+    a.ev.json('split-panes', evidence);
+    await a.close();
+    if (bOpen) await b.close();
+  }
+});
+```
+
+`split-perf.spec.ts` (journeys 10 and 10b):
+
+```ts
+// versus-match.md journey 10 (#115, ADR 0018): the split view's render rate against the single view's, headed with the
+// real GPU, and the paint counts of both worlds. Run it in the headless `chromium` project: the two measured pages
+// (the single-player baseline, then player A) each get their own headed Chromium launched here off-screen
+// (`--window-position=-2400,-2400`, fixed `--window-size`), never brought to the front and closed at once; player B
+// only sends its world and runs in the project's headless browser. Not minimized: macOS occlusion would throttle it. Debug keys reach preconditions only: `I`
+// (invulnerable) and `]` (fast-forward 60 s).
+import { cpus, loadavg, totalmem } from 'node:os';
+import { chromium, expect, test, type Browser, type Page } from '@playwright/test';
+import {
+  answerLevelUps,
+  forwardTo,
+  noteEvidence,
+  pageErrors,
+  snapshot,
+  waitForSnapshot,
+  type GameSnapshot,
+} from '../../../e2e/helpers';
+import {
+  answerDialogs,
+  forwardVersus,
+  meet,
+  player,
+  startMatch,
+  type Player,
+} from './versus-helpers';
+
+const WINDOW_MS = 10_000;
+/** The off-screen headed launch for the measured pages (user request, 2026-11-09). */
+export const OFFSCREEN_ARGS = ['--window-position=-2400,-2400', '--window-size=1600,1000'];
+const launchOffscreen = (): Promise<Browser> =>
+  chromium.launch({ headless: false, args: OFFSCREEN_ARGS });
+interface OpponentPane {
+  enemiesShown: number;
+  paintsCreated: number;
+}
+const pane = (s: GameSnapshot) => s.opponentPane as OpponentPane;
+const ownPaints = (s: GameSnapshot) => (s.debug as { paintsCreated: number }).paintsCreated;
+const load = () => loadavg().map((v) => Math.round(v * 100) / 100);
+
+async function invulnerable(page: Page): Promise<void> {
+  await page.keyboard.press('i');
+  await waitForSnapshot(page, (s) => s.debugInvulnerable === true, 2_000);
+}
+
+/** Renders per second over `WINDOW_MS` of wall time, with the smallest opponent pane enemy count seen meanwhile. */
+async function renderRate(page: Page) {
+  const loadBefore = load();
+  const first = await snapshot(page);
+  const t0 = Date.now();
+  let minShown = Infinity;
+  let minEnemies = Infinity;
+  while (Date.now() - t0 < WINDOW_MS) {
+    await page.waitForTimeout(500);
+    const s = await snapshot(page);
+    if (s.opponentPane) minShown = Math.min(minShown, pane(s).enemiesShown);
+    minEnemies = Math.min(minEnemies, s.enemies as number);
+  }
+  const last = await snapshot(page);
+  const ms = Date.now() - t0;
+  return {
+    rendersPerS: (((last.renders as number) - (first.renders as number)) * 1000) / ms,
+    windowMs: ms,
+    timeS: [first.timeS, last.timeS],
+    ownEnemiesMin: minEnemies,
+    opponentShownMin: Number.isFinite(minShown) ? minShown : null,
+    loadBefore,
+    loadAfter: load(),
+  };
+}
+
+test('versus 10: the split view renders at least 90% of the single view rate and creates no paint', async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(600_000);
+  const evidence: Record<string, unknown> = {
+    machine: { cpu: cpus()[0]?.model, cores: cpus().length, memGiB: totalmem() / 2 ** 30 },
+    measuredBrowser: {
+      headless: false,
+      args: OFFSCREEN_ARGS,
+      note: 'off-screen headed window, real GPU',
+    },
+    opponentBrowser: 'headless project browser (swiftshader)',
+  };
+
+  let soloBrowser: Browser | null = await launchOffscreen();
+  let aBrowser: Browser | null = null;
+  // B's 5:00 crowd within view range was about 90 (first run), under the plan's 120, so B forwards minute by minute
+  // until A's pane shows 120; single player is measured at 5:00 (the plan's baseline) and at 9:00.
+  const solo = await player(soloBrowser, 'versus-10-perf/single');
+  noteEvidence(testInfo, solo.ev);
+  let a: Player | null = null;
+  let b: Player | null = null;
+  try {
+    await solo.page.setViewportSize({ width: 1600, height: 900 });
+    evidence.ua = await solo.page.evaluate(() => navigator.userAgent);
+    evidence.soloWindow = await solo.page.evaluate(() => ({
+      screenX,
+      screenY,
+      visibility: document.visibilityState,
+      hasFocus: document.hasFocus(),
+    }));
+    await solo.page.keyboard.press('Enter');
+    await waitForSnapshot(solo.page, (s) => s.state === 'characterSelect', 5_000);
+    await solo.page.keyboard.press('Enter');
+    await waitForSnapshot(solo.page, (s) => s.state === 'playing', 5_000);
+    await invulnerable(solo.page);
+    await forwardTo(solo.page, 300);
+    const stopSolo = answerLevelUps(solo.page);
+    await solo.page.waitForTimeout(1_000);
+    evidence.single = await renderRate(solo.page);
+    await solo.ev.shot('single-5min');
+    await stopSolo();
+    await forwardTo(solo.page, 540);
+    const stopSolo2 = answerLevelUps(solo.page);
+    await solo.page.waitForTimeout(1_000);
+    evidence.singleHeavy = await renderRate(solo.page);
+    await solo.ev.shot('single-heavy');
+    await stopSolo2();
+    evidence.singleLayout = (await snapshot(solo.page)).layout;
+    await solo.close();
+    await soloBrowser.close();
+    soloBrowser = null;
+
+    // Versus: B forwards to 5:00; A's opponent pane draws B's crowd.
+    aBrowser = await launchOffscreen();
+    a = await player(aBrowser, 'versus-10-perf/a');
+    b = await player(browser, 'versus-10-perf/b');
+    for (const p of [a, b]) await p.page.setViewportSize({ width: 1600, height: 900 });
+    evidence.aWindow = await a.page.evaluate(() => ({
+      screenX,
+      screenY,
+      visibility: document.visibilityState,
+    }));
+    await meet(a, b);
+    await startMatch(a, b);
+    const firstFrame = await snapshot(a.page);
+    const firstAt = Date.now();
+    evidence.paintsAtFirstFrame = {
+      opponent: pane(firstFrame).paintsCreated,
+      own: ownPaints(firstFrame),
+    };
+    for (const p of [a, b]) await invulnerable(p.page);
+    const stopA = answerDialogs(a.page);
+    await forwardVersus(b.page, 300);
+    let shown = pane(await snapshot(a.page)).enemiesShown;
+    const steps: unknown[] = [];
+    for (let target = 360; target <= 840 && shown < 120; target += 60) {
+      await forwardVersus(b.page, target);
+      await a.page.waitForTimeout(1_500);
+      shown = pane(await snapshot(a.page)).enemiesShown;
+      steps.push({ bTimeS: (await snapshot(b.page)).timeS, shown });
+    }
+    evidence.bForward = steps;
+    const stopB = answerDialogs(b.page);
+    await waitForSnapshot(a.page, (s) => pane(s).enemiesShown >= 120, 30_000);
+    evidence.bTimeS = (await snapshot(b.page)).timeS;
+    evidence.splitOpponentAt5 = await renderRate(a.page);
+    await a.ev.shot('a-split-opponent-at-5min');
+
+    // Stricter, for the record: A's own world at 5:00 too.
+    await stopA();
+    await forwardVersus(a.page, 300);
+    const stopA2 = answerDialogs(a.page);
+    await a.page.waitForTimeout(1_000);
+    evidence.splitBothAt5 = await renderRate(a.page);
+    await a.ev.shot('a-split-both-at-5min');
+
+    const wait = 60_000 - (Date.now() - firstAt);
+    if (wait > 0) await a.page.waitForTimeout(wait);
+    const later = await snapshot(a.page);
+    evidence.paintsAfter60s = {
+      afterS: (Date.now() - firstAt) / 1000,
+      opponent: pane(later).paintsCreated,
+      own: ownPaints(later),
+    };
+    await stopA2();
+    await stopB();
+
+    const single = (evidence.single as { rendersPerS: number }).rendersPerS;
+    evidence.ratioVsHeavySingle =
+      (evidence.splitOpponentAt5 as { rendersPerS: number }).rendersPerS /
+      (evidence.singleHeavy as { rendersPerS: number }).rendersPerS;
+    const split = (evidence.splitOpponentAt5 as { rendersPerS: number; opponentShownMin: number })
+      .rendersPerS;
+    evidence.ratio = split / single;
+    evidence.ratioBothAt5 = (evidence.splitBothAt5 as { rendersPerS: number }).rendersPerS / single;
+    expect(
+      (evidence.splitOpponentAt5 as { opponentShownMin: number }).opponentShownMin,
+    ).toBeGreaterThanOrEqual(120);
+    expect(evidence.paintsAfter60s).toMatchObject(evidence.paintsAtFirstFrame as object);
+    expect(evidence.ratio).toBeGreaterThanOrEqual(0.9);
+    expect([...pageErrors(a.ev), ...pageErrors(b.ev)]).toEqual([]);
+  } finally {
+    solo.ev.json('perf', evidence);
+    if (!solo.page.isClosed()) await solo.close();
+    await a?.close();
+    await b?.close();
+    await soloBrowser?.close();
+    await aBrowser?.close();
+  }
+});
+
+test('versus 10b: single player at 1600 x 900 keeps one full view with no YOU label', async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(60_000);
+  const solo = await player(browser, 'versus-10-single-view');
+  noteEvidence(testInfo, solo.ev);
+  try {
+    await solo.page.setViewportSize({ width: 1600, height: 900 });
+    await solo.page.keyboard.press('Enter');
+    await waitForSnapshot(solo.page, (s) => s.state === 'characterSelect', 5_000);
+    await solo.page.keyboard.press('Enter');
+    await waitForSnapshot(solo.page, (s) => s.state === 'playing', 5_000);
+    await invulnerable(solo.page);
+    const stop = answerLevelUps(solo.page);
+    await solo.page.keyboard.down('ArrowRight');
+    await solo.page.keyboard.down('ArrowDown');
+    await solo.page.waitForTimeout(2_000);
+    await solo.page.keyboard.up('ArrowDown');
+    await solo.page.keyboard.up('ArrowRight');
+    const s = await snapshot(solo.page);
+    const canvas = await solo.page.locator('canvas').boundingBox();
+    await solo.ev.shot('single-1600x900');
+    await stop();
+    const result = {
+      layout: s.layout,
+      panes: s.panes,
+      opponentPane: s.opponentPane,
+      mode: s.mode,
+      canvas,
+      screensLayout: await solo.page.locator('#screens').getAttribute('data-layout'),
+    };
+    solo.ev.json('single-view', result);
+    expect(s.layout).toEqual({ layout: 'single', panes: 1 });
+    expect(s.panes).toEqual({ layout: 'single', opponentVisible: false, youLabel: false });
+    expect(result.screensLayout).toBe('single');
+    expect(canvas?.width).toBeCloseTo(1600, 0);
+    expect(canvas?.height).toBeCloseTo(900, 0);
+    expect(pageErrors(solo.ev)).toEqual([]);
+  } finally {
+    await solo.close();
+  }
+});
+```
+
 ## Gotchas
 
 - A Warden standing still dies in about 15–40 s; journeys that measure anything first press `I` in both pages, and journey 1 turns it off in A only for the death (2026-11-09, #20).
@@ -1182,3 +1844,8 @@ test('versus 8b (native hidden tab): no view while hidden, the first within 200 
 - Journey 8 compares `opponentFeed` with the sender's `viewOut` only when their `t` match: two snapshots of two pages are never taken at the same instant, and a level-up dialog in either world holds its views (no `view` while the world does not step), so the 10 s count can fall towards the low end of 80–100 (2026-11-09, #114).
 - Journey 8b measures the hidden window between the page's own `visibility` frames: `hidePage` resolves about 100 ms after the tab is really hidden, so a window from the call time counts a view sent while the tab was still visible (2026-11-09, #114).
 - Frame timestamps of two browsers differ by a few ms (a `peerView` was logged 5 ms before its sender logged the `view`), so journey 8b counts the opponent's `peerView` with a 50 ms margin at both ends of the hidden window (2026-11-09, #114).
+- Journey 10's plan precondition "B at 5:00 with at least 120 enemies in A's pane" does not hold: B's view at 5:00 holds about 90 enemies (single player at 5:22 had 89 alive). The journey forwards B minute by minute until A's pane shows 120 (B at 7:57 gave 130) and also measures single player at 5:00 and 9:00 (2026-11-09, #115).
+- Measured render rates (Apple M4 Pro, 14 cores, 48 GiB, Chrome 156, headed with the real GPU at 1600 × 900, load average 8-11): single player 59.97/s at 5:00 and 59.98/s at 10:00 (170 enemies); split view 60.01/s with 130-150 enemies in the opponent pane, and 60.02/s with both worlds at 5:00. Ratio 1.00, at the display's vsync cap, so the measurement shows no cost but no headroom either (2026-11-09, #115).
+- macOS clamps `--window-position=-2400,-2400` back onto the display (the page reported `screenX 0, screenY 30`), so journey 10's headed windows are visible for its 1.7 minutes; the rates were still the vsync cap. Batch headed runs (2026-11-09, #115).
+- Headless (swiftshader) HUD text draws outlined but hollow-looking; colours are only meaningful in headed screenshots (2026-11-09, #115).
+- Journey 9 times the `rows` switch inside the page: from the resize event to the reply of the first snapshot that shows `rows` in both threads. Headless (swiftshader) that reply took 583-1929 ms, nearly all of it the worker resizing and redrawing the canvas, so only headed runs measure the switch (journey 9r, `resize-headed.spec.ts`, a headed Chromium of its own, 60 s cap). With #115's first 100 ms debounce on every resize, 14 of 20 headed switches missed 300 ms (250-396 ms). Now a layout-crossing resize relayouts in the resize event itself: 10 headed `setViewportSize` switches (1600×900 ↔ 900×1400, 1440×900 ↔ 1600×900; M4 Pro, load 6.3) had both panes rendered 126-254 ms after the event. The main-thread change happens inside the event, before the spec's own listener, so the spec's `mainMs` only repeats the snapshot time. CDP `Browser.setWindowBounds` gave the page no `resize` event after clearing the viewport override, so real window drags are unmeasured. Journey 9d (`resize-drag.spec.ts`, headless) drags 30 steps 16 ms apart within one layout: 1 `resize` posted in single player and 1 in the split; mean frame interval 19 ms and 24 ms during the drag under swiftshader (2026-11-09, #115).

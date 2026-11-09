@@ -1,7 +1,8 @@
 // One versus match on the main thread (#20, ADRs 0004, 0005, 0006): it bridges the game worker and the server
 // socket. The worker simulates this player's own world from the match seed; nothing here synchronizes worlds. What
-// the player sees of the others is the opponent panel, fed only by the server's relayed messages, and (#114, ADR 0018)
-// the first opponent's relayed world view, which the worker only draws.
+// the player sees of the others is the opponent panel (the opponent pane's label strip since #115), fed only by the
+// server's relayed messages, and (#114, ADR 0018) the first opponent's relayed world view, which the worker draws in
+// the opponent pane and dims while that opponent is away, disconnected or out (`opponentState`, #115).
 import {
   INTERFERENCE,
   interferenceIndex,
@@ -19,6 +20,7 @@ import {
 } from '@vs/shared';
 import type {
   MainToWorker,
+  OpponentState,
   RunSummary,
   WorkerStatus,
   WorkerView,
@@ -145,6 +147,21 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
   let lastViewSentAt: number | null = null;
   let latestView: PlayerView | null = null;
   let viewTimer: ReturnType<typeof setTimeout> | null = null;
+  /** #115: what the opponent pane shows of `opponentId`: away (hidden tab), disconnected, or eliminated. */
+  let opponentAway = false;
+  let opponentGone = false;
+  let opponentOut = false;
+  let shownOpponent: OpponentState = 'live';
+  const postOpponentState = (): void => {
+    const next: OpponentState = opponentOut
+      ? 'out'
+      : opponentAway || opponentGone
+        ? 'away'
+        : 'live';
+    if (next === shownOpponent) return;
+    shownOpponent = next;
+    post({ type: 'opponentState', state: next });
+  };
   /** Why each eliminated player is out, for the result's ranking; no prototype, as the keys are server ids. */
   const out = Object.create(null) as Record<string, EliminationReason>;
 
@@ -221,6 +238,11 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
   const off = [
     net.on('roomState', (room: RoomState) => {
       panel.setPlayers(room.players);
+      const opponent = room.players.find((p) => p.id === opponentId);
+      if (opponent) {
+        opponentGone = !opponent.connected;
+        postOpponentState();
+      }
     }),
     net.on('peerStatus', (m) => {
       panel.status(m.playerId, m.status);
@@ -232,6 +254,10 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
     }),
     net.on('peerAway', (m) => {
       panel.away(m.playerId, m.away);
+      if (m.playerId === opponentId) {
+        opponentAway = m.away;
+        postOpponentState();
+      }
     }),
     net.on('playerEliminated', (m) => {
       out[m.playerId] = m.reason;
@@ -239,6 +265,10 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
         selfOut = true;
         cancelPending();
       } else panel.eliminated(m.playerId, m.reason);
+      if (m.playerId === opponentId) {
+        opponentOut = true;
+        postOpponentState();
+      }
     }),
     // #21: an opponent's interference; only the effect crosses to the worker, the nickname stays here.
     net.on('interferenceIncoming', (m) => {

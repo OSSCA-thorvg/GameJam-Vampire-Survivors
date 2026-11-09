@@ -374,7 +374,8 @@ const randomSeed = (): number => crypto.getRandomValues(new Uint32Array(1))[0] ?
  * Starts the app on the title screen, mounting screens into `root`. Escape while playing toggles the pause; hiding the
  * tab while playing pauses (the worker's `'pause'` background policy already stops the simulation, and the overlay
  * stays until the player resumes). The level-up screen (#11) and the chest overlay (#15) ignore both; `iconUrl`
- * resolves their icons and the character select's portraits (#14).
+ * resolves their icons and the character select's portraits (#14). `setPanes` (#115, ADR 0018) switches the canvas to two
+ * panes on entering `versusPlaying` and back to one on leaving `versusResult`, whose screen keeps the last split frame.
  */
 export function createApp(
   root: HTMLElement,
@@ -383,6 +384,7 @@ export function createApp(
   iconUrl: AssetUrl = () => null,
   createNet: CreateNet = defaultNet,
   createVersus: CreateVersus = createVersusController,
+  setPanes: (panes: 1 | 2) => void = () => undefined,
 ): App {
   const doc = root.ownerDocument;
   let state: AppState = { name: 'title' };
@@ -666,6 +668,10 @@ export function createApp(
         versus?.dispose();
         versus = null;
       }
+      const inVersus = (name: AppState['name']): boolean =>
+        name === 'versusPlaying' || name === 'versusResult';
+      if (next.name === 'versusPlaying' && from.name !== 'versusPlaying') setPanes(2);
+      else if (inVersus(from.name) && !inVersus(next.name)) setPanes(1);
       // The socket lives only inside the multiplayer flow (#19).
       if ((from.name === 'lobby' || from.name === 'versusResult') && next.name === 'title')
         net?.send({ type: 'leaveRoom' });

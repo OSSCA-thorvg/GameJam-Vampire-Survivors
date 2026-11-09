@@ -6,6 +6,7 @@ import type {
   BackgroundPolicy,
   Finale,
   GameMainToWorker,
+  PaneLayout,
   RunMode,
   MainToWorker,
   TestSnapshotRequest,
@@ -29,6 +30,15 @@ import { loadManifest } from './assets/manifest';
 import { AssetLibrary } from './assets/library';
 import { createLayers } from './render/layers';
 import { createDefeatOverlay, type DefeatOverlay } from './render/defeat';
+import { createPanes, type Panes } from './render/panes';
+import {
+  createOpponentHud,
+  createPaneLabel,
+  YOU_LABEL,
+  type OpponentHud,
+  type PaneLabel,
+} from './render/pane-hud';
+import { createOpponentView, type OpponentView } from './game/opponent-view';
 import { createStatusEmitter } from './game/status';
 import { createViewEmitter, summarizeView } from './game/view-stream';
 import { createOpponentFeed, readOpponentFeed } from './game/opponent-feed';
@@ -89,7 +99,12 @@ let policy: BackgroundPolicy = 'pause';
 let inputX: Axis = 0;
 let inputY: Axis = 0;
 /** Latest backing size and scale; a `resize` that arrives during boot is applied once ThorVG is ready. */
-let size = { width: 0, height: 0, scale: 1 };
+let size: { width: number; height: number; scale: number; layout: PaneLayout } = {
+  width: 0,
+  height: 0,
+  scale: 1,
+  layout: 'single',
+};
 
 /** Simulation steps since boot, for the test bridge's `steps` (and `timeS` when no run exists). */
 let stepCount = 0;
@@ -129,6 +144,14 @@ const statuses = createStatusEmitter(post);
 const views = createViewEmitter(post);
 /** The opponent's latest relayed views (#114); drawn by the split panes (#115). */
 const opponentFeed = createOpponentFeed();
+/**
+ * #115, ADR 0018: the two clipped panes under `root`, the opponent pane's world and HUD, and the own pane's "YOU"
+ * label; all `null` in `?gallery` and `?stress`, which keep drawing on `root`.
+ */
+let panes: Panes | null = null;
+let opponentView: OpponentView | null = null;
+let opponentHud: OpponentHud | null = null;
+let youLabel: PaneLabel | null = null;
 /** The dimmed world and its line after a versus death (#20); `null` in `?gallery` and `?stress`. */
 let defeat: DefeatOverlay | null = null;
 /** The `E` debug key's next pair in `EVOLUTIONS`, kept across runs (dev builds only). */
@@ -190,8 +213,13 @@ function step(dtSec: number): void {
   if (started >= 0) meter?.stepDone(performance.now() - started);
 }
 
+/** #115: a frame is queued after a resize; `render` sets the flag so that frame is skipped when the loop drew one. */
+let resizeFramePending = false;
+let renderedSinceResize = true;
+
 function render(): void {
   if (!ctx) return;
+  renderedSinceResize = true;
   const timed = meter?.enabled === true;
   const started = timed ? performance.now() : 0;
   if (import.meta.env.DEV || import.meta.env.MODE === 'perf') {
@@ -199,6 +227,10 @@ function render(): void {
     sharedLottie?.render();
   }
   session?.render();
+  if (opponentView && panes?.opponentVisible) {
+    opponentView.render(opponentFeed, performance.now());
+    opponentHud?.sync(opponentFeed.latest()?.view.t ?? null);
+  }
   if (import.meta.env.DEV) debugHooks?.onRender();
   if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') noteFrame(performance.now());
   const transformed = timed ? performance.now() : 0;
@@ -213,7 +245,12 @@ function render(): void {
 async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<void> {
   if (booting) return;
   booting = true;
-  size = { width: message.width, height: message.height, scale: message.scale };
+  size = {
+    width: message.width,
+    height: message.height,
+    scale: message.scale,
+    layout: message.layout,
+  };
   try {
     const validated = await loadManifest(message.assetBaseUrl);
     assetState.total = Object.keys(validated.manifest.assets).length;
@@ -308,15 +345,31 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
       }
     }
     if (!gallery && !stress && !sharedLottie) {
-      const layers = createLayers(context.root);
+      const split = createPanes(context.TVG, context.root);
+      panes = split;
+      const layers = createLayers(split.self);
       const gameView = createGameView({
         TVG: context.TVG,
         library,
         layers,
         scale: () => size.scale,
       });
-      const overlay = createDefeatOverlay(context.TVG, context.root, [layers.world, layers.hud]);
+      const overlay = createDefeatOverlay(context.TVG, split.self, [layers.world, layers.hud]);
       defeat = overlay;
+      youLabel = createPaneLabel(context.TVG, layers.hud, YOU_LABEL);
+      const opponentLayers = createLayers(split.opponent);
+      const otherView = createOpponentView({
+        TVG: context.TVG,
+        library,
+        layers: opponentLayers,
+        scale: () => size.scale,
+      });
+      opponentView = otherView;
+      opponentHud = createOpponentHud(context.TVG, opponentLayers.hud, split.opponent, [
+        opponentLayers.world,
+        opponentLayers.hud,
+      ]);
+      applyPanes();
       const spawnLog =
         import.meta.env.DEV || import.meta.env.MODE === 'e2e' ? createSpawnLog() : undefined;
       const runs = createSession(
@@ -341,6 +394,7 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
       registerPerfStat('gems', () => runs.world?.gems.count ?? 0);
       registerPerfStat('pickups', () => runs.world?.pickups.count ?? 0);
       registerPerfStat('paints', () => gameView.countPaints());
+      registerPerfStat('opponent paints', () => otherView.countPaints());
       if (
         (import.meta.env.DEV || import.meta.env.MODE === 'perf') &&
         scenario?.def.kind === 'world'
@@ -397,6 +451,20 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
           views.last ? { ...summarizeView(views.last), sent: views.sent } : null,
         );
         registerSnapshotField('opponentFeed', () => readOpponentFeed(opponentFeed));
+        registerSnapshotField('panes', () => ({
+          layout: split.layout,
+          opponentVisible: split.opponentVisible,
+          youLabel: youLabel?.visible ?? false,
+        }));
+        registerSnapshotField('opponentPane', () => ({
+          cameraX: otherView.cameraX,
+          cameraY: otherView.cameraY,
+          enemiesShown: otherView.enemiesShown,
+          gemsShown: otherView.gemsShown,
+          pickupsShown: otherView.pickupsShown,
+          state: opponentHud?.state ?? 'live',
+          paintsCreated: otherView.countPaints(),
+        }));
         // An unsupported `?stress` value falls back to this view, but it is still a stress boot: no `debug` field (#92).
         if (!message.debug?.stress)
           registerSnapshotField('debug', () => ({ paintsCreated: gameView.countPaints() }));
@@ -499,6 +567,24 @@ function applySize(): void {
   if (!ctx) return;
   ctx.canvas.resize(size.width, size.height);
   ctx.root.scale(size.scale);
+  applyPanes();
+  // The new layout shows on the next frame (#115): the loop's own frame if it runs, else (after `forceEnd`, which
+  // stops the loop) this one, so a resize never leaves a stale or empty canvas. Never two renders for one resize.
+  if (!loop || resizeFramePending) return;
+  resizeFramePending = true;
+  requestAnimationFrame(() => {
+    resizeFramePending = false;
+    if (renderedSinceResize || hidden) return;
+    render();
+  });
+  renderedSinceResize = false;
+}
+
+/** Places and clips the panes for the current size and layout; the "YOU" label shows only with two panes (#115). */
+function applyPanes(): void {
+  if (!panes || size.scale <= 0) return;
+  panes.apply(size.layout, size.width / size.scale, size.height / size.scale);
+  youLabel?.setVisible(size.layout !== 'single');
 }
 
 /**
@@ -515,6 +601,8 @@ function startRun(seed: number, characterId: string, finale: Finale, mode: RunMo
   statuses.reset();
   views.reset();
   opponentFeed.clear();
+  opponentView?.clear();
+  opponentHud?.setState('live');
   defeat?.setVisible(false);
   const run = session.start(seed, characterId, finale, mode);
   run.input.dx = inputX;
@@ -532,6 +620,8 @@ function endRun(): void {
   chests.reset();
   views.reset();
   opponentFeed.clear();
+  opponentView?.clear();
+  opponentHud?.setState('live');
   session?.end();
   defeat?.setVisible(false);
   paused = false;
@@ -570,7 +660,12 @@ function handle(message: GameMainToWorker): void {
       void boot(message);
       break;
     case 'resize':
-      size = { width: message.width, height: message.height, scale: message.scale };
+      size = {
+        width: message.width,
+        height: message.height,
+        scale: message.scale,
+        layout: message.layout,
+      };
       applySize();
       break;
     case 'input':
@@ -624,6 +719,9 @@ function handle(message: GameMainToWorker): void {
       break;
     case 'opponentView':
       if (session?.world?.mode === 'versus') opponentFeed.push(message.view, performance.now());
+      break;
+    case 'opponentState':
+      opponentHud?.setState(message.state);
       break;
     case 'debug':
       if (import.meta.env.DEV) dispatchDebug(message.command);

@@ -13,6 +13,15 @@ import type {
 /** Hidden-tab behaviour: `'pause'` for single player, `'simulate'` for versus play (ADRs 0004, 0005). */
 export type BackgroundPolicy = 'pause' | 'simulate';
 
+/**
+ * #115, ADR 0018: one full view, or two equal panes left/right (`columns`) or top/bottom (`rows`). Re-declared from
+ * `main/viewport.ts`, which `tsconfig.worker.json` does not compile; `viewport.test.ts` keeps them equal.
+ */
+export type PaneLayout = 'single' | 'columns' | 'rows';
+
+/** #115: how the opponent pane is shown: playing, away or disconnected (dimmed), or out of the match (dimmer). */
+export type OpponentState = 'live' | 'away' | 'out';
+
 /** -1, 0 or 1 on one axis. */
 export type Axis = -1 | 0 | 1;
 
@@ -106,12 +115,14 @@ export type MainToWorker =
       width: number;
       height: number;
       scale: number;
+      /** #115: the pane layout the backing size was computed for. */
+      layout: PaneLayout;
       assetBaseUrl: string;
       debug?: { gallery: boolean; stress: string };
       /** #22: the page was opened with `?perf`, so the perf overlay is shown from boot, in every build. */
       perf: boolean;
     }
-  | { type: 'resize'; width: number; height: number; scale: number }
+  | { type: 'resize'; width: number; height: number; scale: number; layout: PaneLayout }
   | { type: 'input'; dx: Axis; dy: Axis }
   | { type: 'pause' }
   | { type: 'resume' }
@@ -137,6 +148,8 @@ export type MainToWorker =
   | { type: 'applyInterference'; kind: InterferenceKind }
   /** #114: the first opponent's relayed `peerView` (ADR 0018); display data only, kept by the opponent feed. */
   | { type: 'opponentView'; view: PlayerView }
+  /** #115: the opponent is away (hidden tab) or disconnected, back (`'live'`), or eliminated (`'out'`). */
+  | { type: 'opponentState'; state: OpponentState }
   | { type: 'debug'; command: DebugCommand }
   | TestSnapshotRequest;
 
