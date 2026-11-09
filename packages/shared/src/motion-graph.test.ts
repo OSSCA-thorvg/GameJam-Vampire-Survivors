@@ -15,7 +15,8 @@ import { afterEach, expect, it } from 'vitest';
 import { collectAssetGraph, receiptGraph, stripSplash } from '../../../scripts/assets/motion_graph';
 import { validateManifest } from './assets';
 
-const assets = fileURLToPath(new URL('../../../assets/', import.meta.url));
+const root = fileURLToPath(new URL('../../../', import.meta.url));
+const assets = join(root, 'assets');
 const temporary: string[] = [];
 function copyPack(): string {
   const directory = realpathSync(mkdtempSync(join(tmpdir(), 'vs-motion-graph-')));
@@ -102,6 +103,65 @@ it('keeps ui.splash and its PNG in their own role, outside the sealed receipt (A
   expect(
     stripSplash('{\n  "x": {\n    "a": 1\n  },\n  "ui.splash": {\n    "f": 1\n  },\n  "y": 2\n}'),
   ).toBe('{\n  "x": {\n    "a": 1\n  },\n  "y": 2\n}');
+});
+
+function publishGraph(directory: string, ...flags: string[]): string {
+  return execFileSync(
+    process.execPath,
+    [
+      '--import',
+      'tsx',
+      'scripts/assets/motion_publish_graph.ts',
+      directory,
+      'docs/assets/motion-84.json',
+      ...flags,
+    ],
+    { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+  );
+}
+
+it('prints the exact sealed receipt graph from the installed splash pack', () => {
+  const receipt: unknown = JSON.parse(
+    readFileSync(join(root, 'docs/assets/motion-84.receipt.json'), 'utf8'),
+  );
+  if (typeof receipt !== 'object' || receipt === null || !('graph' in receipt))
+    throw new Error('Expected the sealed graph');
+  expect(publishGraph(assets)).toBe(JSON.stringify(receipt.graph, null, 2) + '\n');
+});
+
+it('preserves compact splash bytes while formatting a staged copy', () => {
+  const directory = copyPack();
+  const splash = join(directory, 'ui/splash.json');
+  const before = readFileSync(splash);
+  const manifestPath = join(directory, 'manifest.json');
+  const manifest: unknown = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const compactManifest = JSON.stringify(manifest);
+  writeFileSync(manifestPath, compactManifest);
+  publishGraph(directory, '--format');
+  const formattedManifest = readFileSync(manifestPath, 'utf8');
+  expect(formattedManifest).not.toBe(compactManifest);
+  expect(JSON.parse(formattedManifest)).toEqual(manifest);
+  expect(readFileSync(splash)).toEqual(before);
+});
+
+it('rejects a valid alternate splash resource path before omitting it from the receipt', () => {
+  const directory = copyPack();
+  const splash = join(directory, 'ui/splash.json');
+  const logo = join(directory, 'ui/splash/logo.png');
+  cpSync(logo, join(directory, 'ui/splash/alternate.png'));
+  rmSync(logo);
+  writeFileSync(
+    splash,
+    readFileSync(splash, 'utf8').replace('splash/logo.png', 'splash/alternate.png'),
+  );
+  expect(
+    graph(directory)
+      .files.filter((file) => file.role === 'splash')
+      .map((file) => file.file),
+  ).toEqual(['ui/splash.json', 'ui/splash/alternate.png']);
+  expect(() => publishGraph(directory)).toThrow(
+    /Publication requires the pinned splash file paths/,
+  );
 });
 
 it.each<[string, (directory: string) => void]>([

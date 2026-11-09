@@ -3,6 +3,7 @@ import re
 import subprocess
 
 from motion_inventory import reject_symlink_chain
+from motion_publish_splash import SPLASH_ID
 from rebuild_common import ROOT
 
 SEMANTIC = {'Original role', 'Used by'}
@@ -30,7 +31,7 @@ def catalog_rows(text):
 
 
 def check_catalog_rows(recipe, baseline, current):
-    if set(baseline) != set(recipe['logicalIds']) or set(current) != set(baseline):
+    if set(baseline) != set(recipe['logicalIds']) or set(current) - {SPLASH_ID} != set(baseline):
         raise ValueError('Catalog metadata overlay requires the exact closed85 logical IDs')
     originals = {a['id']: 'lottie' if a['master']['file'].endswith('.json') else 'png' for a in recipe['assets']}
     for id, row in baseline.items():

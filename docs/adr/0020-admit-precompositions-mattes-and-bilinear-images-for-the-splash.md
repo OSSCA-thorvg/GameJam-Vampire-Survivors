@@ -45,5 +45,5 @@
 - `ui.splash` renders through ThorVG with its mattes, merge paths and trim paths; #126 compared it with an independent renderer.
 - The splash keeps one 1080×1350 texture after boot; disposing it is out of scope.
 - `stripSplash` has a known blind spot: a line that names `ui.splash` is not hash-checked by the receipt, so a reviewer must make sure such lines only describe the splash.
-- #117's publication pipeline (`motion_publish.py`, `motion_publish_graph.ts`) builds staged packs without `ui.splash`. It must learn the `splash` role before it can publish again.
+- The publication pipeline (`motion_publish.py`, `motion_publish_graph.ts`) carries the pinned splash files into staged packs and projects the validated graph to the sealed receipt's scope (#131).
 - Revisit if ThorVG changes its matte semantics for a `tt` layer without a `td` source, if another asset needs precompositions or mattes, or if the motion receipt is re-sealed (it could then include the splash).

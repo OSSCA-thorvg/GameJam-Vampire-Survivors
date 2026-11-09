@@ -118,6 +118,8 @@ pnpm typecheck
 pnpm assets:sync                            # regenerate shared asset IDs/sizes from assets/CATALOG.md
 python3 scripts/assets/rebuild_sprite_gen.py plan   # pinned offline art recipe; see docs/assets/README.md
 python3 -m unittest discover -s scripts/assets -p '*_test.py'   # authoring-tool contract tests
+python3 -m unittest discover -s scripts/assets -p test_motion_publish_splash.py   # splash publication contract tests
+node --import tsx scripts/assets/motion_publish_graph.ts assets docs/assets/motion-84.json   # validate the pack and print the sealed receipt view (ADR 0020)
 pnpm test                                   # all packages (Vitest)
 pnpm test:changed                           # only tests affected since origin/main; the whole suite when assets/, a package/Vitest/Vite config, a tsconfig or the lockfile changed
 pnpm --filter shared test -- src/content    # one package, one path
