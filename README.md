@@ -1,6 +1,8 @@
-# GameJam Vampire Survivors
+# Crimson Vigil
 
-Survive 15 minutes against ever larger hordes while your weapons fire on their own: a Vampire Survivors-style browser game for one player, or two in online versus, drawn with ThorVG.
+Repository: `GameJam-Vampire-Survivors` (the game jam's working name)
+
+Survive 15 minutes against ever larger hordes while your weapons fire on their own: a survivors-like browser game for one player, or two in online versus, drawn with ThorVG.
 
 **[Play in your browser](https://ossca-thorvg.github.io/GameJam-Vampire-Survivors/)**: single player works online now; versus runs locally until the game server is public.
 
