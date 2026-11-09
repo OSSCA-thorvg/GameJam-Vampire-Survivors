@@ -469,3 +469,71 @@ it('replays a finished one-shot from the same native instance when reset', async
   expect(effect.lottie?.frame()).toBe(3);
   expect(library.motionSnapshot().created).toBe(created);
 });
+
+const href = (url: string | URL | Request): string =>
+  typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
+
+describe('two-phase loading (#126)', () => {
+  const lottie = { file: 'ui/splash.json', format: 'lottie', size: [96, 96], anchor: [0.5, 0.5] };
+  const entries = {
+    'font.hud': { file: 'fonts/hud.ttf', format: 'ttf' },
+    'ui.splash': { ...lottie, loop: false, filter: 'bilinear' },
+    'enemy.bat': svg,
+  };
+  const stub = () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const fetch = vi.fn<typeof globalThis.fetch>((url) =>
+      Promise.resolve(
+        href(url).endsWith('.json')
+          ? new Response(lottieJson)
+          : new Response('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"></svg>'),
+      ),
+    );
+    vi.stubGlobal('fetch', fetch);
+    return fetch;
+  };
+  it('loads the first entry alone, then the rest without fetching it again', async () => {
+    const fetch = stub();
+    const progress = vi.fn();
+    const library = AssetLibrary.begin(TVG, 'https://example.test/', manifest(entries), progress);
+    expect(progress.mock.calls).toEqual([[1, 3]]);
+    await library.loadFirst('ui.splash');
+    expect(fetch.mock.calls.map(([url]) => href(url))).toEqual([
+      'https://example.test/ui/splash.json',
+    ]);
+    expect(progress.mock.calls).toEqual([
+      [1, 3],
+      [2, 3],
+    ]);
+    expect(library.timeline('ui.splash')).toEqual({ fps: 30, frames: 30 });
+    expect(library.timeline('enemy.bat')).toBeNull();
+    await library.loadRest();
+    expect(fetch.mock.calls.map(([url]) => href(url))).toEqual([
+      'https://example.test/ui/splash.json',
+      'https://example.test/enemies/bat.svg',
+    ]);
+    expect(progress.mock.calls.filter(([loaded]) => loaded === 3)).toHaveLength(1);
+    expect(library.timeline('enemy.bat')).toBeNull();
+    expect(library.isPlaceholder('ui.splash')).toBe(false);
+  });
+  it('gives load the same masters and progress sequence as begin plus loadRest', async () => {
+    stub();
+    const a = vi.fn();
+    const loaded = await AssetLibrary.load(TVG, 'https://example.test/', a, manifest(entries));
+    const b = vi.fn();
+    const phased = AssetLibrary.begin(TVG, 'https://example.test/', manifest(entries), b);
+    await phased.loadRest();
+    expect(a.mock.calls).toEqual(b.mock.calls);
+    expect(a.mock.calls.at(-1)).toEqual([3, 3]);
+    expect(loaded.placeholders).toEqual(phased.placeholders);
+    expect(loaded.timeline('ui.splash')).toEqual(phased.timeline('ui.splash'));
+  });
+  it('turns a failed first entry into a placeholder with no timeline', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.stubGlobal('fetch', () => Promise.resolve(new Response('', { status: 404 })));
+    const library = AssetLibrary.begin(TVG, 'https://example.test/', manifest(entries), vi.fn());
+    await library.loadFirst('ui.splash');
+    expect(library.isPlaceholder('ui.splash')).toBe(true);
+    expect(library.timeline('ui.splash')).toBeNull();
+  });
+});

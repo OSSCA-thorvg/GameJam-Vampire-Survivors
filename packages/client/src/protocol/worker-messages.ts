@@ -118,7 +118,11 @@ export type MainToWorker =
       /** #115: the pane layout the backing size was computed for. */
       layout: PaneLayout;
       assetBaseUrl: string;
-      debug?: { gallery: boolean; stress: string };
+      /**
+       * Dev, e2e and perf builds only. `skipSplash` (#126, dev and e2e only): the e2e build skips the boot splash
+       * unless `?splash=full`, the dev build plays it unless `?splash=skip`; production always plays it.
+       */
+      debug?: { gallery: boolean; stress: string; skipSplash?: boolean };
       /** #22: the page was opened with `?perf`, so the perf overlay is shown from boot, in every build. */
       perf: boolean;
     }
@@ -157,6 +161,11 @@ export type WorkerToMain =
   | { type: 'ready'; renderer: 'gl' }
   | { type: 'loadProgress'; loaded: number; total: number }
   | { type: 'assetsReady'; placeholders: string[] }
+  /**
+   * #126: the boot splash is over; `played` is true only when the animation ran to its end (and now holds its last
+   * frame until `ready`), false when it was skipped or unavailable. Once per boot, before `ready`.
+   */
+  | { type: 'splashEnded'; played: boolean }
   | { type: 'fatal'; message: string }
   | { type: 'stats'; fps: number; stepsPerSecond: number }
   /** #9: HP reached 0, or (#17) the time limit ended a `finale: 'end'` run; the run has stopped. Once per run. */

@@ -93,11 +93,15 @@ export function assertLottieResources(animation: LottieAnimation): void {
   if (error) throw error;
 }
 
-/** Returning false (including wrapper-caught throws) permits native fallback; never return false here. */
+/**
+ * Returning false (including wrapper-caught throws) permits native fallback; never return false here. Image Pictures
+ * use nearest filtering; `bilinear` is admitted by the manifest only for `ui.splash` (ADR 0020).
+ */
 export function createCachedLottie(
   TVG: ThorVGNamespace,
   source: Pick<CachedLottie, 'json' | 'images'>,
   onResolve?: () => void,
+  filter: 'nearest' | 'bilinear' = 'nearest',
 ): LottieAnimation {
   const animation = new TVG.LottieAnimation();
   try {
@@ -112,7 +116,7 @@ export function createCachedLottie(
         if (!bytes || !(paint instanceof TVG.Picture))
           throw new Error('Unexpected Lottie image resolver source');
         paint.load(bytes, { type: 'png' });
-        paint.filter(TVG.FilterMethod.Nearest);
+        paint.filter(filter === 'bilinear' ? TVG.FilterMethod.Bilinear : TVG.FilterMethod.Nearest);
       } catch (error) {
         state.error = error instanceof Error ? error : new Error(String(error));
       }

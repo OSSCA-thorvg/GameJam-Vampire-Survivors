@@ -1,4 +1,6 @@
-export type LottieProfile = 'flat' | 'actor' | 'boss' | 'player';
+export type LottieProfile = 'flat' | 'actor' | 'boss' | 'player' | 'splash';
+/** ADR 0020: the only asset IDs whose Lottie may use precompositions, alpha track mattes and bilinear images. */
+export const EXTENDED_LOTTIE_IDS: readonly string[] = ['ui.splash'];
 export type MotionState = 'idle' | 'move';
 export interface MotionRange {
   readonly start: number;
@@ -12,6 +14,7 @@ export interface ActorMotion {
 }
 
 export function lottieProfile(id: string): LottieProfile {
+  if (EXTENDED_LOTTIE_IDS.includes(id)) return 'splash';
   switch (id) {
     case 'player.warden':
     case 'player.ember':
@@ -124,7 +127,7 @@ function timeRemap(value: unknown): void {
 /** Only these closed actor profiles may introduce a precomposition or native opacity slot. */
 export function validateActorMotion(
   value: Record<string, unknown>,
-  profile: Exclude<LottieProfile, 'flat'>,
+  profile: Exclude<LottieProfile, 'flat' | 'splash'>,
 ): { motion: ActorMotion; layers: readonly Record<string, unknown>[]; slotOwner: unknown } {
   const player = profile === 'player';
   keys(value, ['v', 'fr', 'ip', 'op', 'w', 'h', 'nm', 'ddd', 'assets', 'layers', 'markers']);

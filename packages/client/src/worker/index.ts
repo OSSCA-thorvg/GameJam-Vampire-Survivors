@@ -28,6 +28,8 @@ import { createLoop, type Loop } from './loop';
 import { HUD_FONT, initThorVG, type ThorVGContext } from './render/thorvg';
 import { loadManifest } from './assets/manifest';
 import { AssetLibrary } from './assets/library';
+import { createBootGate } from './boot-gate';
+import { createSplash, SPLASH_ID, type Splash } from './render/splash';
 import { createLayers } from './render/layers';
 import { createDefeatOverlay, type DefeatOverlay } from './render/defeat';
 import { createPanes, type Panes } from './render/panes';
@@ -158,6 +160,8 @@ let defeat: DefeatOverlay | null = null;
 /** The `E` debug key's next pair in `EVOLUTIONS`, kept across runs (dev builds only). */
 let evolutionIndex = 0;
 let library: AssetLibrary | null = null;
+/** #126: the boot splash; `null` when skipped, and after boot it stays `done` and hidden. */
+let splash: Splash | null = null;
 let gallery: Gallery | null = null;
 let stress: StressScene | null = null;
 /** #22: the perf overlay's frame meter; `null` unless the overlay is installed (dev builds, `?perf`, a scenario). */
@@ -192,6 +196,7 @@ function step(dtSec: number): void {
   const started = meter?.enabled ? performance.now() : -1;
   stepCount++;
   library?.tick(dtSec);
+  splash?.step(dtSec);
   gallery?.step(inputX, inputY, dtSec);
   if (import.meta.env.DEV || import.meta.env.MODE === 'perf') {
     stress?.step(dtSec);
@@ -282,16 +287,58 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
     )
       applySize();
     assetState.font = HUD_FONT;
-    library = await AssetLibrary.load(
-      context.TVG,
-      message.assetBaseUrl,
-      (loaded, total) => {
-        assetState.loaded = loaded;
-        assetState.total = total;
-        post({ type: 'loadProgress', loaded, total });
-      },
-      validated,
-    );
+    // #126: the game panes draw under `gameRoot`, the boot splash above them on `splashLayer`.
+    const gameRoot = new context.TVG.Scene();
+    const splashLayer = new context.TVG.Scene();
+    context.root.add(gameRoot).add(splashLayer);
+    const gate = createBootGate(() => {
+      splash?.finish();
+      post({ type: 'ready', renderer: 'gl' });
+    });
+    // Production always plays it: `debug` exists only in dev, e2e and perf builds, so the guards drop these names.
+    let playSplash = true;
+    if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
+      if (message.debug?.gallery || message.debug?.skipSplash === true) playSplash = false;
+    }
+    // Dev, e2e and perf builds send `stress: ''` without `?stress`; any value, even an unsupported one, skips it.
+    if (import.meta.env.DEV || import.meta.env.MODE === 'perf') {
+      if (message.debug?.stress) playSplash = false;
+    }
+    if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
+      registerSnapshotField(
+        'splash',
+        () => splash?.snapshot() ?? { state: 'skipped', frame: 0, elapsedS: 0, durationS: 0 },
+      );
+    }
+    const skipSplash = (): void => {
+      post({ type: 'splashEnded', played: false });
+      gate.splashEnded();
+    };
+    const onProgress = (loaded: number, total: number): void => {
+      assetState.loaded = loaded;
+      assetState.total = total;
+      post({ type: 'loadProgress', loaded, total });
+    };
+    if (!playSplash) {
+      skipSplash();
+      library = await AssetLibrary.load(context.TVG, message.assetBaseUrl, onProgress, validated);
+    } else {
+      const phased = AssetLibrary.begin(context.TVG, message.assetBaseUrl, validated, onProgress);
+      library = phased;
+      await phased.loadFirst(SPLASH_ID);
+      splash = createSplash({
+        TVG: context.TVG,
+        library: phased,
+        layer: splashLayer,
+        onEnded: () => {
+          post({ type: 'splashEnded', played: true });
+          gate.splashEnded();
+        },
+      });
+      if (!splash) skipSplash();
+      startLoop();
+      await phased.loadRest();
+    }
     if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
       registerSnapshotField('motion', () => library?.motionSnapshot());
       if (message.debug?.gallery) {
@@ -356,7 +403,7 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
       }
     }
     if (!gallery && !stress && !sharedLottie) {
-      const split = createPanes(context.TVG, context.root);
+      const split = createPanes(context.TVG, gameRoot);
       panes = split;
       const layers = createLayers(split.self);
       const gameView = createGameView({
@@ -556,24 +603,30 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         steps: () => stepCount,
       });
     }
-    const gameLoop = createLoop({ step, render });
-    loop = gameLoop;
-    if (import.meta.env.DEV) {
-      debugHooks = installWorkerDebugTools({
-        loop: gameLoop,
-        post,
-        describe: describeScene,
-      });
-    }
-    gameLoop.setBackgroundPolicy(policy);
-    if (paused) gameLoop.pause();
-    gameLoop.setVisibility(hidden);
-    gameLoop.start();
+    startLoop();
     post({ type: 'assetsReady', placeholders: assetState.placeholders });
-    post({ type: 'ready', renderer: 'gl' });
+    gate.assetsReady();
   } catch (err) {
     post({ type: 'fatal', message: err instanceof Error ? err.message : String(err) });
   }
+}
+
+/** Starts the frame loop once (the splash starts it before the rest of the assets load, #126). */
+function startLoop(): void {
+  if (loop) return;
+  const gameLoop = createLoop({ step, render });
+  loop = gameLoop;
+  if (import.meta.env.DEV) {
+    debugHooks = installWorkerDebugTools({
+      loop: gameLoop,
+      post,
+      describe: describeScene,
+    });
+  }
+  gameLoop.setBackgroundPolicy(policy);
+  if (paused) gameLoop.pause();
+  gameLoop.setVisibility(hidden);
+  gameLoop.start();
 }
 
 function applySize(): void {

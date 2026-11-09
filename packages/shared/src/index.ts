@@ -37,7 +37,13 @@ export {
   MAX_IMAGE_DECODED_BYTES,
   MAX_IMAGE_ENCODED_BYTES,
 } from './png.js';
-export { validateLottie, MAX_LOTTIE_IMAGES, MAX_LOTTIE_DECODED_BYTES } from './lottie.js';
+export {
+  validateLottie,
+  MAX_LOTTIE_IMAGES,
+  MAX_LOTTIE_DECODED_BYTES,
+  MAX_LOTTIE_PRECOMPS,
+  MAX_LOTTIE_LAYERS,
+} from './lottie.js';
 export type { LottieImage, ValidatedLottie } from './lottie.js';
 export { WEAPONS, WEAPON_LIST } from './content/weapons.js';
 export type {
@@ -86,5 +92,5 @@ export {
 } from './content/interference.js';
 export type { InterferenceDef, InterferenceEffect } from './content/interference.js';
 
-export { lottieProfile } from './lottie-motion.js';
+export { lottieProfile, EXTENDED_LOTTIE_IDS } from './lottie-motion.js';
 export type { LottieProfile, MotionState, MotionRange, ActorMotion } from './lottie-motion.js';

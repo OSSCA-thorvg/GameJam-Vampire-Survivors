@@ -5,22 +5,26 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { validateManifest, type AssetManifest } from '../../packages/shared/src/assets.js';
 import { validateLottie } from '../../packages/shared/src/lottie.js';
-import { lottieProfile } from '../../packages/shared/src/lottie-motion.js';
+import { EXTENDED_LOTTIE_IDS, lottieProfile } from '../../packages/shared/src/lottie-motion.js';
 import { inspectPng } from '../../packages/shared/src/png.js';
 
 export interface GraphFile {
   file: string;
   sha256: string;
   bytes: number;
-  role: 'primary' | 'owned-image' | 'support';
+  role: 'primary' | 'owned-image' | 'support' | 'splash';
   owners: string[];
 }
 export interface AssetGraph {
   logicalIds: string[];
   motionIds: string[];
   diagnosticIds: string[];
+  /** ADR 0020: `ui.splash` and its PNG, outside #117's sealed receipt; provenance is `scripts/make-splash.sh`. */
+  splashIds: string[];
   files: GraphFile[];
 }
+/** The graph as #117's receipt sealed it: what `motion_verify_installed.py` compares. */
+export type ReceiptGraph = Omit<AssetGraph, 'splashIds'>;
 const DIAGNOSTIC_ID = 'enemy.lottieTest';
 const SUPPORT = ['CATALOG.md', 'README.md', 'manifest.json', 'fonts/LICENSE-NotoSansMono.txt'];
 
@@ -35,6 +39,7 @@ export function collectAssetGraph(options: {
   const files = new Map<string, GraphFile>();
   const motionIds: string[] = [];
   const diagnosticIds: string[] = [];
+  const splashIds: string[] = [];
   const add = (file: string, role: GraphFile['role'], owner?: string): void => {
     if (files.has(file)) throw new Error(`Duplicate physical resource ownership: ${file}`);
     const bytes = readFileSync(join(directory, file));
@@ -47,7 +52,8 @@ export function collectAssetGraph(options: {
     });
   };
   for (const [id, entry] of Object.entries(manifest.assets)) {
-    add(entry.file, 'primary', id);
+    const splash = EXTENDED_LOTTIE_IDS.includes(id);
+    add(entry.file, splash ? 'splash' : 'primary', id);
     if (entry.format === 'png')
       inspectPng(readFileSync(join(directory, entry.file)), [entry.size[0] * 4, entry.size[1] * 4]);
     if (id === DIAGNOSTIC_ID && entry.format !== 'lottie')
@@ -60,7 +66,9 @@ export function collectAssetGraph(options: {
     );
     if (animation.width !== entry.size[0] || animation.height !== entry.size[1])
       throw new Error(`Composition dimensions differ: ${id}`);
-    if (id === DIAGNOSTIC_ID) {
+    if (splash) {
+      splashIds.push(id);
+    } else if (id === DIAGNOSTIC_ID) {
       if (
         animation.images.length ||
         animation.fps !== 30 ||
@@ -74,7 +82,7 @@ export function collectAssetGraph(options: {
     }
     for (const image of animation.images) {
       const file = dirname(entry.file) + '/' + image.path;
-      add(file, 'owned-image', id);
+      add(file, splash ? 'splash' : 'owned-image', id);
       inspectPng(readFileSync(join(directory, file)), [image.width, image.height]);
     }
   }
@@ -89,7 +97,56 @@ export function collectAssetGraph(options: {
     logicalIds: Object.keys(manifest.assets).sort(),
     motionIds: motionIds.sort(),
     diagnosticIds,
+    splashIds: splashIds.sort(),
     files: [...files.values()].sort((a, b) => a.file.localeCompare(b.file)),
+  };
+}
+
+/**
+ * ADR 0020: removes `ui.splash` from a support file's text exactly as it was added: every line naming the ID (a
+ * catalog row, a README paragraph of its own together with its blank separator line), and in `manifest.json` the
+ * ID's whole entry block. Nothing else is removed, so any other change still differs from the sealed hash.
+ */
+export function stripSplash(text: string, ids: readonly string[] = EXTENDED_LOTTIE_IDS): string {
+  const lines = text.split('\n');
+  const kept: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? '';
+    const named = ids.some((id) => line.includes('`' + id + '`') || line.includes('"' + id + '"'));
+    if (!named) {
+      kept.push(line);
+      continue;
+    }
+    const block = /^(\s*)"[^"]+": \{$/.exec(line);
+    if (block) {
+      const close = (block[1] ?? '') + '}';
+      while (i + 1 < lines.length && !(lines[i] ?? '').startsWith(close + ',')) i++;
+    } else if (kept.at(-1) === '' && lines[i + 1] === '') i++; // a paragraph of its own, with its blank line
+  }
+  return kept.join('\n');
+}
+
+/** The graph #117's receipt sealed: no splash ID or file, and support files hashed with the splash lines removed. */
+export function receiptGraph(graph: AssetGraph, directory: string): ReceiptGraph {
+  const files = graph.files
+    .filter((file) => file.role !== 'splash')
+    .map((file) => {
+      if (file.role !== 'support' || !graph.splashIds.length) return file;
+      const bytes = Buffer.from(
+        stripSplash(readFileSync(join(directory, file.file), 'utf8'), graph.splashIds),
+        'utf8',
+      );
+      return {
+        ...file,
+        bytes: bytes.byteLength,
+        sha256: createHash('sha256').update(bytes).digest('hex'),
+      };
+    });
+  return {
+    logicalIds: graph.logicalIds.filter((id) => !graph.splashIds.includes(id)),
+    motionIds: graph.motionIds,
+    diagnosticIds: graph.diagnosticIds,
+    files,
   };
 }
 

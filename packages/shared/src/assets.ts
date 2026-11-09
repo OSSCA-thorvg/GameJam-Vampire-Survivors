@@ -1,4 +1,5 @@
 import { ASSET_IDS } from './generated/asset-ids.js';
+import { EXTENDED_LOTTIE_IDS } from './lottie-motion.js';
 export { ASSET_IDS, ASSET_SIZES } from './generated/asset-ids.js';
 export type AssetId = (typeof ASSET_IDS)[number];
 export type DrawableAssetId = Exclude<AssetId, `font.${string}`>;
@@ -67,7 +68,10 @@ function parseEntry(id: string, value: unknown): AssetEntry {
   if (!pair(anchor, (n) => n >= 0 && n <= 1)) throw new Error('anchor must be within 0..1');
   if (
     filter !== undefined &&
-    ((format !== 'png' && format !== 'webp') || (filter !== 'nearest' && filter !== 'bilinear'))
+    ((format !== 'png' &&
+      format !== 'webp' &&
+      !(format === 'lottie' && EXTENDED_LOTTIE_IDS.includes(id))) ||
+      (filter !== 'nearest' && filter !== 'bilinear'))
   )
     throw new Error('invalid raster filter');
   if (loop !== undefined && (format !== 'lottie' || typeof loop !== 'boolean'))

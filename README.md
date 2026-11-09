@@ -35,6 +35,7 @@ Survive 15 minutes against ever larger hordes while your weapons fire on their o
 
 ## Current state
 
+- A 7-second "Powered by ThorVG" splash plays first while the assets load; the title follows once both are done.
 - The full single-player loop: title, character select, the run with its HUD, pause, level-ups, chests and results with Retry.
 - The complete stage: 15 waves, elites, two bosses and Death at 15:00.
 - All 8 weapons with their 8 evolutions, and all 8 passives.

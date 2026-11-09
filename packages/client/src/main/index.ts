@@ -17,6 +17,7 @@ import {
   type WorkerErrorLike,
 } from './runtime-error';
 import { computeViewport, type Viewport } from './viewport';
+import { createBootLoading } from './boot-loading';
 
 function appRoot(): HTMLElement {
   const app = document.getElementById('app');
@@ -58,8 +59,14 @@ async function boot(): Promise<void> {
   const canvas = document.createElement('canvas');
   const loading = document.createElement('p');
   loading.id = 'loading';
-  loading.textContent = 'Loading 0/0';
+  const bootLoading = createBootLoading(loading);
   appRoot().replaceChildren(canvas, loading);
+  if (import.meta.env.DEV || import.meta.env.MODE === 'e2e')
+    registerMainSnapshotField('loading', () => ({
+      visible: bootLoading.visible,
+      held: bootLoading.held,
+      text: bootLoading.text,
+    }));
 
   const worker = new Worker(new URL('../worker/index.ts', import.meta.url), { type: 'module' });
   const post = (message: MainToWorker, transfer: Transferable[] = []): void => {
@@ -74,6 +81,7 @@ async function boot(): Promise<void> {
     measure: (panes) => computeViewport(innerWidth, innerHeight, devicePixelRatio, panes),
     apply: (v) => {
       applyCssSize(canvas, v);
+      bootLoading.place(v.cssHeight);
       markPanes();
     },
     post,
@@ -84,6 +92,7 @@ async function boot(): Promise<void> {
   canvas.width = resizer.viewport.width;
   canvas.height = resizer.viewport.height;
   applyCssSize(canvas, resizer.viewport);
+  bootLoading.place(resizer.viewport.cssHeight);
 
   const assetBaseUrl = new URL(import.meta.env.BASE_URL, location.href).href;
   /** Icons for the DOM screens (#11), resolved through the same manifest as the worker; `null` until it loads. */
@@ -193,10 +202,13 @@ async function boot(): Promise<void> {
         startApp();
         break;
       case 'loadProgress':
-        loading.textContent = `Loading ${String(message.loaded)}/${String(message.total)}`;
+        bootLoading.progress(message.loaded, message.total);
+        break;
+      case 'splashEnded':
+        bootLoading.splashEnded(message.played);
         break;
       case 'assetsReady':
-        loading.remove();
+        bootLoading.assetsReady();
         loadMs = Math.round(performance.now());
         if (perf) console.warn(`[perf] assets ready ${String(loadMs)} ms after navigation`);
         break;
@@ -246,7 +258,7 @@ async function boot(): Promise<void> {
     routeWorkerError(workerReady, event, fatal, runtimeErrors);
   });
 
-  let debug: { gallery: boolean; stress: string } | undefined;
+  let debug: { gallery: boolean; stress: string; skipSplash?: boolean } | undefined;
   if (import.meta.env.DEV || import.meta.env.MODE === 'e2e' || import.meta.env.MODE === 'perf') {
     const query = new URLSearchParams(location.search);
     debug = {
@@ -254,6 +266,13 @@ async function boot(): Promise<void> {
       stress:
         import.meta.env.DEV || import.meta.env.MODE === 'perf' ? (query.get('stress') ?? '') : '',
     };
+    // #126: e2e builds skip the boot splash unless `?splash=full`; dev builds play it unless `?splash=skip`.
+    if (import.meta.env.DEV || import.meta.env.MODE === 'e2e')
+      // The e2e server is a dev server too (`DEV` is true there), so the mode decides first.
+      debug.skipSplash =
+        import.meta.env.MODE === 'e2e'
+          ? query.get('splash') !== 'full'
+          : query.get('splash') === 'skip';
     debugScene = debug.gallery || debug.stress !== '';
   }
   const offscreen = canvas.transferControlToOffscreen();

@@ -57,7 +57,7 @@ class Animation {
 const TVG = {
   Picture,
   LottieAnimation: Animation,
-  FilterMethod: { Nearest: 0 },
+  FilterMethod: { Nearest: 0, Bilinear: 1 },
 } as unknown as ThorVGNamespace;
 
 beforeEach(() => {
@@ -190,4 +190,20 @@ it('surfaces a later-pose resolver failure from the actual playback adapter with
     playback.tick(1 / 60);
   }).toThrow(/Unexpected Lottie image resolver/);
   expect(returned).toEqual([true, true]);
+});
+
+it('applies the requested filter to each resolved image Picture (ADR 0020)', () => {
+  const resolved: Picture[] = [];
+  class Recording extends Animation {
+    override load() {
+      const paint = new Picture();
+      resolved.push(paint);
+      this.picture.callback?.(paint as unknown as Paint, nativePath);
+    }
+  }
+  const T = { ...TVG, LottieAnimation: Recording } as unknown as ThorVGNamespace;
+  const images = new Map([['/level-up/art.png', bytes]]);
+  createCachedLottie(T, { json: source(), images });
+  createCachedLottie(T, { json: source(), images }, undefined, 'bilinear');
+  expect(resolved.map((paint) => paint.filter.mock.calls)).toEqual([[[0]], [[1]]]);
 });

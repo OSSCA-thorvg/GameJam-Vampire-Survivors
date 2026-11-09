@@ -459,6 +459,14 @@
       "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
+    "ui.splash": {
+      "file": "ui/splash.json",
+      "format": "lottie",
+      "size": [1920, 1080],
+      "anchor": [0.5, 0.5],
+      "loop": false,
+      "filter": "bilinear"
+    },
     "ui.xpBar": {
       "file": "ui/xp-bar.png",
       "format": "png",
