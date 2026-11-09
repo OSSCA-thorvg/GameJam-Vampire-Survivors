@@ -8,6 +8,7 @@ import { installDebugTools, recordStats, registerDebugKey } from './debug';
 import { createInput } from './input';
 import { checkSupport } from './support';
 import { loadAssetUrls, type AssetUrl } from './ui/asset-url';
+import { showStressResult } from './stress-results';
 import { installTestBridge, registerMainSnapshotField, type MainTestBridge } from './test-bridge';
 import { computeViewport, type Viewport } from './viewport';
 
@@ -101,6 +102,11 @@ async function boot(): Promise<void> {
     }
   };
 
+  /** #22: `?perf` shows the perf overlay in every build, including production. */
+  const perf = new URLSearchParams(location.search).has('perf');
+  /** Milliseconds from navigation to `assetsReady` (#22's asset load time), once it arrived. */
+  let loadMs: number | null = null;
+
   let testBridge: MainTestBridge | null = null;
   if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') testBridge = installTestBridge(post);
 
@@ -124,6 +130,8 @@ async function boot(): Promise<void> {
         break;
       case 'assetsReady':
         loading.remove();
+        loadMs = Math.round(performance.now());
+        if (perf) console.warn(`[perf] assets ready ${String(loadMs)} ms after navigation`);
         break;
       case 'fatal':
         console.error('[vs] game worker failed:', message.message);
@@ -147,6 +155,10 @@ async function boot(): Promise<void> {
         break;
       case 'interferenceCollected':
         app?.interferenceCollected(message.kind);
+        break;
+      case 'stressResult':
+        if (import.meta.env.DEV || import.meta.env.MODE === 'perf')
+          showStressResult(appRoot(), message.result, loadMs);
         break;
       default:
         assertNever(message);
@@ -176,6 +188,7 @@ async function boot(): Promise<void> {
       height: viewport.height,
       scale: viewport.scale,
       assetBaseUrl,
+      perf,
       ...(debug ? { debug } : {}),
     },
     [offscreen],

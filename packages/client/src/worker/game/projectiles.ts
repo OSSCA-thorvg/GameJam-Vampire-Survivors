@@ -145,8 +145,12 @@ export function createProjectilePools(
   );
 }
 
-export function createProjectileState(pools?: readonly PaintPool[]): ProjectileState {
-  const projectiles = createStore(PROJECTILE_SCHEMA, PROJECTILE_CAP);
+/** `capacity` is `PROJECTILE_CAP` except in #22's stress scenarios, which size the store past the cap to measure it. */
+export function createProjectileState(
+  pools?: readonly PaintPool[],
+  capacity: number = PROJECTILE_CAP,
+): ProjectileState {
+  const projectiles = createStore(PROJECTILE_SCHEMA, capacity);
   const { hit0, hit1, hit2, hit3 } = projectiles.cols;
   return {
     projectiles,
@@ -298,8 +302,9 @@ export function projectileSystem(world: World, dt: number): void {
     projectileBinding?.unbind(i);
     projectiles.remove(i);
   }
-  if (import.meta.env.DEV && projectiles.count > PROJECTILE_CAP)
+  // The store's capacity is the cap: `PROJECTILE_CAP`, or a #22 stress scenario's larger size.
+  if (import.meta.env.DEV && projectiles.count > projectiles.capacity)
     throw new Error(
-      `Live projectiles ${String(projectiles.count)} exceed PROJECTILE_CAP ${String(PROJECTILE_CAP)}`,
+      `Live projectiles ${String(projectiles.count)} exceed the store capacity ${String(projectiles.capacity)}`,
     );
 }

@@ -1,7 +1,7 @@
 import type { Finale, RunMode, RunSummary } from '../../protocol/worker-messages';
 import type { SpawnLog } from './spawn-log';
 import type { GameView } from './view';
-import { clearWorld, createWorld, type World } from './world';
+import { clearWorld, createWorld, type StoreCapacity, type World } from './world';
 
 /** Runs one world at a time on a long-lived view (#9): what the worker's `startRun` and `endRun` do. */
 export interface Session {
@@ -9,9 +9,16 @@ export interface Session {
   readonly world: World | null;
   /**
    * Clears the previous run (stores and every pool, disposing nothing) and builds a fresh world on the same paints.
-   * `finale` (#17) defaults to `'death'`, `mode` (#20) to `'single'`.
+   * `finale` (#17) defaults to `'death'`, `mode` (#20) to `'single'`. `capacity` is for #22's stress scenarios only
+   * (`WorldOptions.capacity`).
    */
-  start(seed: number, characterId: string, finale?: Finale, mode?: RunMode): World;
+  start(
+    seed: number,
+    characterId: string,
+    finale?: Finale,
+    mode?: RunMode,
+    capacity?: StoreCapacity,
+  ): World;
   /** Clears the run and hides everything: the empty frame of the screens between runs. */
   end(): void;
   /** Syncs the view to the current run; nothing outside a run. */
@@ -29,7 +36,7 @@ export function createSession(
     get world() {
       return world;
     },
-    start(seed, characterId, finale, mode) {
+    start(seed, characterId, finale, mode, capacity) {
       if (world) clearWorld(world);
       spawnLog?.clear();
       world = createWorld({
@@ -45,6 +52,7 @@ export function createSession(
         finale,
         mode,
         ...(spawnLog ? { spawnLog } : {}),
+        capacity,
         onGameOver,
       });
       // After `createWorld`, which resolves an unknown id to the default character; it acquires no paint.

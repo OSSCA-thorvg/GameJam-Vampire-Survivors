@@ -64,6 +64,11 @@ export interface WorldOptions {
   /** Dev and e2e builds (#20): records the first spawner spawns for the `spawnLog` snapshot field. */
   spawnLog?: SpawnLog;
   /**
+   * Store sizes past the content caps, for #22's stress scenarios only (`worker/debug/stress-scenarios.ts`), so the
+   * caps can be measured. Omitted in every game run: the stores then hold `ENEMY_CAP`, `PROJECTILE_CAP` and `GEM_CAP`.
+   */
+  capacity?: StoreCapacity;
+  /**
    * Called once, with the run's summary, in the step where HP reaches 0 or a `finale: 'end'` run reaches the time
    * limit.
    */
@@ -166,6 +171,13 @@ export interface World
 
 export type System = (world: World, dt: number) => void;
 
+/** `WorldOptions.capacity`: live entities each store can hold. */
+export interface StoreCapacity {
+  enemies?: number;
+  projectiles?: number;
+  gems?: number;
+}
+
 /** Copies the latest input into the movement input, so a step sees one consistent direction. */
 export const inputSystem: System = (world) => {
   world.moveInput.dx = world.input.dx;
@@ -217,6 +229,7 @@ export function createWorld({
   finale = 'death',
   mode = 'single',
   spawnLog,
+  capacity,
   onGameOver,
 }: WorldOptions): World {
   const rng = createRng(seed);
@@ -232,10 +245,10 @@ export function createWorld({
     moveInput: { dx: 0, dy: 0 },
     player: createPlayer(),
     camera: createCamera(),
-    ...createEnemyState(enemyPools),
-    ...createProjectileState(projectilePools),
+    ...createEnemyState(enemyPools, capacity?.enemies),
+    ...createProjectileState(projectilePools, capacity?.projectiles),
     ...createFxState(fxPools),
-    ...createGemState(gemPools),
+    ...createGemState(gemPools, capacity?.gems),
     ...createLightState(rng, lightPools),
     ...createPickupState(rng, pickupPools),
     ...createInterferenceState(rng),

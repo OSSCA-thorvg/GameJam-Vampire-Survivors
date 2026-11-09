@@ -1,12 +1,12 @@
 // Dev-only debug tools, worker side. Every call into this module is wrapped in `if (import.meta.env.DEV) { … }`, and
 // the module has no top-level side effects, so production builds drop it (checked by grepping the bundle for
-// `togglePerfOverlay`). Later issues add commands with `registerDebugHandler` and overlay lines with
-// `registerPerfStat`; they never edit a switch. Keys are bound on the main thread (`main/debug.ts`).
+// `togglePerfOverlay`). Later issues add commands with `registerDebugHandler`; they never edit a switch. Keys are
+// bound on the main thread (`main/debug.ts`). The overlay itself is production-safe and lives in `perf/overlay.ts`
+// (#22); this module only binds its toggle and adds the `fps` and `steps/s` lines.
 import { registerSnapshotField } from './test-bridge';
-import type { Scene, Text, ThorVGNamespace } from '@thorvg/webcanvas';
 import type { DebugCommand, WorkerToMain } from '../protocol/worker-messages';
 import type { Loop } from './loop';
-import { HUD_FONT } from './render/thorvg';
+import { perfOverlayVisible, registerPerfStat, setPerfOverlayVisible } from './perf/overlay';
 
 type Handler<K extends DebugCommand['kind']> = (
   command: Extract<DebugCommand, { kind: K }>,
@@ -14,10 +14,7 @@ type Handler<K extends DebugCommand['kind']> = (
 
 const handlers = new Map<DebugCommand['kind'], (command: DebugCommand) => void>();
 const warnedKinds = new Set<string>();
-const perfStats: { label: string; read: () => string | number }[] = [];
 
-/** Overlay text refresh interval: at most 4 updates per second. */
-const OVERLAY_INTERVAL_MS = 250;
 /** `stats` messages are posted once per second. */
 const STATS_INTERVAL_MS = 1000;
 
@@ -43,14 +40,7 @@ export function dispatchDebug(command: DebugCommand): void {
   }
 }
 
-/** Adds a line to the perf overlay (for example #6's `entities`, `paints created` and `step ms`). */
-export function registerPerfStat(label: string, read: () => string | number): void {
-  perfStats.push({ label, read });
-}
-
 export interface WorkerDebugOptions {
-  TVG: ThorVGNamespace;
-  root: Scene;
   loop: Loop;
   post: (message: WorkerToMain) => void;
   /** Describes the simulation state for the dev log, for example the run's time and player position. */
@@ -65,20 +55,15 @@ export interface WorkerDebugHooks {
   onRender(): void;
   /** Call when the tab's visibility changes; logs the steps and renders that happened while hidden. */
   onVisibility(hidden: boolean): void;
-  /** Whether the perf overlay is shown (read by the test bridge's `perfOverlay`). */
-  perfOverlayVisible(): boolean;
 }
 
-/** Installs the built-in handlers, the perf overlay and the `stats` counter. Call once after ThorVG is ready. */
+/**
+ * Installs the built-in handlers, the overlay's `fps` and `steps/s` lines and the `stats` counter. Call once after
+ * ThorVG is ready and the perf overlay is installed (`perf/overlay.ts`).
+ */
 export function installWorkerDebugTools(opts: WorkerDebugOptions): WorkerDebugHooks {
-  const { TVG, root, loop, post, describe } = opts;
+  const { loop, post, describe } = opts;
   const now = opts.now ?? (() => performance.now());
-
-  const overlay: Text = new TVG.Text();
-  overlay.font(HUD_FONT).fontSize(18).fill(255, 255, 255).translate(12, 12);
-  overlay.text('perf');
-  overlay.visible(false);
-  root.add(overlay);
 
   let frames = 0;
   let steps = 0;
@@ -88,14 +73,9 @@ export function installWorkerDebugTools(opts: WorkerDebugOptions): WorkerDebugHo
   let windowStart = now();
   let fps = 0;
   let stepsPerSecond = 0;
-  let lastOverlay = 0;
   let hiddenAt: { steps: number; renders: number; time: number } | null = null;
-
-  const overlayText = (): string => {
-    const lines = [`fps ${fps.toFixed(0)}`, `steps/s ${stepsPerSecond.toFixed(0)}`];
-    for (const stat of perfStats) lines.push(`${stat.label} ${String(stat.read())}`);
-    return lines.join('\n');
-  };
+  registerPerfStat('fps', () => fps.toFixed(0));
+  registerPerfStat('steps/s', () => stepsPerSecond.toFixed(0));
 
   setInterval(() => {
     const t = now();
@@ -109,12 +89,8 @@ export function installWorkerDebugTools(opts: WorkerDebugOptions): WorkerDebugHo
   }, STATS_INTERVAL_MS);
 
   registerDebugHandler('togglePerfOverlay', () => {
-    const show = !overlay.visible();
-    overlay.visible(show);
-    if (show) {
-      overlay.text(overlayText());
-      lastOverlay = now();
-    }
+    const show = !perfOverlayVisible();
+    setPerfOverlayVisible(show);
     console.warn(`[debug] perf overlay ${show ? 'shown' : 'hidden'}`);
   });
   registerDebugHandler('fastForward', (command) => {
@@ -134,11 +110,6 @@ export function installWorkerDebugTools(opts: WorkerDebugOptions): WorkerDebugHo
     onRender() {
       frames++;
       totalRenders++;
-      if (!overlay.visible()) return;
-      const t = now();
-      if (t - lastOverlay < OVERLAY_INTERVAL_MS) return;
-      lastOverlay = t;
-      overlay.text(overlayText());
     },
     onVisibility(hidden) {
       if (hidden) {
@@ -153,9 +124,6 @@ export function installWorkerDebugTools(opts: WorkerDebugOptions): WorkerDebugHo
           `renders while hidden ${String(totalRenders - hiddenAt.renders)}; ${describe()}`,
       );
       hiddenAt = null;
-    },
-    perfOverlayVisible() {
-      return overlay.visible();
     },
   };
 }

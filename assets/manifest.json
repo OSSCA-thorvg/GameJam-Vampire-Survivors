@@ -161,6 +161,18 @@
       ],
       "filter": "nearest"
     },
+    "enemy.lottieTest": {
+      "file": "enemies/lottie-test.json",
+      "format": "lottie",
+      "size": [
+        32,
+        32
+      ],
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
     "fx.chestOpen": {
       "file": "fx/chest-open.json",
       "format": "lottie",

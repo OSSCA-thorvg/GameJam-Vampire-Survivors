@@ -109,7 +109,8 @@ it('Lottie resources decode within their owner and preserve the two effect timel
     expect([animation.width, animation.height], id).toEqual(entry.size);
     expect(animation.fps, id).toBe(30);
     expect(animation.firstFrame, id).toBe(0);
-    expect(animation.lastFrame, id).toBe(id === 'fx.levelUp' ? 30 : 24);
+    // fx.chestOpen runs 0-24; fx.levelUp and #22's shape-only enemy.lottieTest run 0-30.
+    expect(animation.lastFrame, id).toBe(id === 'fx.chestOpen' ? 24 : 30);
     for (const image of animation.images) {
       const path = entry.file.slice(0, entry.file.lastIndexOf('/') + 1) + image.path;
       decodePng(readFileSync(new URL(path, assets)), [image.width, image.height]);
@@ -117,9 +118,10 @@ it('Lottie resources decode within their owner and preserve the two effect timel
   }
 });
 
-it('installs the exact 84-ID pack with 90 owned files and no orphan SVGs', () => {
-  expect(entries).toHaveLength(84);
-  expect(entries.filter(([, entry]) => entry.format === 'lottie')).toHaveLength(2);
+it('installs the exact 85-ID pack with 91 owned files and no orphan SVGs', () => {
+  // The 84-ID pack of ADR 0016 plus #22's shape-only measurement asset enemy.lottieTest (no image resources).
+  expect(entries).toHaveLength(85);
+  expect(entries.filter(([, entry]) => entry.format === 'lottie')).toHaveLength(3);
   expect(entries.filter(([, entry]) => entry.format === 'ttf')).toHaveLength(1);
   expect(entries.every(([, entry]) => ['png', 'lottie', 'ttf'].includes(entry.format))).toBe(true);
   const expected = new Set([
@@ -129,16 +131,16 @@ it('installs the exact 84-ID pack with 90 owned files and no orphan SVGs', () =>
     'fonts/LICENSE-NotoSansMono.txt',
     ...entries.map(([, entry]) => entry.file),
   ]);
-  for (const [, entry] of entries.filter(([, value]) => value.format === 'lottie')) {
+  for (const [id, entry] of entries.filter(([, value]) => value.format === 'lottie')) {
     const animation = validateLottie(JSON.parse(read(entry.file)), entry.file);
-    expect(animation.images).toHaveLength(1);
+    expect(animation.images, id).toHaveLength(id === 'enemy.lottieTest' ? 0 : 1);
     for (const image of animation.images)
       expected.add(entry.file.slice(0, entry.file.lastIndexOf('/') + 1) + image.path);
   }
   const installed = readdirSync(assets, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile())
     .map((entry) => relative(fileURLToPath(assets), join(entry.parentPath, entry.name)));
-  expect(expected.size).toBe(90);
+  expect(expected.size).toBe(91);
   expect(installed.sort()).toEqual([...expected].sort());
 });
 

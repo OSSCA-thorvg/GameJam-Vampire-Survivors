@@ -15,9 +15,14 @@ import {
   installWorkerDebugTools,
   dispatchDebug,
   registerDebugHandler,
-  registerPerfStat,
   type WorkerDebugHooks,
 } from './debug';
+import {
+  installPerfOverlay,
+  perfOverlayVisible,
+  registerPerfStat,
+  type PerfMeter,
+} from './perf/overlay';
 import { createLoop, type Loop } from './loop';
 import { HUD_FONT, initThorVG, type ThorVGContext } from './render/thorvg';
 import { loadManifest } from './assets/manifest';
@@ -56,7 +61,13 @@ import { recomputeStats } from './game/stats';
 import { grantNextWeapon } from './game/weapons/owned';
 import { buildGallery, type Gallery } from './debug/gallery';
 import { noteFrame, registerSnapshotField, takeSnapshot } from './test-bridge';
-import type { StressScene } from './debug/stress';
+import type { StressScene, StressScenario } from './debug/stress';
+import type * as StressScenarios from './debug/stress-scenarios';
+import type {
+  ScenarioRecorder,
+  SharedLottieScene,
+  WorldScenarioRun,
+} from './debug/stress-scenarios';
 import { INTERFERENCE } from '@vs/shared';
 
 declare const self: DedicatedWorkerGlobalScope;
@@ -119,6 +130,12 @@ let evolutionIndex = 0;
 let library: AssetLibrary | null = null;
 let gallery: Gallery | null = null;
 let stress: StressScene | null = null;
+/** #22: the perf overlay's frame meter; `null` unless the overlay is installed (dev builds, `?perf`, a scenario). */
+let meter: PerfMeter | null = null;
+/** #22's named `?stress` scenarios (dev and `perf` builds only). */
+let sharedLottie: SharedLottieScene | null = null;
+let worldScenario: WorldScenarioRun | null = null;
+let recorder: ScenarioRecorder | null = null;
 const assetState = {
   ready: false,
   loaded: 0,
@@ -141,29 +158,49 @@ const describeScene = (): string => {
 };
 
 function step(dtSec: number): void {
+  // #22: timed only while the overlay shows or a scenario records.
+  const started = meter?.enabled ? performance.now() : -1;
   stepCount++;
   library?.tick(dtSec);
   gallery?.step(inputX, inputY, dtSec);
-  if (import.meta.env.DEV || import.meta.env.MODE === 'perf') stress?.step(dtSec);
+  if (import.meta.env.DEV || import.meta.env.MODE === 'perf') {
+    stress?.step(dtSec);
+    sharedLottie?.step(dtSec);
+  }
   const world = session?.world;
   if (world) {
     world.step(dtSec);
     drainCollected(world, postCollected);
     statuses.afterStep(world, dtSec);
-    levelUps.afterStep(world);
-    chests.afterStep(world);
+    if ((import.meta.env.DEV || import.meta.env.MODE === 'perf') && worldScenario)
+      worldScenario.afterStep(world);
+    else {
+      levelUps.afterStep(world);
+      chests.afterStep(world);
+    }
   }
   if (import.meta.env.DEV) debugHooks?.onStep();
+  if (started >= 0) meter?.stepDone(performance.now() - started);
 }
 
 function render(): void {
   if (!ctx) return;
-  if (import.meta.env.DEV || import.meta.env.MODE === 'perf') stress?.render();
+  const timed = meter?.enabled === true;
+  const started = timed ? performance.now() : 0;
+  if (import.meta.env.DEV || import.meta.env.MODE === 'perf') {
+    stress?.render();
+    sharedLottie?.render();
+  }
   session?.render();
   if (import.meta.env.DEV) debugHooks?.onRender();
   if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') noteFrame(performance.now());
+  const transformed = timed ? performance.now() : 0;
   ctx.canvas.update();
+  const updated = timed ? performance.now() : 0;
   ctx.canvas.render();
+  if (timed) meter?.frameDone(started, transformed, updated, performance.now());
+  if (import.meta.env.DEV || import.meta.env.MODE === 'perf')
+    recorder?.afterFrame(performance.now());
 }
 
 async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<void> {
@@ -220,25 +257,50 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
           });
       }
     }
+    /** #22: the named scenario, its definition and the module that runs it. */
+    let scenario: {
+      name: string;
+      def: StressScenario;
+      run: typeof StressScenarios;
+    } | null = null;
+    /** What the scenario's result reports as `maxCounts`. */
+    let recorderCounts: Record<string, () => number> = {};
     if (import.meta.env.DEV || import.meta.env.MODE === 'perf') {
       if (!gallery && message.debug?.stress !== undefined) {
-        const { parseStressCount, createStressScene } = await import('./debug/stress');
-        const count = parseStressCount(message.debug.stress);
-        if (count !== null) {
-          const layers = createLayers(context.root);
-          stress = createStressScene(library, layers.enemies, count);
-          if (import.meta.env.DEV) {
-            registerPerfStat('entities', () => stress?.entities ?? 0);
-            registerPerfStat('paints created', () => stress?.paintsCreated ?? 0);
-            registerPerfStat('step ms', () => stress?.stepMs.toFixed(2) ?? '0');
+        const { parseStress, createStressScene, STRESS_SCENARIOS } = await import('./debug/stress');
+        const parsed = parseStress(message.debug.stress);
+        if (parsed && 'scenario' in parsed) {
+          const def: StressScenario = STRESS_SCENARIOS[parsed.scenario];
+          scenario = { name: parsed.scenario, def, run: await import('./debug/stress-scenarios') };
+          if (def.kind === 'lottie') {
+            const layers = createLayers(context.root);
+            if (def.mode === 'perEnemy')
+              stress = createStressScene(library, layers.enemies, def.count, undefined, {
+                assetId: 'enemy.lottieTest',
+                churn: false,
+              });
+            else
+              sharedLottie = scenario.run.createSharedLottieScene(
+                library,
+                layers.enemies,
+                def.count,
+              );
           }
+        }
+        const count = parsed && 'count' in parsed ? parsed.count : null;
+        if (count !== null)
+          stress = createStressScene(library, createLayers(context.root).enemies, count);
+        if (stress) {
+          registerPerfStat('entities', () => stress?.entities ?? 0);
+          registerPerfStat('paints created', () => stress?.paintsCreated ?? 0);
+          registerPerfStat('step ms', () => stress?.stepMs.toFixed(2) ?? '0');
           if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
             registerSnapshotField('debug', () => stress?.snapshot());
           }
         }
       }
     }
-    if (!gallery && !stress) {
+    if (!gallery && !stress && !sharedLottie) {
       const layers = createLayers(context.root);
       const gameView = createGameView({
         TVG: context.TVG,
@@ -266,6 +328,26 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         spawnLog,
       );
       session = runs;
+      // #22: the overlay's live counts (read only while it refreshes its text, at most 4 times a second).
+      registerPerfStat('enemies', () => runs.world?.enemies.count ?? 0);
+      registerPerfStat('projectiles', () => runs.world?.projectiles.count ?? 0);
+      registerPerfStat('gems', () => runs.world?.gems.count ?? 0);
+      registerPerfStat('pickups', () => runs.world?.pickups.count ?? 0);
+      registerPerfStat('paints', () => gameView.countPaints());
+      if (
+        (import.meta.env.DEV || import.meta.env.MODE === 'perf') &&
+        scenario?.def.kind === 'world'
+      ) {
+        const { run } = scenario;
+        worldScenario = run.startWorldScenario(runs, scenario.def);
+        recorderCounts = {
+          enemies: () => runs.world?.enemies.count ?? 0,
+          projectiles: () => runs.world?.projectiles.count ?? 0,
+          gems: () => runs.world?.gems.count ?? 0,
+          pickups: () => runs.world?.pickups.count ?? 0,
+          paints: () => gameView.countPaints(),
+        };
+      }
       if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
         if (spawnLog) registerSnapshotField('spawnLog', () => spawnLog.read());
         registerSnapshotField('mode', () => runs.world?.mode ?? null);
@@ -361,12 +443,31 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
     }
     assetState.placeholders = [...library.placeholders];
     assetState.ready = true;
+    // #22: on `root` after every layer, so it draws on top. Dev builds always install it (hidden until `` ` ``).
+    if (import.meta.env.DEV || message.perf || scenario)
+      meter = installPerfOverlay({
+        TVG: context.TVG,
+        root: context.root,
+        visible: message.perf,
+      }).meter;
+    if ((import.meta.env.DEV || import.meta.env.MODE === 'perf') && scenario && meter) {
+      if (scenario.def.kind === 'lottie')
+        recorderCounts = {
+          enemies: () => stress?.entities ?? sharedLottie?.entities ?? 0,
+          paints: () => stress?.paintsCreated ?? sharedLottie?.entities ?? 0,
+        };
+      recorder = scenario.run.createScenarioRecorder({
+        scenario: scenario.name,
+        meter,
+        post,
+        counts: recorderCounts,
+        start: performance.now(),
+      });
+    }
     const gameLoop = createLoop({ step, render });
     loop = gameLoop;
     if (import.meta.env.DEV) {
       debugHooks = installWorkerDebugTools({
-        TVG: context.TVG,
-        root: context.root,
         loop: gameLoop,
         post,
         describe: describeScene,
@@ -443,7 +544,7 @@ function answerSnapshot(message: TestSnapshotRequest): void {
       paused,
       hidden,
       backgroundPolicy: policy,
-      perfOverlay: import.meta.env.DEV ? (debugHooks?.perfOverlayVisible() ?? false) : false,
+      perfOverlay: perfOverlayVisible(),
     }),
   });
 }
