@@ -48,6 +48,7 @@ Each row is one GitHub issue, and the issue is the source of truth for scope and
 | R4                                              | #126  | Play the Powered by ThorVG splash while the assets load                | —              | medium   |
 | R5                                              | #128  | Synthesize the game's sound effects and music as audio assets          | R4             | medium   |
 | R6                                              | #129  | Play sound effects and music with volume and mute settings             | R5             | medium   |
+| R7                                              | #143  | Save single-player personal records in the browser                     | R6             | medium   |
 
 ## Assets
 

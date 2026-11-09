@@ -16,6 +16,7 @@ function setup(selectedId: CharacterId = 'warden') {
   const props: CharacterSelectProps = {
     characters: CHARACTERS,
     selectedId,
+    bests: {},
     assetUrl: (id) => (id.startsWith('portrait.') ? `/assets/${id}.png` : null),
     onSelect,
     onConfirm,
@@ -102,4 +103,43 @@ it('removes every listener on unmount', () => {
   expect(onConfirm).not.toHaveBeenCalled();
   expect(onBack).not.toHaveBeenCalled();
   expect(root.children).toHaveLength(0);
+});
+
+const cardText = (root: HTMLElement, id: string, selector: string) =>
+  Array.from(root.querySelectorAll(`[data-character="${id}"] ${selector}`), (el) => el.textContent);
+
+it('shows Best --:-- and no cleared mark without records (#143)', () => {
+  const { root } = setup();
+  for (const c of CHARACTERS) {
+    expect(cardText(root, c.id, '.character-best')).toEqual(['Best --:--']);
+    expect(cardText(root, c.id, '.character-cleared')).toEqual([]);
+  }
+});
+
+it("shows each character's best time and the Cleared mark only for a clear (#143)", () => {
+  const { root, screen } = setup();
+  const props = (bests: CharacterSelectProps['bests']): CharacterSelectProps => ({
+    characters: CHARACTERS,
+    selectedId: 'warden',
+    bests,
+    assetUrl: () => null,
+    onSelect: vi.fn(),
+    onConfirm: vi.fn(),
+    onBack: vi.fn(),
+  });
+  screen.update(
+    props({
+      swift: { timeSec: 754.6, kills: 10, level: 3, cleared: true },
+      warden: { timeSec: 61, kills: 1, level: 1, cleared: false },
+    }),
+  );
+  expect(cardText(root, 'swift', '.character-best')).toEqual(['Best 12:34']);
+  expect(cardText(root, 'swift', '.character-cleared')).toEqual(['Cleared']);
+  expect(cardText(root, 'warden', '.character-best')).toEqual(['Best 01:01']);
+  expect(cardText(root, 'warden', '.character-cleared')).toEqual([]);
+  expect(root.querySelector('[data-best-time="swift"]')?.textContent).toBe('Best 12:34');
+  // A reset: update rewrites both without a remount.
+  screen.update(props({}));
+  expect(cardText(root, 'swift', '.character-best')).toEqual(['Best --:--']);
+  expect(cardText(root, 'swift', '.character-cleared')).toEqual([]);
 });

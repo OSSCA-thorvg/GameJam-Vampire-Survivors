@@ -305,6 +305,6 @@ export type GameSnapshot = WorkerSnapshot & {
   ready: boolean;
   /** Git revision the client was served from (`__VS_BUILD_REV__`). */
   buildRev: string;
-  /** `'booting'` until `ready`; then the screen from `main/app.ts` (#9): `'title'`, `'playing'`, `'levelUp'` (#11), `'chest'` (#15), `'results'`, `'versusPlaying'` or `'versusResult'` (#20). */
+  /** `'booting'` until `ready`; then the screen from `main/app.ts` (#9): `'title'`, `'playing'`, `'levelUp'` (#11), `'chest'` (#15), `'results'`, `'records'` (#143), `'versusPlaying'` or `'versusResult'` (#20). */
   state: string;
 };

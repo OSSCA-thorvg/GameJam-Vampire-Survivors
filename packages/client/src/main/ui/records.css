@@ -1,0 +1,81 @@
+/* The Records screen (#143, ADR 0022). */
+.screen.records {
+  justify-content: flex-start;
+  padding: 1.5rem 1rem;
+  overflow-y: auto;
+}
+
+.screen.records .records-body {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: var(--gap) 3rem;
+  max-width: 72rem;
+}
+
+.screen.records h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+  opacity: 0.75;
+}
+
+.screen.records table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.screen.records th,
+.screen.records td {
+  padding: 0.15rem 0.6rem;
+  text-align: right;
+}
+
+.screen.records tbody th {
+  text-align: left;
+}
+
+.screen.records thead th {
+  opacity: 0.75;
+  font-weight: normal;
+}
+
+.screen.records .stats {
+  font-size: 1rem;
+}
+
+.screen.records .records-recent {
+  margin: 0;
+  padding-left: 1.5rem;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.screen.records .menu {
+  flex-direction: row;
+}
+
+.screen.records button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.screen.records .records-confirm {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap);
+  background: var(--overlay-bg);
+}
+
+.screen.records .records-confirm[hidden] {
+  display: none;
+}
+
+.screen.records .records-confirm p {
+  margin: 0;
+  font-size: 1.25rem;
+}

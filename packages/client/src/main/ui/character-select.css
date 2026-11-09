@@ -61,3 +61,17 @@
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
 }
+
+/* Personal records (#143): the character's best time and its cleared mark. */
+.screen .character-record {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.screen .character-cleared {
+  color: var(--focus);
+  font-weight: bold;
+}

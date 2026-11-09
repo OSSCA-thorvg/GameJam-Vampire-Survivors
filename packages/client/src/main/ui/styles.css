@@ -293,3 +293,12 @@
     sans-serif;
   cursor: pointer;
 }
+
+/* Personal records (#143): "New best!" badges on the results screen. */
+.screen .new-best {
+  color: var(--focus);
+  font-size: 0.8em;
+  font-weight: bold;
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+}
