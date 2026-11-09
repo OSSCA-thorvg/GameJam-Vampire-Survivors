@@ -24,7 +24,7 @@ export function mount(root: HTMLElement, props: TitleProps): Screen<TitleProps> 
     },
   });
   const el = h('section', { class: 'screen', 'aria-labelledby': 'title-heading' }, [
-    h('h1', { id: 'title-heading', text: 'Vampire Survivors: ThorVG' }),
+    h('h1', { id: 'title-heading', text: 'Crimson Vigil' }),
     h('p', { class: 'hint', text: 'Arrow keys or WASD move. Escape pauses.' }),
     h('div', { class: 'menu' }, [start, multiplayer]),
   ]);
