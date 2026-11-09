@@ -1,6 +1,6 @@
 # 0017. Host the client on GitHub Pages and the server on a self-hosted Docker host
 
-- Status: Accepted
+- Status: Superseded in part by [0023](0023-build-the-server-image-on-the-owners-host.md) (the server image is built on the owner's host, not published by `deploy.yml`; the Pages client, server URL, host hardening and domain/TLS item retained)
 - Date: 2026-11-09
 - Related issues: #23
 

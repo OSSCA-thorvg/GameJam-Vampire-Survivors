@@ -1,11 +1,18 @@
-# Production game server (ADR 0017): the `runtime` image that .github/workflows/deploy.yml publishes to GHCR, run as
-# exactly one instance on the owner's host. Usage (deploy/server/README.md):
-#   cp .env.example .env    # once, then edit
-#   docker compose pull && docker compose up -d
+# Production game server (ADRs 0017, 0023): the `runtime` image built on the owner's host from this clone, run as
+# exactly one instance there. Usage, from the repository root (deploy/server/README.md):
+#   cp deploy/server/.env.example deploy/server/.env    # once, then edit
+#   NODE_VERSION=$(cat .nvmrc) docker compose -f deploy/server/compose.yaml up -d --build
 services:
   server:
-    # VS_IMAGE pins a published tag (sha-<commit>, recommended) or follows `main`.
-    image: ${VS_IMAGE:-ghcr.io/ossca-thorvg/gamejam-vampire-survivors-server:main}
+    # The same `runtime` target CI's `server image` job gates (ADR 0010): non-root node, production dependencies only,
+    # HEALTHCHECK on /healthz. The Dockerfile pins the base by digest; NODE_VERSION comes from .nvmrc (the fallback
+    # only lets `ps`, `logs` and `down` run without it).
+    build:
+      context: ../..
+      dockerfile: packages/server/Dockerfile
+      target: runtime
+      args: { NODE_VERSION: '${NODE_VERSION:-24}' }
+    image: vs-server:local
     # Rooms live in memory (ADR 0006): one container, never scaled.
     container_name: vs-server
     restart: unless-stopped

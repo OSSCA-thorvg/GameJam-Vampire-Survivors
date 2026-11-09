@@ -110,4 +110,4 @@ test('deployed site: CSP meta, single-player run to results, multiplayer entry',
 - Pages sends no headers, so `frame-ancestors` cannot be enforced there; `vite preview` sends the header version for local checks (2026-11-09, #23).
 - The Pages build fails if `VITE_SERVER_URL` is not `wss://`: an https page cannot open `ws://` sockets (2026-11-09, #23).
 - Until the owner sets up the server's domain and TLS, only the "server unset" path can run on the public site; the server is checked locally with `deploy/server/compose.yaml` and `smoke.mjs` (2026-11-09, #23).
-- A server deploy (`docker compose pull && up -d`) restarts the only instance and drops every room; never deploy during someone's verification (2026-11-09, #23).
+- A server deploy (`git pull --ff-only`, then `NODE_VERSION=$(cat .nvmrc) docker compose -f deploy/server/compose.yaml up -d --build`, ADR 0023) restarts the only instance and drops every room; never deploy during someone's verification (2026-11-09, #23).
