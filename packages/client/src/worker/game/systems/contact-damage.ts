@@ -7,6 +7,7 @@ import {
 } from '../enemies';
 import type { World } from '../world';
 import { isFrozen } from './freeze';
+import { cueSfx } from '../sfx';
 
 /** Enemies read per contact check; a crowd larger than this around the player still lands its one hit. */
 const touching = new Int32Array(64);
@@ -63,5 +64,6 @@ export function contactDamageSystem(world: World, dt: number): void {
   event.x = player.x;
   event.y = player.y;
   event.amount = amount;
+  cueSfx(world, 'sfx.playerHurt');
   if (player.hp <= 0) world.state = 'dead';
 }

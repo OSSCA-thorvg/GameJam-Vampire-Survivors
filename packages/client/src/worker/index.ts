@@ -83,6 +83,7 @@ import type {
   WorldScenarioRun,
 } from './debug/stress-scenarios';
 import { INTERFERENCE } from '@vs/shared';
+import { clearSfx, drainSfx } from './game/sfx';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -247,6 +248,8 @@ function render(): void {
   ctx.canvas.update();
   const updated = timed ? performance.now() : 0;
   ctx.canvas.render();
+  // #129: this frame's sound cues, posted once after it is drawn.
+  drainSfx(session?.world, post);
   if (timed) meter?.frameDone(started, transformed, updated, performance.now());
   if (import.meta.env.DEV || import.meta.env.MODE === 'perf')
     recorder?.afterFrame(performance.now());
@@ -759,6 +762,8 @@ function handle(message: GameMainToWorker): void {
       hidden = message.hidden;
       if (hidden) opponentView?.suspendPlayback();
       loop?.setVisibility(message.hidden);
+      // #129: a return from a hidden tab plays no backlog of cues.
+      if (!message.hidden) clearSfx(session?.world);
       if (import.meta.env.DEV) debugHooks?.onVisibility(message.hidden);
       break;
     case 'setBackgroundPolicy':
@@ -797,7 +802,11 @@ function handle(message: GameMainToWorker): void {
       if (message.state !== 'live') opponentView?.suspendPlayback();
       break;
     case 'debug':
-      if (import.meta.env.DEV) dispatchDebug(message.command);
+      if (import.meta.env.DEV) {
+        dispatchDebug(message.command);
+        // #129: 60 s of steps in one go would otherwise post one burst of every cue.
+        if (message.command.kind === 'fastForward') clearSfx(session?.world);
+      }
       break;
     default:
       assertNever(message);

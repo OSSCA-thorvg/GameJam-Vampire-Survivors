@@ -1,6 +1,14 @@
 // The app state machine (ADR 0009): the only code that mounts screens. Each transition unmounts the old screen,
 // mounts the new one and tells the worker. The DOM never reads game state; what it shows arrives as messages (ADR 0004).
-import { CHARACTERS, type CharacterId, type ChestReward, type InterferenceKind } from '@vs/shared';
+import {
+  CHARACTERS,
+  DEFAULT_AUDIO_SETTINGS,
+  type AudioSettings,
+  type CharacterId,
+  type ChestReward,
+  type InterferenceKind,
+  type SfxId,
+} from '@vs/shared';
 import { assertNever } from '../protocol/assert-never';
 import type {
   LevelUpOption,
@@ -31,7 +39,7 @@ import {
   type MultiplayerEntryProps,
   type ServerError,
 } from './ui/multiplayer-entry';
-import { mount as mountPause } from './ui/pause';
+import { mount as mountPause, type PauseProps } from './ui/pause';
 import { mount as mountResults } from './ui/results';
 import { mount as mountTitle } from './ui/title';
 import { mount as mountVersusResult, type VersusResult } from './ui/versus-result';
@@ -355,6 +363,27 @@ export interface App {
   banners(): string[];
 }
 
+/**
+ * The app's sound (#129): `screen` follows every state (music and duck), `cue` plays a main-thread cue, and the pause
+ * screen reads and changes the settings. The default is silent, so tests and debug scenes need no audio.
+ */
+export interface AppSound {
+  screen(state: AppState): void;
+  cue(id: SfxId): void;
+  settings(): AudioSettings;
+  setSettings(s: AudioSettings): void;
+  /** Calls `fn` after every settings change; returns the unsubscribe. */
+  onSettings(fn: (s: AudioSettings) => void): () => void;
+}
+
+export const SILENT_SOUND: AppSound = {
+  screen: () => undefined,
+  cue: () => undefined,
+  settings: () => ({ ...DEFAULT_AUDIO_SETTINGS }),
+  setSettings: () => undefined,
+  onSettings: () => () => undefined,
+};
+
 /** Creates the controller of one versus match; tests pass a fake. */
 export type CreateVersus = (opts: VersusControllerOptions) => VersusController;
 
@@ -385,6 +414,7 @@ export function createApp(
   createNet: CreateNet = defaultNet,
   createVersus: CreateVersus = createVersusController,
   setPanes: (panes: 1 | 2) => void = () => undefined,
+  sound: AppSound = SILENT_SOUND,
 ): App {
   const doc = root.ownerDocument;
   let state: AppState = { name: 'title' };
@@ -408,6 +438,8 @@ export function createApp(
   let lobby: Screen<LobbyProps> | null = null;
   /** The running versus match (#20); `null` outside `versusPlaying`, so single player never creates one. */
   let versus: VersusController | null = null;
+  /** The mounted pause screen (#129), updated in place when the sound settings change (the `M` key, the toggle). */
+  let pause: Screen<PauseProps> | null = null;
 
   const openNet = (): NetClient | null => {
     if (net) return net;
@@ -510,6 +542,22 @@ export function createApp(
     },
   });
 
+  const pauseProps = (): PauseProps => ({
+    onResume: () => {
+      app.dispatch({ type: 'pauseToggle' });
+    },
+    onQuit: () => {
+      app.dispatch({ type: 'quitToTitle' });
+    },
+    audio: sound.settings(),
+    onAudio: (s) => {
+      sound.setSettings(s);
+    },
+  });
+  sound.onSettings(() => {
+    pause?.update(pauseProps());
+  });
+
   const selectProps = (selectedId: CharacterId): CharacterSelectProps => ({
     characters: CHARACTERS,
     selectedId,
@@ -543,6 +591,7 @@ export function createApp(
     select = null;
     entry = null;
     lobby = null;
+    pause = null;
     switch (state.name) {
       case 'characterSelect':
         select = mountCharacterSelect(root, selectProps(state.selectedId));
@@ -569,15 +618,10 @@ export function createApp(
         });
         break;
       case 'playing':
-        if (state.paused)
-          screen = mountPause(root, {
-            onResume: () => {
-              app.dispatch({ type: 'pauseToggle' });
-            },
-            onQuit: () => {
-              app.dispatch({ type: 'quitToTitle' });
-            },
-          });
+        if (state.paused) {
+          pause = mountPause(root, pauseProps());
+          screen = pause;
+        }
         break;
       case 'levelUp':
         screen = mountLevelUp(root, {
@@ -677,6 +721,7 @@ export function createApp(
         net?.send({ type: 'leaveRoom' });
       if (next.name === 'title') closeNet();
       show();
+      sound.screen(state);
       if (next.name === 'multiplayerEntry' && from.name !== 'multiplayerEntry') connect();
       for (const message of messages) post(message);
     },
@@ -693,6 +738,9 @@ export function createApp(
         },
         onOffline: () => {
           app.dispatch({ type: 'versusOffline' });
+        },
+        cue: (id) => {
+          sound.cue(id);
         },
       });
       app.dispatch({ type: 'versusStarted' });
@@ -721,5 +769,6 @@ export function createApp(
   });
 
   show();
+  sound.screen(state);
   return app;
 }

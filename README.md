@@ -42,7 +42,7 @@ Survive 15 minutes against ever larger hordes while your weapons fire on their o
 - The complete stage: 15 waves, elites, two bosses and Death at 15:00.
 - All 8 weapons with their 8 evolutions, and all 8 passives.
 - Animated pixel art for every actor and effect (native Lottie playback).
-- 17 sound effects and 2 original chiptune music loops, synthesized with ZzFX and ZzFXM as MP3 assets; playback comes next (#129).
+- 17 sound effects and 2 original chiptune music loops, synthesized with ZzFX and ZzFXM as MP3 assets, played after the first key or click: title and stage music that ducks under the pause and dialogs, weapon hits, kills, gems and menu clicks; `M` or the corner button mutes, and the pause screen sets the music and effects volume (#128, #129).
 - Versus matches against the WebSocket server: lobby, countdown, interference items, split view, Win/Lose/Draw and Rematch.
 - The client is published to GitHub Pages; the server image is on GHCR but has no public domain yet.
 

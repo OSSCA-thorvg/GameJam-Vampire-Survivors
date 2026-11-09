@@ -34,6 +34,7 @@ import { lightSourceSystem } from './systems/light-sources';
 import { pickupSystem } from './systems/pickups';
 import { recoverySystem } from './systems/recovery';
 import { spawnerSystem } from './systems/spawner';
+import type { SfxState } from './sfx';
 import type { SpawnLog } from './spawn-log';
 import { stageEventSystem } from './systems/stage-events';
 import { createWeaponContext, type WeaponContext } from './weapons/context';
@@ -89,7 +90,8 @@ export interface World
     FreezeState,
     ChestState,
     RunStatsState,
-    InterferenceState {
+    InterferenceState,
+    SfxState {
   readonly seed: number;
   /** The character played (#14), always a known id: `startRun`'s id, or `CHARACTERS[0]` when that was unknown. */
   readonly characterId: CharacterId;
@@ -273,6 +275,7 @@ export function createWorld({
     debugInvulnerable: false,
     levelUpRng: rng.fork('levelup'),
     pendingLevelUps: 0,
+    sfxMask: 0,
     events: createEventQueue(),
     state: 'running',
     // A versus run never spawns Death (ADR 0005): the time limit ends it.

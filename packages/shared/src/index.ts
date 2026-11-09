@@ -94,3 +94,18 @@ export type { InterferenceDef, InterferenceEffect } from './content/interference
 
 export { lottieProfile, EXTENDED_LOTTIE_IDS } from './lottie-motion.js';
 export type { LottieProfile, MotionState, MotionRange, ActorMotion } from './lottie-motion.js';
+export {
+  SFX_IDS,
+  MUSIC_IDS,
+  WORLD_SFX,
+  HIT_SFX,
+  SOUND_RULES,
+  MUSIC_GAIN,
+  MAX_VOICES,
+  DUCK,
+  MUSIC_FADE_SEC,
+  AUDIO_SETTINGS_KEY,
+  DEFAULT_AUDIO_SETTINGS,
+  AUDIO_VOLUME_STEPS,
+} from './content/audio.js';
+export type { SfxId, MusicId, WorldSfxId, SoundRule, AudioSettings } from './content/audio.js';
