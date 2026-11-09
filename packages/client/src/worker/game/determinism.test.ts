@@ -33,7 +33,7 @@ function run(seed: number, steps: number, noise?: (world: World) => void): World
 it('gives the same enemy positions after 60 s for the same seed and input', () => {
   const a = run(1234, 3600);
   const b = run(1234, 3600);
-  expect(a.enemies.count).toBeGreaterThan(15);
+  expect(a.enemies.count).toBeGreaterThanOrEqual(STAGE.waves[0]?.minAlive ?? Infinity);
   expect(b.enemies.count).toBe(a.enemies.count);
   expect(b.enemies.cols.x).toEqual(a.enemies.cols.x);
   expect(b.enemies.cols.y).toEqual(a.enemies.cols.y);

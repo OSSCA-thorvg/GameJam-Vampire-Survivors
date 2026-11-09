@@ -1,3 +1,4 @@
+import { BASE_STATS } from '@vs/shared';
 import { describe, expect, it } from 'vitest';
 import { target } from '../combat-test-helpers';
 import { armed, DT, effectiveLevel, withStats } from './arm-test-helpers';
@@ -53,10 +54,10 @@ describe('fire wand', () => {
       weaponSystem(world, DT);
       if (world.projectiles.count > 0) first = i;
     }
-    // The first burst comes after the L1 cooldown (3 s, 180 steps) and the next after 1.5 s.
+    // The first burst comes after the L1 cooldown (3 s, 180 steps) and the next after 3 s × (BASE_STATS.cooldown - 0.5).
     expect(first).toBe(180);
     expect(world.projectiles.cols.ttl[0]).toBe(3);
     const w = world.weapons[0];
-    expect(w?.cooldownLeft).toBeCloseTo(1.5, 6);
+    expect(w?.cooldownLeft).toBeCloseTo(3 * (BASE_STATS.cooldown - 0.5), 6);
   });
 });

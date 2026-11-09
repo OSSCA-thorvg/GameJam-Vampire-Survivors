@@ -1,3 +1,4 @@
+import { BASE_MAX_HP, BASE_STATS } from '@vs/shared';
 import { expect, it } from 'vitest';
 import { cameraSystem } from './camera';
 import { chestDropSystem } from './chests';
@@ -76,8 +77,8 @@ it('stores the seed and character, seeds the root stream and reports the player 
     x: 70,
     y: 0,
     facingX: 1,
-    hp: 100,
-    maxHp: 100,
+    hp: BASE_MAX_HP,
+    maxHp: BASE_MAX_HP,
     invulnerable: false,
     level: 1,
     xp: 0,
@@ -88,7 +89,7 @@ it('starts running with full HP, an empty event queue and level-1 stats that mir
   const world = createBaseWorld({ seed: 5 });
   expect(world.state).toBe('running');
   expect(world.player.hp).toBe(world.player.maxHp);
-  expect(world.player.armor).toBe(0);
+  expect(world.player.armor).toBe(BASE_STATS.armor);
   expect(world.events.count).toBe(0);
   world.events.push('enemyKilled');
   world.step(0.25);

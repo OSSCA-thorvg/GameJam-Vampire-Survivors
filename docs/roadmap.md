@@ -51,6 +51,7 @@ Each row is one GitHub issue, and the issue is the source of truth for scope and
 | R7                                              | #143  | Save single-player personal records in the browser                     | R6             | medium   |
 | R8                                              | #156  | Show owned items and spawn chest carriers every minute                 | G1, G4, G6     | medium   |
 | R9                                              | #157  | Move player attack origins from feet to torso                          | C5, G2, A3     | medium   |
+| R10                                             | #148  | Retune the stage so a run survives past the 5:00 boss                  | —              | high     |
 
 ## Assets
 

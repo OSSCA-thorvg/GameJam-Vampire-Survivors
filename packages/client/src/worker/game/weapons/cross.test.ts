@@ -1,3 +1,4 @@
+import { BASE_STATS } from '@vs/shared';
 import { describe, expect, it } from 'vitest';
 import { target } from '../combat-test-helpers';
 import { armed, effectiveLevel, flyProjectiles, withStats } from './arm-test-helpers';
@@ -30,7 +31,7 @@ describe('cross', () => {
     expect(far).toBeLessThan(126);
     expect(lastX).toBeLessThan(-200);
     expect(hits).toHaveLength(2);
-    expect(world.enemies.cols.hp[enemy]).toBe(1000 - 2 * 50);
+    expect(world.enemies.cols.hp[enemy]).toBeCloseTo(1000 - 2 * 50 * BASE_STATS.might, 3);
   });
 
   it('is removed once it leaves the view after turning', () => {

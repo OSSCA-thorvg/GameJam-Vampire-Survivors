@@ -44,6 +44,7 @@ Survive 15 minutes against ever larger hordes while your weapons fire on their o
 - Animated pixel art for every actor and effect (native Lottie playback).
 - 17 sound effects and 2 original chiptune music loops, synthesized with ZzFX and ZzFXM as MP3 assets, played after the first key or click: title and stage music that ducks under the pause and dialogs, weapon hits, kills, gems and menu clicks; `M` or the corner button mutes, and the pause screen sets the music and effects volume (#128, #129).
 - Personal records saved in the browser for single-player runs: "New best!" on the results, each character's best time and clear on its card, and a Records screen with bests, totals, the last 10 runs and weapon bests (#143).
+- A stage tuned for playability with a headless balance probe: normal enemies are slower than every character, each wave caps its live crowd, contact damage is lower and every character starts with a built-in PowerUp equivalent, so an ordinary run survives well past the 5:00 boss (#148).
 - Versus matches against the WebSocket server: lobby, countdown, interference items, split view, Win/Lose/Draw and Rematch.
 - The client is published to GitHub Pages; the server is built and run on the owner's own host and has no public domain yet.
 

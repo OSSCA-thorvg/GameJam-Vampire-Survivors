@@ -69,7 +69,9 @@ it('conserves gem value through a whole run: XP collected plus XP on the ground 
     while (world.pendingLevelUps > 0) world.pendingLevelUps--;
     let spent = 0;
     for (let l = 1; l < world.player.level; l++) spent += xpToNext(l);
-    expect(spent + world.player.xp + onGround(world)).toBeCloseTo(killed, 3);
+    // Collected gem value became XP times `stats.growth` (1.1 in BASE_STATS since #148); no choice changes it here.
+    const collected = (spent + world.player.xp) / world.player.stats.growth;
+    expect(collected + onGround(world)).toBeCloseTo(killed, 3);
   }
   expect(killed).toBeGreaterThan(20);
   expect(world.player.level).toBeGreaterThan(1);
@@ -88,7 +90,7 @@ it('creates a new merge gem at the next overflow after the merge gem was collect
   world.player.y = 0;
   for (let i = 0; i < 60 && world.mergeGemUid !== NO_GEM; i++) gemSystem(world, 1 / 60);
   expect(world.mergeGemUid).toBe(NO_GEM);
-  expect(world.player.xp).toBe(6);
+  expect(world.player.xp).toBe(6 * world.player.stats.growth);
   expect(world.gems.count).toBe(GEM_CAP);
   kill(world, 1, 4, 300, 0);
   expect(world.mergeGemUid).not.toBe(NO_GEM);

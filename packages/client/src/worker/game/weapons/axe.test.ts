@@ -1,3 +1,4 @@
+import { BASE_STATS, WEAPONS } from '@vs/shared';
 import { describe, expect, it } from 'vitest';
 import { armed, effectiveLevel, flyProjectiles, withStats } from './arm-test-helpers';
 import { axe, AXE_LAUNCH_VY, AXE_RADIUS, AXE_SPREAD_X } from './patterns/axe';
@@ -37,8 +38,9 @@ describe('axe', () => {
     const { world, w } = armed('axe');
     withStats(world, [{ stat: 'might', add: 0.5 }]);
     const lv = effectiveLevel(world, w);
-    expect(lv.damage).toBe(30);
+    const damage = (WEAPONS.axe.levels[0]?.damage ?? NaN) * (BASE_STATS.might + 0.5);
+    expect(lv.damage).toBeCloseTo(damage, 10);
     axe.fire(world.weaponContext, w, lv, 0);
-    expect(world.projectiles.cols.damage[0]).toBe(30);
+    expect(world.projectiles.cols.damage[0]).toBe(Math.fround(lv.damage));
   });
 });

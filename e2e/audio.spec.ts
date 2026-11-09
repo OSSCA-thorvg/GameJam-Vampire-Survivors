@@ -3,11 +3,13 @@
 // the unlock on the first gesture, the music per screen, every cue, the ducking, the voice caps, mute and its
 // persistence. Debug keys only reach preconditions (`I`, `L`, `G`, `E`).
 import { expect, test, type Page } from '@playwright/test';
-import { MAX_VOICES, SOUND_RULES, type SfxId } from '../packages/shared/src/content/audio';
+import { HIT_SFX, MAX_VOICES, SOUND_RULES, type SfxId } from '../packages/shared/src/content/audio';
+import { WEAPONS, type WeaponId } from '../packages/shared/src/content/weapons';
 import {
   answerLevelUps,
   noteEvidence,
   openGame,
+  settlePlaying,
   snapshot,
   startEvidence,
   waitForSnapshot,
@@ -46,6 +48,32 @@ async function waitAudio(
   ms = SLOW_MS,
 ) {
   return waitForSnapshot(page, (s) => predicate(audioOf(s), s), ms);
+}
+
+/** Answers level-ups and chests (the same card choice as the journey's `answerLevelUps`) until play is steady. */
+const settle = (page: Page) => settlePlaying(page, { avoidNewWeapons: true });
+
+/**
+ * Settles, presses `key` and waits for `predicate`; if a level-up or chest interrupted it (#148: they arrive more
+ * often), settles and presses once more. A second miss throws `waitForSnapshot`'s error.
+ */
+async function pressSettled(
+  page: Page,
+  key: string,
+  predicate: (a: AudioField, s: GameSnapshot) => boolean,
+  ms = 5_000,
+): Promise<GameSnapshot> {
+  await settle(page);
+  await page.keyboard.press(key);
+  try {
+    return await waitAudio(page, predicate, ms);
+  } catch (error) {
+    const s = await snapshot(page);
+    if (s.state !== 'levelUp' && s.state !== 'chest') throw error;
+    await settle(page);
+    await page.keyboard.press(key);
+    return waitAudio(page, predicate, ms);
+  }
 }
 
 /** From the title: Enter on Start, Enter on the default Warden. */
@@ -129,7 +157,7 @@ async function takeGarlic(page: Page): Promise<void> {
   throw new Error('no level-up offered Garlic');
 }
 
-test.describe.configure({ timeout: 240_000 });
+test.describe.configure({ timeout: 480_000 }); // #148: the standing death in step 8 takes longer
 
 test('audio: unlock, music per screen, cues, ducking, voice caps, mute and persistence', async ({
   page,
@@ -189,20 +217,15 @@ test('audio: unlock, music per screen, cues, ducking, voice caps, mute and persi
       20_000,
     );
     log.worldCues = audioOf(cues);
-    await waitForSnapshot(page, (s) => s.state === 'playing', 5_000);
+    await stop();
+    await settle(page);
     await ev.shot('run-cues');
 
-    // 4. Keep answering natural level-ups until the pause opens. Escape is ignored on a level-up.
-    const pause = page.getByRole('dialog', { name: 'Paused' });
-    await expect(async () => {
-      if (!(await pause.isVisible())) await page.keyboard.press('Escape');
-      await expect(pause).toBeVisible({ timeout: 500 });
-    }).toPass({ timeout: 5_000 });
-    await stop();
-    const pausedS = await waitAudio(
+    // 4. The pause ducks the music to 30 %.
+    const pausedS = await pressSettled(
       page,
+      'Escape',
       (a, s) => s.state === 'playing' && s.paused && a.duck === 0.3,
-      5_000,
     );
     log.paused = audioOf(pausedS);
     await expect(page.locator('[data-volume="music"]')).toHaveText('5');
@@ -211,27 +234,30 @@ test('audio: unlock, music per screen, cues, ducking, voice caps, mute and persi
     await page.keyboard.press('Escape');
     await waitAudio(page, (a, s) => !s.paused && a.duck === 1, 5_000);
 
-    // 5. A level-up (`L`, precondition) plays once and ducks to 50 %.
+    // 5. A level-up (`L`, precondition) plays once and ducks to 50 %. A natural level-up landing between the settle and
+    // the read below would be counted in `levelBefore`, and one landing after it shows as a dialog before `L`'s; either
+    // way one dialog opens at a time, so the dialog `L` waits for plays exactly one more cue.
+    await settle(page);
     await waitAudio(page, (a) => (a.voicesById['sfx.levelUp'] ?? 0) === 0, 5_000);
-    const levelBefore = played(await snapshot(page), 'sfx.levelUp');
+    const settled = await settle(page);
+    const levelBefore = played(settled, 'sfx.levelUp');
     await page.keyboard.press('KeyL');
     const level = await waitAudio(page, (a, s) => s.state === 'levelUp' && a.duck === 0.5, 5_000);
     log.levelUp = { before: levelBefore, after: audioOf(level) };
     expect(played(level, 'sfx.levelUp') - levelBefore).toBe(1);
     await ev.shot('levelup-duck');
-    await page.keyboard.press('1');
+    // Answer it (and any natural level-up queued behind it), then the duck is lifted.
+    await settle(page);
     await waitAudio(page, (a, s) => s.state === 'playing' && a.duck === 1, 5_000);
 
     // 6a. Six weapons at once (`G` ×5, precondition; `MAX_WEAPON_SLOTS` is 6): the caps hold over 10 s of samples.
-    log.voiceCapsA = await sampleCaps(page, 5);
-    log.hitsA = await waitForHits(page, [
-      'sfx.hitWhip',
-      'sfx.hitMagicWand',
-      'sfx.hitKnife',
-      'sfx.hitAxe',
-      'sfx.hitCross',
-      'sfx.hitKingBible',
-    ]);
+    const capsA = await sampleCaps(page, 5);
+    log.voiceCapsA = capsA;
+    // Each owned weapon's hit sound. Usually Whip, Magic Wand, Knife, Axe, Cross and King Bible; since #148's
+    // built-in Growth a run levels up more often, so a dialog offering only new weapons can add one (Garlic) before
+    // the `G` grants, and the expected sounds follow the weapons actually owned.
+    const ownedA = capsA.weapons.map((id) => HIT_SFX[WEAPONS[id as WeaponId].pattern]);
+    log.hitsA = await waitForHits(page, ownedA);
     await ev.shot('six-weapons');
 
     // 7. `M` mutes and persists; after a reload the game stays muted and plays nothing; `M` unmutes.
@@ -270,14 +296,16 @@ test('audio: unlock, music per screen, cues, ducking, voice caps, mute and persi
     await ev.shot('second-loadout');
 
     // 8. A fresh Warden run, standing still to death: the death cue once, and the title loop on the results screen.
-    await page.keyboard.press('Escape');
+    await pressSettled(page, 'Escape', (_a, s) => s.state === 'playing' && s.paused);
     await page.getByRole('button', { name: 'Quit to title' }).click();
     await enterRun(page);
     const stop4 = answerLevelUps(page, { avoidNewWeapons: true });
     const dead = await waitAudio(
       page,
       (a, s) => s.state === 'results' && a.music === 'music.title',
-      60_000,
+      // A standing Warden dies in about 1–2 minutes of game time since #148 (up to about 200 s in the probe), plus the
+      // level-up dialogs.
+      300_000,
     );
     await stop4();
     log.death = audioOf(dead);

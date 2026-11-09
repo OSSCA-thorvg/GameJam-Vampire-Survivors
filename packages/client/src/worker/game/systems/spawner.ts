@@ -1,6 +1,6 @@
 import { ENEMY_CAP, STAGE, type Rng, type WaveDef } from '@vs/shared';
 import type { Camera } from '../camera';
-import { spawnEnemy } from '../enemies';
+import { ENEMY_FLAG_BOSS, ENEMY_FLAG_ELITE, spawnEnemy } from '../enemies';
 import type { World } from '../world';
 
 /** Spawn-ring margin: enemies appear this far outside the view, so they never pop in on screen. */
@@ -61,8 +61,23 @@ function pickEnemy(wave: WaveDef, rng: Rng): WaveDef['enemies'][number]['enemyId
 
 const point = { x: 0, y: 0 };
 
+/** Not counted toward `maxAlive`: bosses (and Death) and elites, including #156's minute chest carriers. */
+const OUTSIDE_LIVE_CAP = ENEMY_FLAG_BOSS | ENEMY_FLAG_ELITE;
+
 /**
- * Spawns from the current wave (#8): a batch every `spawnIntervalSec`, plus a top-up to `minAlive`, at most
+ * Live wave enemies (#148): neither bosses nor elites. Timed events (bosses, elites and #156's chest carriers) are
+ * scheduled on their own, so they neither count toward a wave's `maxAlive` nor are held back by it.
+ */
+export function liveNormalEnemies(world: World): number {
+  const { count, cols } = world.enemies;
+  let normal = 0;
+  for (let i = 0; i < count; i++) if (((cols.flags[i] ?? 0) & OUTSIDE_LIVE_CAP) === 0) normal++;
+  return normal;
+}
+
+/**
+ * Spawns from the current wave (#8): a batch every `spawnIntervalSec`, skipped while `maxAlive` or more wave
+ * enemies (neither bosses nor elites) are alive (#148), plus a top-up to `minAlive`, at most
  * `MAX_SPAWNS_PER_STEP` per step and never past `ENEMY_CAP`. Draws only from `world.spawnRng`. Stops once the stage
  * is cleared (#17).
  */
@@ -71,7 +86,7 @@ export function spawnerSystem(world: World, dt: number): void {
   const wave = waveAt(world.time / 60);
   world.spawnTimer -= dt;
   if (world.spawnTimer <= 0) {
-    world.spawnQueue += wave.batchSize;
+    if (liveNormalEnemies(world) < wave.maxAlive) world.spawnQueue += wave.batchSize;
     world.spawnTimer += wave.spawnIntervalSec;
   }
   const { enemies } = world;

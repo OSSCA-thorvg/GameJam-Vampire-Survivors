@@ -239,6 +239,44 @@ export function answerLevelUps(
 }
 
 /**
+ * Brings a run back to plain play before a keyboard-driven step (#148): answers every pending level-up (`1`, or with
+ * `avoidNewWeapons` the same card choice as `answerLevelUps`) and closes every chest with Enter, until `state` is
+ * `'playing'`, not paused, for `stablePolls` consecutive polls 100 ms apart. A level-up can land between any two steps
+ * of a journey (since #148's built-in Growth more often), so a step that presses a key and then expects `'playing'`
+ * calls this first instead of waiting longer. Resolves with the last snapshot; throws after `timeoutMs`.
+ */
+export async function settlePlaying(
+  page: Page,
+  options: AnswerLevelUpsOptions & { stablePolls?: number; timeoutMs?: number } = {},
+): Promise<GameSnapshot> {
+  const stablePolls = options.stablePolls ?? 2;
+  const deadline = Date.now() + (options.timeoutMs ?? 30_000);
+  let stable = 0;
+  let last: GameSnapshot | null = null;
+  while (Date.now() < deadline) {
+    last = await snapshot(page);
+    if (last.state === 'levelUp') {
+      stable = 0;
+      await page.keyboard.press(
+        options.avoidNewWeapons ? await levelUpKey(page, options.avoidDamage === true) : '1',
+      );
+    } else if (last.state === 'chest') {
+      stable = 0;
+      await page.keyboard.press('Enter');
+    } else if (last.state === 'playing' && !last.paused) {
+      stable++;
+      if (stable >= stablePolls) return last;
+    } else {
+      stable = 0;
+    }
+    await page.waitForTimeout(100);
+  }
+  throw new Error(
+    `settlePlaying: no stable 'playing' state; last snapshot: ${JSON.stringify(last)}`,
+  );
+}
+
+/**
  * Fast-forwards the run with `]` (the dev-only `fastForward` key, a precondition only) until `timeS >= targetS`,
  * answering each level-up with `1` and closing each chest with Enter on the way (#17): a fast-forward stops advancing
  * at the first pending choice, so one press may cover less than 60 s. Long runs need invulnerability first (`I`, #17).

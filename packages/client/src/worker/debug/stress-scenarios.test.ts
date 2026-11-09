@@ -111,7 +111,8 @@ function startScenario(name: keyof typeof STRESS_SCENARIOS) {
 }
 
 // Heavy simulation: explicit timeout as in #80; CI runners are several times slower.
-// The pools grow while the weapons' own shots and the emitter's waves settle. Measure stability after 15 s.
+// The pools grow while the weapons' own shots and the emitter's waves settle. Measure stability after 15 s (#159;
+// #148's gentler minute-0 crowd also settles them later, about 14 s in).
 it('keeps the projectile store filled in projectiles-max and projectiles-1800, and the pools settle', () => {
   for (const [name, keep] of [
     ['projectiles-max', PROJECTILE_CAP],

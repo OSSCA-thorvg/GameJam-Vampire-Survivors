@@ -1,7 +1,9 @@
 import { ENEMY_CAP, ENEMY_LIST, STAGE } from '@vs/shared';
 import { describe, expect, it } from 'vitest';
 import { createWorld, SYSTEMS, type World } from '../world';
-import { MAX_SPAWNS_PER_STEP, spawnerSystem, waveAt } from './spawner';
+import { ENEMY_FLAG_BOSS, spawnEnemy } from '../enemies';
+import { spawnElite } from './elites';
+import { liveNormalEnemies, MAX_SPAWNS_PER_STEP, spawnerSystem, waveAt } from './spawner';
 
 const DT = 1 / 60;
 
@@ -81,6 +83,40 @@ describe('spawnerSystem', () => {
         }
       });
     }
-    expect(checked).toBeGreaterThan(100);
+    // Since #148 the live cap (`maxAlive`) holds back the batches of an idle crowd, so fewer spawns happen.
+    expect(checked).toBeGreaterThan(40);
+  });
+
+  it('skips the periodic batch while maxAlive normal enemies are alive, but still tops up and counts no boss (#148)', () => {
+    const wave = STAGE.waves[0];
+    if (!wave) throw new Error('no wave 0');
+    const world = createWorld({ seed: 4 });
+    for (let i = 0; i < wave.maxAlive; i++) spawnEnemy(world, 'bat', 5000 + i, 5000);
+    world.spawnTimer = 0;
+    spawnerSystem(world, DT);
+    expect(world.enemies.count).toBe(wave.maxAlive);
+    expect(liveNormalEnemies(world)).toBe(wave.maxAlive);
+    // A boss does not count toward the cap: with one bat fewer the batch spawns again.
+    world.enemies.remove(0);
+    const boss = spawnEnemy(world, 'reaper5', 6000, 6000);
+    world.enemies.cols.flags[boss] = ENEMY_FLAG_BOSS;
+    expect(liveNormalEnemies(world)).toBe(wave.maxAlive - 1);
+    world.spawnTimer = 0;
+    spawnerSystem(world, DT);
+    expect(liveNormalEnemies(world)).toBe(wave.maxAlive - 1 + wave.batchSize);
+  });
+
+  it("leaves elites, such as #156's minute chest carriers, outside the live cap (#148)", () => {
+    const wave = STAGE.waves[0];
+    if (!wave) throw new Error('no wave 0');
+    const world = createWorld({ seed: 4 });
+    for (let i = 0; i < wave.maxAlive - 1; i++) spawnEnemy(world, 'bat', 5000 + i, 5000);
+    const carrier = spawnElite(world, 'bat', { x: 6000, y: 6000 });
+    expect(carrier).toBeGreaterThanOrEqual(0);
+    expect(liveNormalEnemies(world)).toBe(wave.maxAlive - 1);
+    world.spawnTimer = 0;
+    const before = world.enemies.count;
+    spawnerSystem(world, DT);
+    expect(world.enemies.count).toBe(before + wave.batchSize);
   });
 });

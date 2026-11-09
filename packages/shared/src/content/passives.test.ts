@@ -40,17 +40,39 @@ it('defines the 8 passives of ADR 0008 with unique ids, levels, valid modifiers 
   }
 });
 
-it('leaves every base value unchanged at BASE_STATS and clamps the cooldown at 0.05 s', () => {
+it('leaves every base value unchanged at identity stats and clamps the cooldown at 0.05 s', () => {
   expect(STAT_IDS).toHaveLength(13);
+  // BASE_STATS carries the built-in PowerUp equivalent since #148; the helpers are checked at identity factors.
+  const identity = { ...BASE_STATS, might: 1, cooldown: 1 };
   for (const base of [0.15, 1, 1.35, 10, 400]) {
-    expect(effDamage(base, BASE_STATS)).toBe(base);
-    expect(effArea(base, BASE_STATS)).toBe(base);
-    expect(effCooldown(base, BASE_STATS)).toBe(base);
-    expect(effSpeed(base, BASE_STATS)).toBe(base);
-    expect(effDuration(base, BASE_STATS)).toBe(base);
-    expect(effAmount(base, BASE_STATS)).toBe(base);
+    expect(effDamage(base, identity)).toBe(base);
+    expect(effArea(base, identity)).toBe(base);
+    expect(effCooldown(base, identity)).toBe(base);
+    expect(effSpeed(base, identity)).toBe(base);
+    expect(effDuration(base, identity)).toBe(base);
+    expect(effAmount(base, identity)).toBe(base);
+    expect(effDamage(base, BASE_STATS)).toBeCloseTo(base * 1.1, 9);
+    expect(effCooldown(base, BASE_STATS)).toBeCloseTo(Math.max(0.05, base * 0.95), 9);
   }
   expect(effCooldown(1, { ...BASE_STATS, cooldown: 0.01 })).toBe(0.05);
   expect(effAmount(2, { ...BASE_STATS, amount: 1 })).toBe(3);
   expect(effDamage(10, { ...BASE_STATS, might: 1.5 })).toBe(15);
+});
+
+it('carries the built-in PowerUp equivalent in BASE_STATS, since there is no meta progression (#148)', () => {
+  expect(BASE_STATS).toMatchObject({
+    might: 1.1,
+    armor: 1,
+    maxHp: 120,
+    recovery: 0.2,
+    cooldown: 0.95,
+    magnet: 1.25,
+    growth: 1.1,
+    area: 1,
+    amount: 0,
+    speed: 1,
+    duration: 1,
+    moveSpeed: 1,
+    luck: 1,
+  });
 });

@@ -34,7 +34,22 @@ describe('STAGE', () => {
     expect(validateStage({ ...STAGE, waves: STAGE.waves.slice(1) })).toContain(
       'the first wave must start at minute 0',
     );
-    expect(validateStage(withWave({ minAlive: ENEMY_CAP + 1 }))).toHaveLength(1);
+    expect(validateStage(withWave({ minAlive: ENEMY_CAP + 1, maxAlive: ENEMY_CAP + 1 }))).toEqual([
+      `wave 3: minAlive must be from 0 to ENEMY_CAP (${String(ENEMY_CAP)})`,
+      `wave 3: maxAlive must be from minAlive to ENEMY_CAP (${String(ENEMY_CAP)})`,
+    ]);
+  });
+
+  it('caps every wave between minAlive and ENEMY_CAP, and reports a maxAlive below minAlive (#148)', () => {
+    for (const wave of STAGE.waves) {
+      expect(wave.maxAlive).toBeGreaterThanOrEqual(wave.minAlive);
+      expect(wave.maxAlive).toBeLessThanOrEqual(ENEMY_CAP);
+    }
+    const wave = STAGE.waves[3];
+    if (!wave) throw new Error('STAGE has fewer than four waves');
+    expect(validateStage(withWave({ maxAlive: wave.minAlive - 1 }))).toEqual([
+      `wave 3: maxAlive must be from minAlive to ENEMY_CAP (${String(ENEMY_CAP)})`,
+    ]);
   });
 });
 

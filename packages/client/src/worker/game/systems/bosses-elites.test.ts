@@ -1,4 +1,4 @@
-import { ELITE, ENEMIES, MAX_ENEMY_RADIUS, PLAYER_RADIUS } from '@vs/shared';
+import { BASE_STATS, ELITE, ENEMIES, MAX_ENEMY_RADIUS, PLAYER_RADIUS } from '@vs/shared';
 import { describe, expect, it } from 'vitest';
 import { cameraSystem } from '../camera';
 import { createBaseWorld } from '../base-world';
@@ -14,7 +14,10 @@ import { spawnElite } from './elites';
 
 const DT = 1 / 60;
 
-/** A quiet world at `BASE_STATS` (no character armor, #14): no weapons, no spawns. */
+/**
+ * A quiet world at `BASE_STATS` (no character armor, #14; only the built-in `BASE_STATS.armor` since #148): no weapons,
+ * no spawns.
+ */
 function quietWorld() {
   const world = createBaseWorld({ seed: 1 });
   world.weapons.length = 0;
@@ -32,7 +35,9 @@ describe('elites', () => {
     expect((cols.flags[slot] ?? 0) & ENEMY_FLAG_ELITE).toBe(ENEMY_FLAG_ELITE);
     indexEnemies(world);
     contactDamageSystem(world, DT);
-    expect(world.player.hp).toBe(world.player.maxHp - ENEMIES.ghoul.contactDamage * ELITE.damage);
+    expect(world.player.hp).toBe(
+      world.player.maxHp - (ENEMIES.ghoul.contactDamage * ELITE.damage - BASE_STATS.armor),
+    );
   });
 
   it('spawn on the spawn ring for "player", and never as a boss', () => {
@@ -138,7 +143,9 @@ describe('the safety fact: MAX_ENEMY_RADIUS covers the larger enemies of #15', (
     world.enemies.cols.y[0] = 0;
     indexEnemies(world);
     contactDamageSystem(world, DT);
-    expect(world.player.hp).toBe(world.player.maxHp - ENEMIES.reaper5.contactDamage);
+    expect(world.player.hp).toBe(
+      world.player.maxHp - (ENEMIES.reaper5.contactDamage - BASE_STATS.armor),
+    );
   });
 
   it('lets a projectile at radius + 40 from a boss centre hit it, and reaper10 at radius + 48', () => {
