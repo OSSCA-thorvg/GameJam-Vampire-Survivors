@@ -148,3 +148,33 @@ Licensed, not original: each font keeps its license and source record next to it
 | ID | Size | Format | Original role | Used by | Status |
 |---|---|---|---|---|---|
 | `ui.favicon` | 32×32 | png | Original red gem browser-tab icon (`ui/favicon.svg`) | Client HTML | final |
+
+<!-- audio:begin -->
+
+## Sound — `assets/audio/`
+
+Original sounds synthesized for this game with ZzFX and ZzFXM (ADR 0021): edit `scripts/audio/sounds.json` and run `sh scripts/make-audio.sh`; never edit an MP3 by hand. Audio is not drawn: it has no size, and the gallery and the boot progress skip it. The music was written from scratch for this game and quotes no other game.
+
+| ID | File | Format | Length | Original role | Used by | Status |
+|---|---|---|---|---|---|---|
+| `sfx.hitWhip` | `audio/sfx/hit-whip.mp3` | mp3 | 0.15 s | Whip hit: sharp noise crack | #129 | final |
+| `sfx.hitMagicWand` | `audio/sfx/hit-magic-wand.mp3` | mp3 | 0.20 s | Magic Wand hit: bright high zap | #129 | final |
+| `sfx.hitKnife` | `audio/sfx/hit-knife.mp3` | mp3 | 0.10 s | Knife hit: short dry tick | #129 | final |
+| `sfx.hitAxe` | `audio/sfx/hit-axe.mp3` | mp3 | 0.25 s | Axe hit: low heavy thud | #129 | final |
+| `sfx.hitCross` | `audio/sfx/hit-cross.mp3` | mp3 | 0.20 s | Cross hit: metallic ping | #129 | final |
+| `sfx.hitKingBible` | `audio/sfx/hit-king-bible.mp3` | mp3 | 0.20 s | King Bible hit: soft paper thump | #129 | final |
+| `sfx.hitFireWand` | `audio/sfx/hit-fire-wand.mp3` | mp3 | 0.30 s | Fire Wand hit: noisy fire burst | #129 | final |
+| `sfx.hitGarlic` | `audio/sfx/hit-garlic.mp3` | mp3 | 0.12 s | Garlic hit: quiet low buzz | #129 | final |
+| `sfx.enemyDeath` | `audio/sfx/enemy-death.mp3` | mp3 | 0.30 s | Enemy killed: descending pop | #129 | final |
+| `sfx.gemPickup` | `audio/sfx/gem-pickup.mp3` | mp3 | 0.12 s | XP gem collected: rising coin blip | #129 | final |
+| `sfx.playerHurt` | `audio/sfx/player-hurt.mp3` | mp3 | 0.30 s | Player takes contact damage: low crunch | #129 | final |
+| `sfx.levelUp` | `audio/sfx/level-up.mp3` | mp3 | 0.90 s | Level-up: rising major arpeggio (C5 G5 C6 E6 G6) | #129 | final |
+| `sfx.chestOpen` | `audio/sfx/chest-open.mp3` | mp3 | 1.20 s | Treasure chest opens: sparkle fanfare | #129 | final |
+| `sfx.playerDeath` | `audio/sfx/player-death.mp3` | mp3 | 1.50 s | Player dies: slow falling tone | #129 | final |
+| `sfx.uiSelect` | `audio/sfx/ui-select.mp3` | mp3 | 0.08 s | Menu focus and choice: soft click blip | #129 | final |
+| `sfx.interferenceSend` | `audio/sfx/interference-send.mp3` | mp3 | 0.50 s | Versus interference sent: rising whoosh | #129 | final |
+| `sfx.interferenceReceive` | `audio/sfx/interference-receive.mp3` | mp3 | 0.70 s | Versus interference received: two-tone alarm with echo | #129 | final |
+| `music.title` | `audio/music/title.mp3` | mp3 | 40.420 s (1782528 samples) | Title loop: slow gothic chiptune, 95 BPM, A minor; organ chords, sine bass, sparse bell lead, soft pulse; 16 bars (256 rows) | #129 | final |
+| `music.stage` | `audio/music/stage.mp3` | mp3 | 52.965 s (2335744 samples) | Stage loop: driving gothic chiptune, 145 BPM, D minor; 8th-note square bass ostinato, square lead, saw arpeggios, noise drums; 32 bars (512 rows) | #129 | final |
+
+<!-- audio:end -->

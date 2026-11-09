@@ -1,0 +1,148 @@
+{
+  "tools": {
+    "zzfx": {
+      "version": "1.4.0",
+      "sha256": "43f321101a935892c112a291e2e943b4da33159b43fcd4a21f3eae710f4a27ff"
+    },
+    "zzfxm": {
+      "commit": "cb07fa9ca36aefd67a0c8c656d2958b62f8ed9fe",
+      "sha256": "540904cd2574af403896bfa6fd552a7431461979e2002d44d16d21a34ea73115"
+    },
+    "lame": "3.100"
+  },
+  "sounds": {
+    "sfx.hitWhip": {
+      "file": "audio/sfx/hit-whip.mp3",
+      "samples": 6624,
+      "bytes": 2507,
+      "pcmSha256": "3582dc8d5ee7b66cc6cbd284ee3849d73163a314c2dd2286aea9d9d600de84d8",
+      "mp3Sha256": "9c2eb982732a5eebc798fa043817f72de8f43f154d0ed61c97b1327ce19f1660"
+    },
+    "sfx.hitMagicWand": {
+      "file": "audio/sfx/hit-magic-wand.mp3",
+      "samples": 8828,
+      "bytes": 3134,
+      "pcmSha256": "1342d35317e76ecf1b7cef34c1f6f53a2320a2c184706b046ae9907a2efbd114",
+      "mp3Sha256": "9f89db4fcfcfae049ab8f5311817d1078b13c67dc3450c8ae6db2d4d8f92c9a3"
+    },
+    "sfx.hitKnife": {
+      "file": "audio/sfx/hit-knife.mp3",
+      "samples": 4419,
+      "bytes": 1880,
+      "pcmSha256": "e74c684ae79c3a964ab615e29dd1d06083f91b2f2751fbf2c17759ae839266be",
+      "mp3Sha256": "cb7b0dbd3323bc50ca00d4538111bc1290d0beb99e30e61546ef036f0192b459"
+    },
+    "sfx.hitAxe": {
+      "file": "audio/sfx/hit-axe.mp3",
+      "samples": 11034,
+      "bytes": 3761,
+      "pcmSha256": "9fc60d2064b402e0e4ea8de668ecbd3e4bfc9ebdc8f4281c058fc519dac4fd2d",
+      "mp3Sha256": "cab1e9ee01fa91ceb6b8cdd5091f50d9999f061f0f0de5bb083123903e12c41e"
+    },
+    "sfx.hitCross": {
+      "file": "audio/sfx/hit-cross.mp3",
+      "samples": 8812,
+      "bytes": 3134,
+      "pcmSha256": "195d97a87e053f1250e27c9b8df5d115d7c32e9508a626a64cdc94848945e930",
+      "mp3Sha256": "27cc1a4ae1014f518dba64f5c9fce945b8a680ae26aa41f4b9406e900fcebd59"
+    },
+    "sfx.hitKingBible": {
+      "file": "audio/sfx/hit-king-bible.mp3",
+      "samples": 8829,
+      "bytes": 3134,
+      "pcmSha256": "0ad11200df626ed21ffd900ac855eb3b1f8dc309b064a7a213b7030235bd7960",
+      "mp3Sha256": "7edd813727c01080fe0687ea4a1127e51081cdb6ae2e1482e5c2655bbd35bd0a"
+    },
+    "sfx.hitFireWand": {
+      "file": "audio/sfx/hit-fire-wand.mp3",
+      "samples": 13230,
+      "bytes": 4388,
+      "pcmSha256": "9e8f3d9f3dddc7ab3d41de9a3823cd4fd98e6a37efc122e7040a59170158a099",
+      "mp3Sha256": "7218c3c5c25f66d68283b2e65d46aa0cc9c4556886b9bc2f51c9f1b6cb7fe997"
+    },
+    "sfx.hitGarlic": {
+      "file": "audio/sfx/hit-garlic.mp3",
+      "samples": 5292,
+      "bytes": 2194,
+      "pcmSha256": "bd6af03e942430fa5feee87114a88dcbedca8b233483a4ef9256444ca7786750",
+      "mp3Sha256": "de4b29ac161465d530336e73147967537cbd3ef798433506923f748af1132f75"
+    },
+    "sfx.enemyDeath": {
+      "file": "audio/sfx/enemy-death.mp3",
+      "samples": 13225,
+      "bytes": 4388,
+      "pcmSha256": "7e6cec1b6e2b4dba9f52dfa81b848e9633caba94bdafa15a76e2bf8e7be7b3e6",
+      "mp3Sha256": "3561fa9fc9754c8d3aaf35b72b406ae95451e9d9528d8edc05f604ebfcfdc39c"
+    },
+    "sfx.gemPickup": {
+      "file": "audio/sfx/gem-pickup.mp3",
+      "samples": 5299,
+      "bytes": 2194,
+      "pcmSha256": "43fca0cc47cfdaa16b2f275c8c76bd35a68e44df78308021057fa07d8beded3f",
+      "mp3Sha256": "faa12c47df383e281269d735bc74428553d279f5427ae2b24f6d7159c3b7208f"
+    },
+    "sfx.playerHurt": {
+      "file": "audio/sfx/player-hurt.mp3",
+      "samples": 13239,
+      "bytes": 4388,
+      "pcmSha256": "c5be1f9a35b20e511557d323d188a5e455a17c5b032c996ea7159477c2918a31",
+      "mp3Sha256": "d235828fcba9f337cb5d0f4d1acfa4fca1a36285557d12a9ef06f31de5be4939"
+    },
+    "sfx.levelUp": {
+      "file": "audio/sfx/level-up.mp3",
+      "samples": 39687,
+      "bytes": 11598,
+      "pcmSha256": "2a5d2165c4ae46400af52894d9bd1a96e5c58093b2ac24c420ceed53bff32b29",
+      "mp3Sha256": "cfe2f4d7fa6c10eefd59490e231ec04229e5fc5b66190934e63f6b0770141951"
+    },
+    "sfx.chestOpen": {
+      "file": "audio/sfx/chest-open.mp3",
+      "samples": 52924,
+      "bytes": 15046,
+      "pcmSha256": "c506a25ddd3676c37a57d35bdee9e5aa4f27cf47ab3bc1e066058c5d8fbb8b32",
+      "mp3Sha256": "21fabe8c816c920e4187d7fd7d55615f8992b969875dd74160b95954fbcb177a"
+    },
+    "sfx.playerDeath": {
+      "file": "audio/sfx/player-death.mp3",
+      "samples": 66150,
+      "bytes": 18808,
+      "pcmSha256": "b354390a3343a7be15eba1f38f4cc31bd4fc35ee10e35ba9c67bf5c42e9922e1",
+      "mp3Sha256": "78f7b38ca00e3cd7a12ba0a2001e713727bc6a55528af09092db7ad5ac90ab88"
+    },
+    "sfx.uiSelect": {
+      "file": "audio/sfx/ui-select.mp3",
+      "samples": 3537,
+      "bytes": 1880,
+      "pcmSha256": "f5b5e70bc7dceab992b0b707f0841eebaea38dd2d91367132007b8ef362d5be7",
+      "mp3Sha256": "31e3920748cf244d8ad6e1d6c47a2ac6aca4ddd6eabb866c84cc8aa365af7238"
+    },
+    "sfx.interferenceSend": {
+      "file": "audio/sfx/interference-send.mp3",
+      "samples": 22050,
+      "bytes": 6896,
+      "pcmSha256": "20cfc827c8dfd8e02501fb5af2a7ecdbeb3e4c76a04c515e3b3ab7b82dea17a9",
+      "mp3Sha256": "f6d6be5dc2bc90ab679e784bacd61ba806c94ec0eac1efeee8f5690407e5a804"
+    },
+    "sfx.interferenceReceive": {
+      "file": "audio/sfx/interference-receive.mp3",
+      "samples": 30796,
+      "bytes": 9090,
+      "pcmSha256": "2b21a948a762bc937570a2798840b9f2a6f7ace9d4ce6edb7cbc8907332802ad",
+      "mp3Sha256": "9e6044c9f228f26b63d64d7b741872f6aeb0da4455fef90b642461cf2f1cd104"
+    },
+    "music.title": {
+      "file": "audio/music/title.mp3",
+      "samples": 1782528,
+      "bytes": 485877,
+      "pcmSha256": "cf58c1ef40998623042e36efed5edefe06f68158e6a08a45ddc07d4e0e71ccfa",
+      "mp3Sha256": "bac8d214e691cecb429de8973cbf1e31064932f48e2b0bae3753ba9ef83c838e"
+    },
+    "music.stage": {
+      "file": "audio/music/stage.mp3",
+      "samples": 2335744,
+      "bytes": 636342,
+      "pcmSha256": "c0b62c8fd1bacfef333e53791edcd8832dba42b10716391f4b57e52bc888b0bd",
+      "mp3Sha256": "ac11f931051e7d606763b0c5acd3f995266ad8d8b0db1ad551e085d3759275d2"
+    }
+  }
+}

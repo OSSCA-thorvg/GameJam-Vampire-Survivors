@@ -46,6 +46,7 @@ Each row is one GitHub issue, and the issue is the source of truth for scope and
 | R2                                              | #23   | Deploy the client and the server                                       | M3             | medium   |
 | R3                                              | #47   | Stop emitting a duplicate ThorVG WASM file in builds                   | F2             | low      |
 | R4                                              | #126  | Play the Powered by ThorVG splash while the assets load                | —              | medium   |
+| R5                                              | #128  | Synthesize the game's sound effects and music as audio assets          | R4             | medium   |
 
 ## Assets
 

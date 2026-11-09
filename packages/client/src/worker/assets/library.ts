@@ -4,6 +4,7 @@ import type { LottieAnimation, Paint, ThorVGNamespace } from '@thorvg/webcanvas'
 import {
   ASSET_IDS,
   ASSET_SIZES,
+  isAudioEntry,
   lottieProfile,
   type AssetEntry,
   type DrawableAssetEntry,
@@ -55,7 +56,12 @@ interface AnimatedMaster {
 type Master = StaticMaster | AnimatedMaster;
 
 export function isDrawableId(id: string): id is DrawableAssetId {
-  return ASSET_IDS.some((known) => known === id) && !id.startsWith('font.');
+  return (
+    ASSET_IDS.some((known) => known === id) &&
+    !id.startsWith('font.') &&
+    !id.startsWith('sfx.') &&
+    !id.startsWith('music.')
+  );
 }
 
 function fallback(
@@ -200,7 +206,10 @@ export class AssetLibrary {
     library.baseUrl = baseUrl;
     library.validated = validated;
     library.onProgress = onProgress;
-    const entries = Object.values(validated.manifest.assets);
+    // ADR 0021: audio is played by the main thread, never loaded here, so it does not count towards the progress.
+    const entries = Object.values(validated.manifest.assets).filter(
+      (entry) => !isAudioEntry(entry),
+    );
     library.total = entries.length;
     library.loaded = entries.filter((entry) => entry.format === 'ttf').length;
     onProgress(library.loaded, library.total);
@@ -208,7 +217,8 @@ export class AssetLibrary {
   }
 
   private async loadEntry(id: string, entry: AssetEntry): Promise<void> {
-    if (entry.format === 'ttf' || !isDrawableId(id) || this.started.has(id)) return;
+    if (entry.format === 'ttf' || isAudioEntry(entry) || !isDrawableId(id) || this.started.has(id))
+      return;
     this.started.add(id);
     try {
       this.masters.set(id, await loadMaster(this.TVG, this.baseUrl, entry, id, this.noteResolver));
