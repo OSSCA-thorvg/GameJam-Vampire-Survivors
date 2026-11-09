@@ -39,6 +39,7 @@ The splash journeys are `e2e/splash.spec.ts` (chromium project): full play on `/
 
 ## Gotchas
 
+- The runtime-error journey answers level-ups (`answerLevelUps`) and waits for `state === 'playing'` instead of asserting it at one instant: its run lasts long enough to reach the first level-up, which made it fail in CI on PR #137 (#138).
 - Each extension `key` press is an instant down and up, so the player moves only a few units for 40 presses (one or two steps of input each); assert "increased", not a distance. Timed holds need Playwright's `holdKeys` (2026-11-08, #31).
 - The extension's `read_console_messages` does not return worker console lines (`[worker] …`); Playwright's `worker-console.log` does (#31).
 - `gif_creator` only records frames on screenshots and navigations, not key presses: take a screenshot after every action (#31).

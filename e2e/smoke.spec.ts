@@ -1,6 +1,7 @@
 // Smoke journey: drives .claude/skills/verify-game/features/boot.md (#31). Runs in CI through `pnpm verify:e2e`.
 import { expect, test } from '@playwright/test';
 import {
+  answerLevelUps,
   holdKeys,
   noteEvidence,
   openGame,
@@ -79,8 +80,11 @@ test('boot: a worker error after ready keeps the run and shows the runtime error
 }, testInfo) => {
   const ev = startEvidence(page, 'boot-runtime-error');
   noteEvidence(testInfo, ev);
+  let stopLevelUps: (() => Promise<number>) | null = null;
   try {
     await startRun(page);
+    // The run lasts long enough to reach the first level-up (#138): answer it like every other run journey.
+    stopLevelUps = answerLevelUps(page);
     await ev.shot('playing-before-error');
     // An uncaught error outside the loop (a timer), so the worker keeps stepping (the issue's Context).
     const worker = page.workers()[0];
@@ -98,18 +102,16 @@ test('boot: a worker error after ready keeps the run and shows the runtime error
     await expect(page.locator('#screens')).toHaveCount(1);
     await expect(page.locator('#app canvas')).toHaveCount(1);
     await expect(page.getByText('The game could not start.')).toHaveCount(0);
-    const after = await snapshot(page);
+    const after = await waitForSnapshot(page, (s) => s.state === 'playing', 5_000);
     ev.json('snapshot-after-error', after);
-    expect(after.state).toBe('playing');
     expect(after.runtimeErrors).toBe(1);
     await ev.shot('notice-shown');
 
     // The thrown error was outside the loop: the run's clock keeps rising.
     await page.waitForTimeout(2_000);
-    const later = await snapshot(page);
+    const later = await waitForSnapshot(page, (s) => s.state === 'playing', 5_000);
     ev.json('snapshot-2s-later', later);
     expect(later.timeS).toBeGreaterThan(after.timeS + 1);
-    expect(later.state).toBe('playing');
     expect(
       ev.pageLog.some((l) =>
         l.includes('[vs] game worker runtime error: Uncaught Error: runtime probe at '),
@@ -119,8 +121,9 @@ test('boot: a worker error after ready keeps the run and shows the runtime error
     await notice.getByRole('button', { name: 'Dismiss' }).click();
     await expect(notice).toHaveCount(0);
     await ev.shot('dismissed');
-    expect((await snapshot(page)).state).toBe('playing');
+    await waitForSnapshot(page, (s) => s.state === 'playing', 5_000);
   } finally {
+    await stopLevelUps?.();
     ev.flush();
   }
 });
