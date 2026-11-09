@@ -1,0 +1,37 @@
+# 0018. Show the opponent's world from a relayed, quantized view stream
+
+- Status: Accepted
+- Date: 2026-11-09
+- Related issues: #114 (the stream), #115 (the split panes); supersedes in part ADR 0005 (only its line "There is no live view of the opponent's world"); amends ADR 0006 (one more relayed message)
+
+## Context
+
+- REQUIREMENTS 2 (two players) and 13 (sockets). ADR 0005 keeps every player's world separate and never synchronized; only events and status cross the network, and its panel showed the opponent's numbers only.
+- **User decision (2026-11-09):** in a versus match each player's screen shows both worlds side by side, their own labelled "You" and the opponent's labelled with the opponent's nickname and "Opponent". The split follows the window shape with equal panes: whichever of left/right or top/bottom gives the larger panes (follow-up answer, 2026-11-09). Single player stays one full view. Worlds stay separate and independent, and interference items (#21) keep working.
+- ADR 0011 limits every WebSocket message to 4096 bytes (`MAX_MESSAGE_BYTES`, `ws` `maxPayload`) and every connection to 20 messages per second sustained with a burst of 40 (`RATE_SUSTAINED_PER_S`, `RATE_BURST` in `packages/server/src/limits.ts`); overflow closes with 1008. ADR 0006 relays `status` at most 4 times per second. The stream has to fit inside those limits without changing them.
+- Content sizes that bound the stream: `ENEMY_CAP` 400 and `GEM_CAP` 400 per world, `ENEMY_LIST` 9 types, 3 gem tiers (`GEM_ASSETS`), 5 light-source pickups plus 3 interference pickups, 4 characters, and the fixed 1280×720 logical view (ADR 0004).
+
+## Decision
+
+- **Layout (drawn by #115):** each pane shows the full fixed 1280×720 logical view, so window size still gives no advantage (ADR 0004). The two panes are equal, separated by a 16-unit gap, self first. With a canvas of W×H CSS pixels, `columnsScale = min(W / (2 * 1280 + 16), H / 720)` and `rowsScale = min(W / 1280, H / (2 * 720 + 16))`; the layout is `columns` (left/right) when `columnsScale >= rowsScale`, else `rows` (top/bottom). At 1440×900 that is `rows`. Single player keeps one view.
+- **The stream:** during a versus match the worker builds a `PlayerView` of its own world every 0.1 s of simulated time (`worker/game/view-stream.ts`). The main thread sends it as `ClientMessage` `view { view }` at most once per `VIEW_SEND_INTERVAL_MS` (110 ms), never while its tab is hidden, after the player is out, after the local run ended, or after the result. The server relays it unchanged as `ServerMessage` `peerView { playerId, view }` to the other players of the room, only while the room is `playing`, at most once per `VIEW_MIN_INTERVAL_MS` (100 ms) per player by its own receive time, and stores nothing. The receiver forwards only its first opponent's views to the worker (`MainToWorker` `opponentView`), which keeps the last 3 in a ring (`worker/game/opponent-feed.ts`). The receiver never simulates a view: it is display data only, so ADR 0005's separate worlds hold.
+- **Encoding** (`packages/shared/src/protocol.ts`): `PlayerView { t, x, y, f, c, h, e, g, p }`: `t` simulated ms (integer `0..VIEW_TIME_MAX_MS` = 3 600 000); `x`, `y` the player's position in whole world units (`|v| <= VIEW_POS_MAX` = 1 000 000); `f` 1 when facing left, else 0; `c` the `CHARACTERS` index; `h` HP in permille (`0..1000`); `e`, `g`, `p` flat integer triples `[kind, dx, dy]` for enemies (`kind = ENEMY_LIST index * 2 + elite bit`), idle gems (`GEM_ASSETS` index) and pickups (`pickupPoolIndex(family, defIdx)`: `PICKUPS` then `INTERFERENCE`). `dx`, `dy` are `Math.round((entity - player) / VIEW_QUANT)` with `VIEW_QUANT` 4 units, within `±VIEW_REL_MAX` (180 steps = 720 units, the 640×360 half view plus the 64-unit spawn margin); entities farther away are left out. At most `VIEW_ENEMY_MAX` 160 enemies (the nearest, when more are in range), `VIEW_GEM_MAX` 48 gems and `VIEW_PICKUP_MAX` 8 pickups. Kinds are `0..VIEW_KIND_MAX` (63) and are not checked against content lists in the protocol; the receiver skips unknown kinds. The validators check exact keys, integer types and every range above, and `PROTOCOL_VERSION` becomes 2.
+- **Size:** the encoder's budget is `VIEW_MAX_BYTES` 3072. The worst case (every list full, every number at its longest: `t` 3600000, `x`/`y` -1000000, kinds 63, offsets -180) is 2910 bytes as `view` and 2964 bytes as `peerView` with a 36-character player id (`randomUUID`), against 4096. The protocol test encodes that worst case.
+- **Rate:** an honest client sends `status` every 260 ms (3.85/s) and `view` every 110 ms (9.09/s), 12.94 messages per second, under ADR 0011's 20/s sustained; `visibility` and `interference` (#21's per-match bucket: burst 4, then 1 per 20 s) fit in the remaining 7/s. ADR 0011's limits are therefore unchanged; a real-socket server test sends both streams at the worst-case size for 5 s and is never limited.
+- **Allocation:** each emission allocates exactly the view object and its three output arrays (10 times per second, never per entity); the nearest-enemy selection runs an in-place quickselect over buffers preallocated to `ENEMY_CAP`. This is the one allowed exception to ADR 0004's no-allocation frame loop, because `postMessage` clones the payload anyway.
+- **Trust:** a cheating client can misreport its view, as it can its status; this is accepted for a jam game (ADR 0005). The server validates shape and ranges only, and logs a `view` by type and size, never its body.
+
+## Alternatives considered
+
+- **Input replay** (send inputs and simulate the opponent's world locally from the shared seed) — needs bit-identical float and `Math` results across browsers, plus the exact timing of every level-up and chest pause, which separate worlds (ADR 0005) never promised; one divergence would show a wrong world forever.
+- **Full-precision entity lists** — 400 enemies with float positions do not fit 4096 bytes; quantizing to 4 units relative to the player and keeping the nearest 160 fits with a 25% margin and is indistinguishable at pane scale.
+- **A higher relay rate** (20/s) — would exceed ADR 0011's 20 messages per second together with `status`; 10/s with interpolation in the pane (#115) is smooth enough.
+- **A binary encoding** — smaller, but the protocol is JSON with hand-written validators everywhere (ADR 0006, ADR 0011); a second format would double the validation surface.
+
+## Consequences
+
+- The opponent pane (#115) can draw the other world without any shared simulation; a lagging or hidden opponent simply freezes their pane.
+- `ENEMY_LIST`, `GEM_ASSETS`, `PICKUPS`, `INTERFERENCE` and `CHARACTERS` order become wire kinds: append only, as they already were for pools.
+- The `VIEW_*` caps are coupled to `MAX_MESSAGE_BYTES` and the token bucket through this ADR's arithmetic. Raising a cap, adding a field or a third relayed stream needs the worst-case size test and the rate test re-run, and possibly this ADR revisited.
+- Rooms over 2 players show only the first other player's world; more panes would need another decision.
+- Revisit if a mid-range laptop cannot draw the second pane within the frame budget (#115 measures it), or if the relay's bandwidth (about 30 KB/s per player at the worst case) matters on the hosting chosen for #23.

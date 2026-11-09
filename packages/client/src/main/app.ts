@@ -7,6 +7,7 @@ import type {
   MainToWorker,
   RunSummary,
   WorkerStatus,
+  WorkerView,
 } from '../protocol/worker-messages';
 import {
   createVersusController,
@@ -346,6 +347,8 @@ export interface App {
   startVersus(start: VersusStart): void;
   /** A worker `status` (#20): relayed by the running versus match; ignored otherwise. */
   status(message: WorkerStatus): void;
+  /** A worker `view` (#114): sent by the running versus match; ignored otherwise. */
+  view(message: WorkerView): void;
   /** A worker `interferenceCollected` (#21): sent by the running versus match; ignored otherwise. */
   interferenceCollected(kind: InterferenceKind): void;
   /** The interference banners shown now (#21); empty outside a versus match. */
@@ -690,6 +693,9 @@ export function createApp(
     },
     status(message) {
       versus?.status(message);
+    },
+    view(message) {
+      versus?.view(message);
     },
     interferenceCollected(kind) {
       versus?.interferenceCollected(kind);

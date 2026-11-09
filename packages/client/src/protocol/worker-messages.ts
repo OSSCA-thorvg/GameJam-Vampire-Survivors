@@ -1,7 +1,14 @@
 // The only message contract between the main thread and the game worker (ADR 0004). Types only: compiled by both
 // tsconfig.main.json and tsconfig.worker.json. Later issues extend these unions; every `switch` on `type` or `kind`
 // is exhaustive and ends in `assertNever` (./assert-never.ts).
-import type { AssetId, ChestReward, InterferenceKind, PassiveId, WeaponId } from '@vs/shared';
+import type {
+  AssetId,
+  ChestReward,
+  InterferenceKind,
+  PassiveId,
+  PlayerView,
+  WeaponId,
+} from '@vs/shared';
 
 /** Hidden-tab behaviour: `'pause'` for single player, `'simulate'` for versus play (ADRs 0004, 0005). */
 export type BackgroundPolicy = 'pause' | 'simulate';
@@ -53,6 +60,15 @@ export interface WorkerStatus {
   kills: number;
   alive: boolean;
   elapsedMs: number;
+}
+
+/**
+ * #114: the local world's view (ADR 0018), posted by a `'versus'` run every 0.1 s of simulated time while the tab is
+ * visible; the main thread sends it as the protocol's `view`.
+ */
+export interface WorkerView {
+  type: 'view';
+  view: PlayerView;
 }
 
 /** One card of the level-up choice (#11; passives #12). Text and icon come from content data only. */
@@ -119,6 +135,8 @@ export type MainToWorker =
    * the main thread). Applied at the start of the next step; a `kind` outside `INTERFERENCE_KINDS` is ignored.
    */
   | { type: 'applyInterference'; kind: InterferenceKind }
+  /** #114: the first opponent's relayed `peerView` (ADR 0018); display data only, kept by the opponent feed. */
+  | { type: 'opponentView'; view: PlayerView }
   | { type: 'debug'; command: DebugCommand }
   | TestSnapshotRequest;
 
@@ -142,6 +160,7 @@ export type WorkerToMain =
   | WorkerStatus
   /** #22: a named `?stress` scenario finished its measured window (dev and `perf` builds only). */
   | { type: 'stressResult'; result: StressResult }
+  | WorkerView
   | TestSnapshotReply;
 
 /**

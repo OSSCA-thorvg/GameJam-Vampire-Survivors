@@ -3,6 +3,6 @@ import { PROTOCOL_VERSION } from './index.js';
 
 describe('shared', () => {
   it('exports the protocol version', () => {
-    expect(PROTOCOL_VERSION).toBe(1);
+    expect(PROTOCOL_VERSION).toBe(2);
   });
 });

@@ -39,6 +39,8 @@ Each row is one GitHub issue, and the issue is the source of truth for scope and
 | M2                                              | #19   | Add the lobby: nickname, room codes and ready check                    | C4, G3, M1     | high     |
 | M3                                              | #20   | Run versus matches: status relay, opponent panel and result            | G6, M2         | high     |
 | M4                                              | #21   | Add interference items for multiplayer                                 | M3             | high     |
+| M5                                              | #114  | Stream each player's world view to the opponent through the server     | M3, M4         | high     |
+| M6                                              | #115  | Show both versus worlds side by side in split panes                    | M5             | high     |
 | **Phase 4: release**                            |       |                                                                        |                |          |
 | R1                                              | #22   | Measure performance and set entity caps                                | G6, V1         | medium   |
 | R2                                              | #23   | Deploy the client and the server                                       | M3             | medium   |

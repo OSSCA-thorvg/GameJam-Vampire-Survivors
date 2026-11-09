@@ -4,13 +4,14 @@ The WebSocket room server (#18): clients say `hello`, create or join a room by i
 
 ## Sub-features
 
-- **Handshake:** after `hello { v: 1 }` the server answers `welcome { playerId }`; before `hello` it sends nothing. Any other first message, or another version, gets `error versionMismatch` and a 1008 close.
+- **Handshake:** after `hello { v: 2 }` the server answers `welcome { playerId }`; before `hello` it sends nothing. Any other first message, or another version, gets `error versionMismatch` and a 1008 close.
 - **Create and join:** `createRoom { nickname }` answers `roomState` with a code matching `^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$`, `phase: 'lobby'`, `maxPlayers: 2` and the creator as `host`; `joinRoom { code, nickname }` makes both players receive a `roomState` with 2 players. Unknown code, full room or a room in a match: `roomNotFound` (a code's existence is never revealed, ADR 0011); same nickname (case-insensitive): `nicknameTaken`; bidi, zero-width or control characters, or more than 12 characters: `invalidNickname`.
 - **Ready and start:** both `setReady { ready: true }`, then the host's `startMatch` gives both players `matchStart` with the same `seed` and `startAt` (server epoch ms, 3 s ahead), then `roomState` with `phase: 'countdown'` and, at `startAt`, `phase: 'playing'`. Not host: `notHost`; fewer than 2 or not all ready: `notAllReady`.
 - **Result:** `died` from one player gives everyone `playerEliminated { reason: 'died' }` and, 100 ms later, `matchResult { outcome: 'win', winnerId: <the other player> }`, then `roomState` `finished`; 5 s later `roomState` is back in `lobby` with every `ready: false`.
 - **Deadline (#60):** the server ends every match by itself at `startAt + (MATCH_TIME_LIMIT_S + MATCH_DEADLINE_GRACE_S) s` (900 + 10 s). Every player who has reported neither `died` nor `survived` by then counts as survived with the kills of their last relayed `status`, and the ADR 0005 rule decides: both players get the same `matchResult` (most kills win, a tie is a draw), with no `playerEliminated`. Any earlier result clears the deadline.
 - **Disconnected at the deadline (#64, ADR 0014):** before that rule applies, every player still alive whose socket is closed, even inside the 10 s disconnect grace and even after reporting `survived`, dies at the deadline instant: the connected players get `playerEliminated { reason: 'disconnected' }` and, after the 100 ms simultaneous-death window, `matchResult` with that player ranked `alive: false`. Dropping the connection never protects a lead; the disconnected player receives nothing. Players connected at the deadline keep the rule above. Journeys shorten the limit with `MATCH_TIME_LIMIT_S_OVERRIDE` (1–900 s), which the server honours only when `NODE_ENV=test`; the `listening` log line shows the effective `matchTimeLimitS`, and an ignored override logs `override_ignored`.
 - **Status and interference:** `status` is relayed as `peerStatus` to the other players at most every 250 ms; `interference { kind }` during `playing` reaches one living opponent only, as `interferenceIncoming` with the sender's id and nickname. Each sender gets `INTERFERENCE_SEND_LIMIT` per match (#21: a burst of 4, then one per 20 s); beyond it the message is dropped silently (no `error`) and the server logs `interference_capped`.
+- **View relay (#114, ADR 0018):** during `playing`, `view { view }` (a `PlayerView`: `t`, `x`, `y`, `f`, `c`, `h` and the `e`/`g`/`p` triple lists) is relayed unchanged as `peerView { playerId, view }` to the other players only, at most once per 100 ms per player (`VIEW_MIN_INTERVAL_MS`, by server receive time); more are dropped silently. In `countdown`, after the sender's elimination and after `finished` it is dropped; from the lobby or without a room it is a `wrongPhase` violation. The server stores nothing of a view and logs it by type and size only. A malformed view (an extra key, 161 enemy triples, an offset beyond ±180, a float) gets `badMessage`.
 - **Limits (ADR 0011):** an upgrade from an Origin outside `ALLOWED_ORIGINS` gets HTTP 403, another path 400, the 11th connection from one IP 429; 100 messages (or WebSocket pings) in one second get `error rateLimited` and a 1008 close; a malformed or out-of-phase message gets one `error` (`badMessage` or `wrongPhase`) and the second closes with 1008; frames over 4 KiB close with 1009; 10 unknown codes in 60 s make further `joinRoom` answer `rateLimited` for 60 s.
 - **Logs:** `pnpm server:logs` shows event names, room codes, counts, sizes and close codes, never nicknames or message bodies.
 
@@ -31,7 +32,7 @@ The player entry point is the lobby (`lobby.md`, #19); this file drives the raw 
    __room.socket.onmessage = (e) => __room.log.push(JSON.parse(e.data));
    __room.send = (m) => __room.socket.send(JSON.stringify(m));
    await new Promise((r) => (__room.socket.onopen = r));
-   __room.send({ type: 'hello', v: 1 });
+   __room.send({ type: 'hello', v: 2 });
    ```
 3. Tab A: `__room.send({ type: 'createRoom', nickname: 'Alice' })`, then read the code: `__room.log.filter((m) => m.type === 'roomState').at(-1).code`.
 4. Tab B: `__room.send({ type: 'joinRoom', code: '<code>', nickname: 'Bob' })`; both tabs: `__room.send({ type: 'setReady', ready: true })`; tab A: `__room.send({ type: 'startMatch' })`.
@@ -132,9 +133,9 @@ test('room server: two contexts create, join, ready, start with one seed, and a 
     await connect(a);
     await connect(b);
 
-    await send(a, { type: 'hello', v: 1 });
+    await send(a, { type: 'hello', v: 2 });
     const welcomeA = await waitFor(a, 'welcome');
-    await send(b, { type: 'hello', v: 1 });
+    await send(b, { type: 'hello', v: 2 });
     const welcomeB = await waitFor(b, 'welcome');
 
     await send(a, { type: 'createRoom', nickname: 'Alice' });

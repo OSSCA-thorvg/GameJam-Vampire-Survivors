@@ -1,4 +1,15 @@
-import { PROTOCOL_VERSION, type ServerMessage } from '@vs/shared';
+import {
+  PROTOCOL_VERSION,
+  VIEW_ENEMY_MAX,
+  VIEW_GEM_MAX,
+  VIEW_KIND_MAX,
+  VIEW_PICKUP_MAX,
+  VIEW_POS_MAX,
+  VIEW_REL_MAX,
+  VIEW_TIME_MAX_MS,
+  type PlayerView,
+  type ServerMessage,
+} from '@vs/shared';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import { loadConfig } from './config.js';
@@ -134,6 +145,22 @@ async function readyPair(): Promise<{
   await a.next('roomState', (s) => s.players.every((p) => p.ready));
   return { a, b, aId, bId, code };
 }
+
+const worstTriples = (n: number): number[] =>
+  Array.from({ length: n }, () => [VIEW_KIND_MAX, -VIEW_REL_MAX, -VIEW_REL_MAX]).flat();
+
+/** The longest valid `view` (ADR 0018): every list full, every number at its longest. */
+const WORST_VIEW: PlayerView = {
+  t: VIEW_TIME_MAX_MS,
+  x: -VIEW_POS_MAX,
+  y: -VIEW_POS_MAX,
+  f: 1,
+  c: VIEW_KIND_MAX,
+  h: 1000,
+  e: worstTriples(VIEW_ENEMY_MAX),
+  g: worstTriples(VIEW_GEM_MAX),
+  p: worstTriples(VIEW_PICKUP_MAX),
+};
 
 async function healthy(): Promise<boolean> {
   const res = await fetch(`http://${base}/healthz`);
@@ -284,6 +311,41 @@ describe('match flow', () => {
     expect(b.count('interferenceIncoming')).toBe(0);
   }, 10_000);
 
+  it('safety fact (#114, ADR 0018): status every 260 ms plus worst-case view every 110 ms for 5 s is never limited', async () => {
+    const { a, b } = await readyPair();
+    a.send({ type: 'startMatch' });
+    await Promise.all([
+      a.next('roomState', (s) => s.phase === 'playing', 5000),
+      b.next('roomState', (s) => s.phase === 'playing', 5000),
+    ]);
+    const status = { hp: 5, maxHp: 10, level: 1, kills: 0, alive: true, elapsedMs: 0 };
+    const view = JSON.stringify({ type: 'view', view: WORST_VIEW });
+    const timers: ReturnType<typeof setInterval>[] = [];
+    for (const c of [a, b]) {
+      timers.push(
+        setInterval(() => {
+          c.send({ type: 'status', status });
+        }, 260),
+      );
+      timers.push(
+        setInterval(() => {
+          c.send(view);
+        }, 110),
+      );
+    }
+    await new Promise((r) => setTimeout(r, 5000));
+    for (const t of timers) clearInterval(t);
+    await new Promise((r) => setTimeout(r, 200));
+    for (const c of [a, b]) {
+      expect(c.socket.readyState).toBe(WebSocket.OPEN);
+      expect(c.messages.filter((m) => m.type === 'error')).toEqual([]);
+      expect(c.count('peerView')).toBeGreaterThanOrEqual(40);
+      expect(c.count('peerView')).toBeLessThanOrEqual(50);
+    }
+    const relayed = a.messages.find((m) => m.type === 'peerView');
+    expect(relayed?.type === 'peerView' && relayed.view).toEqual(WORST_VIEW);
+  }, 15_000);
+
   it('a disconnect leaves the room, which is deleted with its last player', async () => {
     const { a, b, code } = await readyPair();
     b.socket.close();
@@ -399,6 +461,18 @@ describe('safety fact: no client message crashes the server or reaches the regis
         '{"type":"status","status":{"hp":1,"maxHp":1,"level":1,"kills":0,"alive":true,"elapsedMs":0}}',
     },
     { name: 'out of phase startMatch', payload: '{"type":"startMatch"}' },
+    {
+      name: 'view over the enemy cap',
+      payload: JSON.stringify({
+        type: 'view',
+        view: { ...WORST_VIEW, e: worstTriples(VIEW_ENEMY_MAX + 1), g: [], p: [] },
+      }),
+    },
+    {
+      name: 'malformed view',
+      payload: JSON.stringify({ type: 'view', view: { ...WORST_VIEW, f: 2 } }),
+    },
+    { name: 'out of phase view', payload: JSON.stringify({ type: 'view', view: WORST_VIEW }) },
   ];
 
   for (const { name, payload } of invalid) {
