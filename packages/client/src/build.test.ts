@@ -65,9 +65,12 @@ it('ships the ?perf overlay but no debug tool or stress scenario strings', () =>
     'enemies-800',
     'enemies-1200',
     'projectiles-max',
+    'projectiles-1800',
+    'projectiles-frozen',
     'gems-flood',
     'lottie-enemy',
     '[stress]',
+    'stressProgress',
   ])
     expect(all, forbidden).not.toContain(forbidden);
 });

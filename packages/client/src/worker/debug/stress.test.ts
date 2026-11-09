@@ -46,6 +46,8 @@ it('supports zero/small scenes, caps numeric counts and refuses reserved named s
 it('parses the named #22 scenarios before numeric counts', () => {
   expect(parseStress('enemies-800')).toEqual({ scenario: 'enemies-800' });
   expect(parseStress('lottie-enemy-shared')).toEqual({ scenario: 'lottie-enemy-shared' });
+  expect(parseStress('projectiles-1800')).toEqual({ scenario: 'projectiles-1800' });
+  expect(parseStress('projectiles-frozen')).toEqual({ scenario: 'projectiles-frozen' });
   expect(parseStress('300')).toEqual({ count: 300 });
   expect(parseStress('')).toBeNull();
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);

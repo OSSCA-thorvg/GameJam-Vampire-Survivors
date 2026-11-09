@@ -16,6 +16,8 @@ const STRESS_SCENARIO_NAMES = [
   'enemies-800',
   'enemies-1200',
   'projectiles-max',
+  'projectiles-1800',
+  'projectiles-frozen',
   'gems-flood',
   'lottie-enemy',
   'lottie-enemy-shared',
@@ -25,6 +27,8 @@ const FORBIDDEN = [
   '__vsDebug',
   'testSnapshot',
   'togglePerfOverlay',
+  // #119: the scenario progress message, filtered out before the main thread's switch inside the dev/perf guard.
+  'stressProgress',
   ...STRESS_SCENARIO_NAMES,
 ];
 /** Only text files can contain the names; thorvg.wasm and images are skipped. */

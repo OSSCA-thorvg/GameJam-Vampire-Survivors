@@ -18,6 +18,12 @@ import { addGem } from '../game/gems';
 import { grantNextPassive } from '../game/passives';
 import type { Session } from '../game/session';
 import { recomputeStats } from '../game/stats';
+import {
+  MOTION_STRAIGHT,
+  PROJECTILE_ASSETS,
+  spawnProjectile,
+  type ProjectileOptions,
+} from '../game/projectiles';
 import { addWeapon, levelUpWeapon } from '../game/weapons/owned';
 import type { World } from '../game/world';
 import type { PerfMeter } from '../perf/overlay';
@@ -43,15 +49,46 @@ const MAX_WEAPONS: readonly WeaponId[] = [
 /** Enemies and gems appear in this ring around the player, most of it on screen. */
 const RING_MIN = 150;
 const RING_MAX = 620;
+/** Wall-clock interval of the `stressProgress` messages (#119). */
+export const STRESS_PROGRESS_MS = 10_000;
+/** The emitter's shots (#119): units per second, and one options object reused for every shot (it is copied). */
+const EMIT_SPEED = 240;
+const EMIT_OPTIONS: ProjectileOptions = {
+  damage: 1,
+  knockback: 0,
+  radius: 8,
+  pierce: Number.POSITIVE_INFINITY,
+  ttl: 2.5,
+  weaponSlot: 0,
+  motion: MOTION_STRAIGHT,
+};
+/** The emitter cycles through the five projectile weapons' art (`weapon.magicWand` … `weapon.fireWand`). */
+const EMIT_ASSETS = PROJECTILE_ASSETS.slice(0, 5);
 
 export interface ScenarioRecorder {
   /** Call once per rendered frame, after `canvas.render()`. */
   afterFrame(now: number): void;
 }
 
+/** Where the recorder listens for uncaught worker errors; the worker's global scope by default. */
+type ErrorTarget = Pick<EventTarget, 'addEventListener'>;
+
+/** An error event's or a rejection reason's stack, or its string form when it has none. */
+function describeError(reason: unknown): string {
+  if (reason instanceof Error) return reason.stack ?? String(reason);
+  if (typeof reason === 'object' && reason !== null && 'stack' in reason) {
+    const { stack } = reason;
+    if (typeof stack === 'string' && stack !== '') return stack;
+  }
+  return String(reason);
+}
+
 /**
  * Warms up for `STRESS_WARMUP_MS`, then records every frame's timings for `STRESS_MEASURE_MS` through `meter` and posts
  * one `stressResult` with the medians and the largest `counts` seen. Logs `[stress]` lines at each phase.
+ * #119: from the first frame, posts a `stressProgress` every `STRESS_PROGRESS_MS` of wall time with the frames and
+ * steps so far and the simulated time, and one with `error` set for every uncaught worker error or unhandled rejection
+ * while the scenario runs, so a stall or a crash reaches the main-thread console.
  */
 export function createScenarioRecorder(opts: {
   scenario: string;
@@ -59,6 +96,12 @@ export function createScenarioRecorder(opts: {
   post: (message: WorkerToMain) => void;
   counts: Readonly<Record<string, () => number>>;
   start: number;
+  /** Simulated seconds so far (the world's `time`, or the steps since boot / 60). */
+  simTime: () => number;
+  /** Simulation steps since boot. */
+  steps: () => number;
+  /** Defaults to the worker's global scope. */
+  errors?: ErrorTarget;
 }): ScenarioRecorder {
   const { scenario, meter, post, counts } = opts;
   const timings = createFrameTimings(SAMPLES);
@@ -67,10 +110,45 @@ export function createScenarioRecorder(opts: {
   const peaks = new Float64Array(names.length);
   let phase: 'warmup' | 'measuring' | 'done' = 'warmup';
   let measureStart = 0;
+  let frames = 0;
+  let lastNow = opts.start;
+  let nextProgress = Number.NaN;
+  const progress = (error: string | null): void => {
+    post({
+      type: 'stressProgress',
+      scenario,
+      phase: phase === 'warmup' ? 'warmup' : 'measuring',
+      elapsedS: Math.round(lastNow - opts.start) / 1000,
+      steps: opts.steps(),
+      frames,
+      simS: Math.round(opts.simTime() * 1000) / 1000,
+      error,
+    });
+  };
+  const target: ErrorTarget = opts.errors ?? globalThis;
+  target.addEventListener('error', (event) => {
+    if (phase === 'done') return;
+    const e = event as ErrorEvent;
+    const where = e.filename ? ` at ${e.filename}:${String(e.lineno)}:${String(e.colno)}` : '';
+    progress(
+      e.error === undefined || e.error === null ? `${e.message}${where}` : describeError(e.error),
+    );
+  });
+  target.addEventListener('unhandledrejection', (event) => {
+    if (phase === 'done') return;
+    progress(describeError((event as PromiseRejectionEvent).reason));
+  });
   console.warn(`[stress] ${scenario}: warming up for ${String(STRESS_WARMUP_MS / 1000)} s`);
   return {
     afterFrame(now) {
       if (phase === 'done') return;
+      frames++;
+      lastNow = now;
+      if (Number.isNaN(nextProgress)) nextProgress = now + STRESS_PROGRESS_MS;
+      else if (now >= nextProgress) {
+        nextProgress += STRESS_PROGRESS_MS;
+        progress(null);
+      }
       if (phase === 'warmup') {
         if (now - opts.start < STRESS_WARMUP_MS) return;
         phase = 'measuring';
@@ -131,11 +209,16 @@ export function startWorldScenario(session: Session, scenario: WorldScenario): W
     gems: Math.max(GEM_CAP, scenario.gems ?? 0),
   });
   world.debugInvulnerable = true;
+  if (scenario.frozen) world.freezeUntil = Number.POSITIVE_INFINITY;
+  const ringMin = scenario.ring?.min ?? RING_MIN;
+  const ringMax = scenario.ring?.max ?? RING_MAX;
+  const keepProjectiles = scenario.projectiles ?? 0;
+  let emitted = 0;
   const rng = createRng(22);
   const point = { x: 0, y: 0 };
   const ring = (): void => {
     const angle = rng.range(0, Math.PI * 2);
-    const distance = rng.range(RING_MIN, RING_MAX);
+    const distance = rng.range(ringMin, ringMax);
     point.x = world.player.x + Math.cos(angle) * distance;
     point.y = world.player.y + Math.sin(angle) * distance;
   };
@@ -160,6 +243,22 @@ export function startWorldScenario(session: Session, scenario: WorldScenario): W
       while (current.enemies.count < scenario.enemies) {
         ring();
         if (spawnEnemy(current, rng.pick(normal), point.x, point.y) < 0) break;
+      }
+      // #119: shots in every direction from the player, piercing, so the store holds `projectiles` at least.
+      while (current.projectiles.count < keepProjectiles) {
+        const angle = rng.range(0, Math.PI * 2);
+        const asset = EMIT_ASSETS[emitted % EMIT_ASSETS.length] ?? 'weapon.magicWand';
+        const slot = spawnProjectile(
+          current,
+          asset,
+          current.player.x,
+          current.player.y,
+          Math.cos(angle) * EMIT_SPEED,
+          Math.sin(angle) * EMIT_SPEED,
+          EMIT_OPTIONS,
+        );
+        if (slot < 0) break;
+        emitted++;
       }
     },
   };

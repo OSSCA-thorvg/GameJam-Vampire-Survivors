@@ -1,5 +1,5 @@
 import type { Scene } from '@thorvg/webcanvas';
-import { createRng, type DrawableAssetId } from '@vs/shared';
+import { createRng, PROJECTILE_CAP, type DrawableAssetId } from '@vs/shared';
 import type { AssetLibrary } from '../assets/library';
 import { createStore } from '../ecs/store';
 import { createSpatialGrid } from '../ecs/spatial-grid';
@@ -33,7 +33,15 @@ export const STRESS_SCENARIOS = {
   'enemies-400': { kind: 'world', enemies: 400 },
   'enemies-800': { kind: 'world', enemies: 800 },
   'enemies-1200': { kind: 'world', enemies: 1200 },
-  'projectiles-max': { kind: 'world', enemies: 300, maxWeapons: true },
+  'projectiles-max': { kind: 'world', enemies: 300, maxWeapons: true, projectiles: PROJECTILE_CAP },
+  'projectiles-1800': { kind: 'world', enemies: 300, maxWeapons: true, projectiles: 1800 },
+  'projectiles-frozen': {
+    kind: 'world',
+    enemies: 300,
+    maxWeapons: true,
+    frozen: true,
+    ring: { min: 150, max: 1100 },
+  },
   'gems-flood': { kind: 'world', enemies: 0, gems: 1000 },
   'lottie-enemy': { kind: 'lottie', count: 400, mode: 'perEnemy' },
   'lottie-enemy-shared': { kind: 'lottie', count: 400, mode: 'shared' },
@@ -48,6 +56,12 @@ export type StressScenario =
       maxWeapons?: boolean;
       /** Blue gems dropped at the start without merging; later drops merge as usual. */
       gems?: number;
+      /** Live projectiles kept at least (#119): an emitter tops the store up after every step; weapon shots count. */
+      projectiles?: number;
+      /** The enemy (and gem) spawn ring around the player; `RING_MIN`/`RING_MAX` when absent (#119). */
+      ring?: { min: number; max: number };
+      /** An endless Orologion freeze from the start (#119): enemies stop, so shots fly past them. */
+      frozen?: boolean;
     }
   | { kind: 'lottie'; count: number; mode: 'perEnemy' | 'shared' };
 export type StressScenarioName = keyof typeof STRESS_SCENARIOS;

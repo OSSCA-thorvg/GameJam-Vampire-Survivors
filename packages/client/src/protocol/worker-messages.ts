@@ -174,7 +174,28 @@ export type WorkerToMain =
   /** #22: a named `?stress` scenario finished its measured window (dev and `perf` builds only). */
   | { type: 'stressResult'; result: StressResult }
   | WorkerView
+  | StressProgress
   | TestSnapshotReply;
+
+/**
+ * #119: a named `?stress` scenario's progress (dev and `perf` builds only): every 10 s of wall time from its first
+ * frame, with `error: null`, and once for every uncaught worker error or unhandled rejection while it runs, with
+ * `error` set to the stack. The main thread filters it out before its exhaustive `switch`, inside the dev/perf guard,
+ * so the normal production bundle does not contain the `type` string.
+ */
+export interface StressProgress {
+  type: 'stressProgress';
+  scenario: string;
+  phase: 'warmup' | 'measuring';
+  /** Wall-clock seconds since the scenario started recording. */
+  elapsedS: number;
+  /** Simulation steps and rendered frames since boot and since the first recorded frame. */
+  steps: number;
+  frames: number;
+  /** Simulated seconds (the world's `time`, or steps / 60 for the Lottie scenes). */
+  simS: number;
+  error: string | null;
+}
 
 /**
  * The worker's half of a stress scenario's summary (#22). All timings are milliseconds over the measured window,
@@ -217,8 +238,8 @@ export interface TestSnapshotReply {
 }
 /** `MainToWorker` without the test bridge request: what the worker's `switch` handles. */
 export type GameMainToWorker = Exclude<MainToWorker, TestSnapshotRequest>;
-/** `WorkerToMain` without the test bridge reply: what the main thread's `switch` handles. */
-export type GameWorkerToMain = Exclude<WorkerToMain, TestSnapshotReply>;
+/** `WorkerToMain` without the test bridge reply and #119's stress progress: what the main thread's `switch` handles. */
+export type GameWorkerToMain = Exclude<WorkerToMain, TestSnapshotReply | StressProgress>;
 
 // Extended by later issues (#2 defined the first two). Dev builds only (main/debug.ts, worker/debug.ts).
 export type DebugCommand =
