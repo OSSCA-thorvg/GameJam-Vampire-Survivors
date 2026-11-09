@@ -1,7 +1,7 @@
 import type { AssetResolver, Paint, ThorVGNamespace } from '@thorvg/webcanvas';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ASSET_IDS, inspectPng, validateManifest } from '@vs/shared';
-import { AssetLibrary } from './library';
+import { AssetLibrary, isDrawableId } from './library';
 import { Buffer } from 'node:buffer';
 const pngBytes = Uint8Array.from(
   Buffer.from(
@@ -168,9 +168,37 @@ describe('AssetLibrary', () => {
     expect(fetch).not.toHaveBeenCalled();
     expect(progress).toHaveBeenLastCalledWith(1, 1);
     expect(library.placeholders).toHaveLength(
-      ASSET_IDS.filter((id) => !id.startsWith('font.')).length,
+      ASSET_IDS.filter((id) => !/^(?:font|sfx|music)\./.test(id)).length,
     );
     expect(library.placeholders).not.toContain('font.hud');
+  });
+  it('ignores audio entries: same progress total, no fetch and no placeholder (ADR 0021)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const fetch = fetchOk();
+    vi.stubGlobal('fetch', fetch);
+    const progress = vi.fn();
+    const library = await AssetLibrary.load(
+      TVG,
+      'https://example.test/',
+      progress,
+      manifest({
+        'enemy.bat': svg,
+        'sfx.hitWhip': {
+          file: 'audio/sfx/hit-whip.mp3',
+          format: 'mp3',
+          samples: 6624,
+          loop: false,
+        },
+      }),
+    );
+    expect(progress).toHaveBeenNthCalledWith(1, 0, 1);
+    expect(progress).toHaveBeenLastCalledWith(1, 1);
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(fetch).toHaveBeenCalledWith(new URL('https://example.test/enemies/bat.svg'));
+    expect(library.placeholders.some((id) => /^(?:sfx|music)\./.test(id))).toBe(false);
+    expect(isDrawableId('sfx.hitWhip')).toBe(false);
+    expect(isDrawableId('music.stage')).toBe(false);
+    expect(isDrawableId('enemy.bat')).toBe(true);
   });
   it('uses nearest filtering for raster data and clones the cached picture', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);

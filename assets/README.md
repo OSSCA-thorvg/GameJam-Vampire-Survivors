@@ -77,3 +77,19 @@ The #3/#5 geometric placeholder pack is replaced through the pinned sprite-gen a
 The closed36-ID motion inventory follows [ADR 0019](../docs/adr/0019-render-all-actor-and-effect-motion-with-native-lottie.md). The exact current graph and retained source/review archive are recorded in `docs/assets/motion-84.receipt.json`; the #76 receipt remains historical evidence. #14 supplies gameplay selection and stats; this migration preserves them.
 
 Powered by ThorVG animation (`ui.splash`), provided by the ThorVG project for this game (2026-11-09). Source: https://github.com/user-attachments/files/34418458/powred.by.thorvg.1.json (92 448 bytes, SHA-256 `c448bc4d6b62d9fc7f790a4b28ad4a4717e2c9a13f30d5ee31fda12bf346e509`). `sh scripts/make-splash.sh` converts its one embedded WebP image with libwebp `dwebp` 1.6.0 into `ui/splash/logo.png` (94 154 bytes, SHA-256 `0233d9febd4a64384b2c4b8703dd137798236ef85bbcd3777597638a1f757904`) and writes `ui/splash.json` (79 072 bytes, SHA-256 `15c4dda63fff855e6497b89dac10c3d29e85b8ae84ce23ff5ca783f956846f89`); nothing else in the animation changes. Its provenance is these hashes, outside `docs/assets/motion-84.receipt.json` (ADR 0020).
+
+<!-- audio:begin -->
+
+### Sound (ADR 0021)
+
+The 17 sound effects (`sfx.*`) and 2 music loops (`music.*`) are original works authored for this game in `scripts/audio/sounds.json` and rendered with these tools; no recording, sample library or AI model is involved, and the music was written from scratch without quoting or paraphrasing any game's melody, bass line or chord progression. `music.stage` is a 145 BPM loop in D minor, `music.title` a 95 BPM loop in A minor.
+
+- ZzFX 1.4.0 by Frank Force, MIT, Copyright (c) 2019 Frank Force: https://github.com/KilledByAPixel/ZzFX, downloaded from https://registry.npmjs.org/zzfx/-/zzfx-1.4.0.tgz, `package/ZzFX.js` SHA-256 `43f321101a935892c112a291e2e943b4da33159b43fcd4a21f3eae710f4a27ff`.
+- ZzFXM 2.0.3 by Keith Clark and Frank Force, MIT: https://github.com/keithclark/ZzFXM, commit `cb07fa9ca36aefd67a0c8c656d2958b62f8ed9fe`, `zzfxm.js` SHA-256 `540904cd2574af403896bfa6fd552a7431461979e2002d44d16d21a34ea73115`.
+- LAME 3.100 encodes the MP3s. None of the three tools ships with the game or is a project dependency.
+
+Naming rule: `sfx.<name>` is `audio/sfx/<kebab-name>.mp3` and `music.<name>` is `audio/music/<kebab-name>.mp3`. Format: MPEG-1 Layer III, 44.1 kHz, mono, CBR 96 kbps with LAME's gapless header; the manifest entry records the decoded frame count as `samples`, and `loop` is true exactly for music. Budgets: each sound effect at most 2.0 s and 32 KiB, each music loop at most 70 s and 840 KiB, all audio at most 2 MiB. A music loop is the steady-state middle pass of three renders, so it repeats seamlessly on whole rows.
+
+Change a sound by editing its numbers in `scripts/audio/sounds.json` and running `sh scripts/make-audio.sh` (contributor tools: curl, Node 24, LAME 3.100); it rewrites the MP3s and `docs/assets/audio.receipt.json`. `sh scripts/make-audio.sh --check` proves the committed files are exactly what the committed parameters render. These lines sit between audio markers, which the #117 motion receipt skips (ADR 0021); keep everything about audio inside them.
+
+<!-- audio:end -->

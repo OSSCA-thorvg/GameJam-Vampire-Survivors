@@ -11,8 +11,14 @@ import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, expect, it } from 'vitest';
-import { collectAssetGraph, receiptGraph, stripSplash } from '../../../scripts/assets/motion_graph';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  AUDIO_BEGIN,
+  AUDIO_END,
+  collectAssetGraph,
+  receiptGraph,
+  stripUnsealed,
+} from '../../../scripts/assets/motion_graph';
 import { validateManifest } from './assets';
 
 const assets = fileURLToPath(new URL('../../../assets/', import.meta.url));
@@ -77,7 +83,7 @@ it('binds every installed motion resource and timeline to its portable reviewed 
 const script = fileURLToPath(
   new URL('../../../scripts/assets/motion_verify_installed.py', import.meta.url),
 );
-/** Runs #117's receipt verifier on the graph as the receipt sees it (ADR 0020: without `ui.splash`). */
+/** Runs #117's receipt verifier on the graph as the receipt sees it (ADRs 0020 and 0021: no splash, no audio). */
 function verify(directory: string, value = graph(directory)): string {
   return execFileSync('python3', [script, '--assets', directory], {
     input: JSON.stringify(receiptGraph(value, directory)),
@@ -97,10 +103,10 @@ it('keeps ui.splash and its PNG in their own role, outside the sealed receipt (A
   const sealed = receiptGraph(value, assets);
   expect(sealed.logicalIds).not.toContain('ui.splash');
   expect(sealed.files.some((file) => file.owners.includes('ui.splash'))).toBe(false);
-  expect(stripSplash('a\n| `ui.splash` | row |\nb')).toBe('a\nb');
-  expect(stripSplash('A\n\n`ui.splash` paragraph\n\nB\n')).toBe('A\n\nB\n');
+  expect(stripUnsealed('a\n| `ui.splash` | row |\nb')).toBe('a\nb');
+  expect(stripUnsealed('A\n\n`ui.splash` paragraph\n\nB\n')).toBe('A\n\nB\n');
   expect(
-    stripSplash('{\n  "x": {\n    "a": 1\n  },\n  "ui.splash": {\n    "f": 1\n  },\n  "y": 2\n}'),
+    stripUnsealed('{\n  "x": {\n    "a": 1\n  },\n  "ui.splash": {\n    "f": 1\n  },\n  "y": 2\n}'),
   ).toBe('{\n  "x": {\n    "a": 1\n  },\n  "y": 2\n}');
 });
 
@@ -164,4 +170,61 @@ it('rejects a new logical ID other than ui.splash in the sealed graph', () => {
   expect(() => verify(assets, extra)).toThrow();
   // Naming a second ID as a splash would need it in EXTENDED_LOTTIE_IDS, which ADR 0020 limits to ui.splash.
   expect(() => verify(assets, { ...extra, splashIds: [...value.splashIds] })).toThrow();
+});
+
+describe('audio outside the sealed receipt (ADR 0021)', () => {
+  const edit = (directory: string, file: string, change: (text: string) => string): void => {
+    const path = join(directory, file);
+    const before = readFileSync(path, 'utf8');
+    const after = change(before);
+    expect(after).not.toBe(before);
+    writeFileSync(path, after);
+  };
+  it('gives every sfx and music file the audio role and drops them from the sealed graph', () => {
+    const value = graph(assets);
+    expect(value.audioIds).toHaveLength(19);
+    expect(value.audioIds.every((id) => /^(?:sfx|music)\./.test(id))).toBe(true);
+    const audio = value.files.filter((file) => file.role === 'audio');
+    expect(audio.map((file) => file.owners[0]).sort()).toEqual(value.audioIds);
+    expect(
+      audio.every((file) => file.file.startsWith('audio/') && file.file.endsWith('.mp3')),
+    ).toBe(true);
+    const sealed = receiptGraph(value, assets);
+    expect(sealed.logicalIds.filter((id) => /^(?:sfx|music)\./.test(id))).toEqual([]);
+    expect(sealed.files.some((file) => file.file.startsWith('audio/'))).toBe(false);
+  });
+  it('strips marker blocks with the one empty line after them, and nothing else', () => {
+    const block = [AUDIO_BEGIN, '', '| `sfx.a` | row |', AUDIO_END].join('\n');
+    expect(stripUnsealed(`A\n\n${block}\n`, [])).toBe('A\n');
+    expect(stripUnsealed(`A\n${block}\n\nB\n`, [])).toBe('A\nB\n');
+    expect(stripUnsealed(`A\n${block}\nB\n`, [])).toBe('A\nB\n');
+    expect(() => stripUnsealed(`A\n${AUDIO_BEGIN}\nB\n`, [])).toThrow(/Unterminated/);
+  });
+  it.each<[string, string, (text: string) => string]>([
+    ['README.md', 'a README line', (text) => text.replace('rendered with these tools', 'made')],
+    ['CATALOG.md', 'a catalog row', (text) => text.replace('Whip hit: sharp', 'Whip hit: crisp')],
+  ])(
+    'still verifies after a changed %s line inside the audio block (%s)',
+    (file, _what, change) => {
+      const directory = copyPack();
+      edit(directory, file, change);
+      expect(verify(directory)).toContain('verified');
+    },
+  );
+  it('still rejects a changed line right after the audio block', () => {
+    const directory = copyPack();
+    edit(directory, 'CATALOG.md', (text) => text + 'x\n');
+    expect(() => verify(directory)).toThrow();
+  });
+  it('rejects an MP3 that the manifest does not own', () => {
+    const directory = copyPack();
+    cpSync(join(directory, 'audio/sfx/hit-whip.mp3'), join(directory, 'audio/sfx/extra.mp3'));
+    expect(() => graph(directory)).toThrow(/orphan/);
+  });
+  it('rejects an mp3 entry under a non-audio ID in the manifest', () => {
+    const entry = { file: 'audio/sfx/hit-whip.mp3', format: 'mp3', samples: 6624, loop: false };
+    expect(validateManifest({ version: 1, assets: { 'ui.skull': entry } }).errors[0]).toMatch(
+      /^ui\.skull: sfx and music namespaces require mp3/,
+    );
+  });
 });

@@ -35,6 +35,8 @@ const FOLDERS: Record<string, string> = {
   fx: 'fx',
   ui: 'ui',
   font: 'fonts',
+  sfx: 'audio/sfx',
+  music: 'audio/music',
 };
 const EXTENSIONS: Record<string, string> = {
   svg: 'svg',
@@ -42,6 +44,7 @@ const EXTENSIONS: Record<string, string> = {
   png: 'png',
   webp: 'webp',
   ttf: 'ttf',
+  mp3: 'mp3',
 };
 /** The naming rule in assets/README.md: the ID without its first segment, kebab-case, joined with hyphens. */
 function expectedFile(row: Pick<CatalogRow, 'id' | 'format'>): string {

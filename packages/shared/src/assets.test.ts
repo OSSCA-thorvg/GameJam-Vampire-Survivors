@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ASSET_IDS, validateManifest } from './assets';
+import { ASSET_IDS, isAudioEntry, validateManifest } from './assets';
 import { parseCatalog } from './catalog';
 
 const assets = new URL('../../../assets/', import.meta.url);
@@ -83,5 +83,33 @@ describe('bilinear Lottie filtering (ADR 0020)', () => {
     expect(validateManifest({ version: 1, assets: { [id]: entry } }).errors[0]).toContain(
       'invalid raster filter',
     );
+  });
+});
+
+describe('audio entries (ADR 0021)', () => {
+  const sfx = { file: 'audio/sfx/hit-whip.mp3', format: 'mp3', samples: 6624, loop: false };
+  const music = { file: 'audio/music/stage.mp3', format: 'mp3', samples: 2335744, loop: true };
+  it('accepts a sound effect and a music loop as non-drawable entries', () => {
+    const result = validateManifest({
+      version: 1,
+      assets: { 'sfx.hitWhip': sfx, 'music.stage': music },
+    });
+    expect(result.errors).toEqual([]);
+    expect(result.manifest.assets['sfx.hitWhip']).toEqual(sfx);
+    const stage = result.manifest.assets['music.stage'];
+    expect(stage && isAudioEntry(stage)).toBe(true);
+  });
+  it.each([
+    ['enemy.bat', { ...sfx, file: 'enemies/bat.mp3' }, 'sfx and music namespaces require mp3'],
+    ['sfx.hitWhip', { ...bat, file: 'audio/sfx/hit-whip.svg' }, 'sfx and music namespaces'],
+    ['sfx.hitWhip', { file: sfx.file, format: 'mp3', loop: false }, 'samples'],
+    ['sfx.hitWhip', { ...sfx, samples: 1.5 }, 'samples'],
+    ['music.stage', { ...music, samples: 70 * 44100 + 1 }, '70 s'],
+    ['sfx.hitWhip', { ...sfx, size: [1, 1] }, 'no drawable fields'],
+    ['music.stage', { ...music, loop: false }, 'loop'],
+    ['sfx.hitWhip', { ...sfx, loop: true }, 'loop'],
+    ['enemy.bat', { ...bat, samples: 10 }, 'samples belongs to audio'],
+  ])('rejects %s %j', (id, entry, message) => {
+    expect(validateManifest({ version: 1, assets: { [id]: entry } }).errors[0]).toContain(message);
   });
 });

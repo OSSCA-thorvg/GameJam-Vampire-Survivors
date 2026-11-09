@@ -36,4 +36,34 @@ describe('catalog', () => {
     expect(() => parseCatalog(catalog.replace('48×48', '-48×48'))).toThrow(/line \d+/);
     expect(() => parseCatalog(catalog.replace('| Size |', '| Unknown |'))).toThrow(/Size/);
   });
+  it('reads Sound sections with a Length and the audio naming rule (ADR 0021)', () => {
+    const head =
+      '## Sound\n| ID | File | Format | Length | Original role | Used by | Status |\n|---|---|---|---|---|---|---|\n';
+    expect(
+      parseCatalog(
+        head +
+          '| `sfx.hitMagicWand` | `audio/sfx/hit-magic-wand.mp3` | mp3 | 0.2 s | zap | #129 | final |',
+      ),
+    ).toEqual([
+      { id: 'sfx.hitMagicWand', size: null, format: 'mp3', mass: false, status: 'final' },
+    ]);
+    expect(parseCatalog(catalog).find((row) => row.id === 'music.stage')).toMatchObject({
+      size: null,
+    });
+    expect(() =>
+      parseCatalog(
+        head + '| `sfx.hitWhip` | `audio/sfx/whip.mp3` | mp3 | 0.1 s | crack | #129 | final |',
+      ),
+    ).toThrow(/audio file must be audio\/sfx\/hit-whip\.mp3/);
+    expect(() =>
+      parseCatalog(
+        head + '| `ui.click` | `audio/ui/click.mp3` | mp3 | 0.1 s | click | #129 | final |',
+      ),
+    ).toThrow(/audio namespace mismatch/);
+    expect(() =>
+      parseCatalog(
+        head + '| `sfx.hitWhip` | `audio/sfx/hit-whip.mp3` | png | 0.1 s | crack | #129 | final |',
+      ),
+    ).toThrow(/sound requires mp3/);
+  });
 });

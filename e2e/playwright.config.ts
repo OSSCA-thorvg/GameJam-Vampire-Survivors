@@ -2,7 +2,8 @@
 // which launches the client and sets VERIFY_URL; when VERIFY_URL is unset, the URL recorded by `pnpm verify:launch`
 // is used. `VERIFY_JOURNEYS=<dir>` runs the journey specs in that folder instead of e2e/ (feature-map journeys
 // saved under verification/issue-<N>/journeys/). The native hidden-tab project owns a fresh headed browser;
-// Linux runs need Xvfb. Select chromium for ordinary headless-only smoke.
+// Linux runs need Xvfb. Select chromium for ordinary headless-only smoke. VERIFY_AUDIO_ENGINES=1 adds the headless
+// audio-firefox and audio-webkit projects, which run only e2e/audio-decode.spec.ts (#128).
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
@@ -23,6 +24,8 @@ function recordedUrl(): string | undefined {
 }
 
 const headed = process.env.VERIFY_HEADED === '1';
+/** ADR 0021: decode the audio in Firefox's and WebKit's engines too; CI installs only Chromium, so these are opt-in. */
+const audioEngines = process.env.VERIFY_AUDIO_ENGINES === '1';
 const evidence = process.env.VERIFY_EVIDENCE_DIR ?? join(root, 'verification/adhoc');
 
 export default defineConfig({
@@ -70,5 +73,19 @@ export default defineConfig({
         },
       },
     },
+    ...(audioEngines
+      ? [
+          {
+            name: 'audio-firefox',
+            testMatch: '**/audio-decode.spec.ts',
+            use: { ...devices['Desktop Firefox'], headless: true },
+          },
+          {
+            name: 'audio-webkit',
+            testMatch: '**/audio-decode.spec.ts',
+            use: { ...devices['Desktop Safari'], headless: true },
+          },
+        ]
+      : []),
   ],
 });

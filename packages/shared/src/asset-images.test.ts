@@ -128,9 +128,12 @@ it('Lottie resources decode within their owner and preserve the original effect 
 });
 
 it('installs an exact format-aware primary/resource graph with no missing or orphan files', () => {
-  expect(entries).toHaveLength(86);
+  expect(entries).toHaveLength(105);
   expect(entries.filter(([, entry]) => entry.format === 'lottie')).toHaveLength(38);
   expect(entries.filter(([, entry]) => entry.format === 'ttf')).toHaveLength(1);
+  // ADR 0021: 19 audio entries (17 sfx, 2 music), nothing more drawable than #126 left (86 = 85 + ui.splash).
+  expect(entries.filter(([, entry]) => entry.format === 'mp3')).toHaveLength(19);
+  expect(entries.filter(([, entry]) => !['mp3', 'ttf'].includes(entry.format))).toHaveLength(85);
   const parsed = validateManifest(JSON.parse(read('manifest.json')));
   expect(parsed.errors).toEqual([]);
   expect(parsed.missing).toEqual([]);
@@ -139,8 +142,12 @@ it('installs an exact format-aware primary/resource graph with no missing or orp
   expect(graph.motionIds).toHaveLength(36);
   expect(graph.diagnosticIds).toEqual(['enemy.lottieTest']);
   expect(graph.splashIds).toEqual(['ui.splash']);
-  expect(graph.files.filter((file) => file.role === 'primary')).toHaveLength(entries.length - 1);
+  expect(graph.audioIds).toHaveLength(19);
+  expect(graph.files.filter((file) => file.role === 'primary')).toHaveLength(
+    entries.length - 1 - 19,
+  );
   expect(graph.files.filter((file) => file.role === 'splash')).toHaveLength(2);
+  expect(graph.files.filter((file) => file.role === 'audio')).toHaveLength(19);
   expect(graph.files.filter((file) => file.role === 'owned-image').length).toBeGreaterThan(0);
 });
 

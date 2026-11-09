@@ -2,3 +2,7 @@ dist
 coverage
 pnpm-lock.yaml
 /assets/
+# Hand-laid-out song data: one instrument, pattern channel or sound per line (ADR 0021).
+/scripts/audio/sounds.json
+# Written by scripts/make-audio.sh.
+/docs/assets/audio.receipt.json

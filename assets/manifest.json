@@ -33,6 +33,120 @@
       "file": "fonts/hud.ttf",
       "format": "ttf"
     },
+    "sfx.hitWhip": {
+      "file": "audio/sfx/hit-whip.mp3",
+      "format": "mp3",
+      "samples": 6624,
+      "loop": false
+    },
+    "sfx.hitMagicWand": {
+      "file": "audio/sfx/hit-magic-wand.mp3",
+      "format": "mp3",
+      "samples": 8828,
+      "loop": false
+    },
+    "sfx.hitKnife": {
+      "file": "audio/sfx/hit-knife.mp3",
+      "format": "mp3",
+      "samples": 4419,
+      "loop": false
+    },
+    "sfx.hitAxe": {
+      "file": "audio/sfx/hit-axe.mp3",
+      "format": "mp3",
+      "samples": 11034,
+      "loop": false
+    },
+    "sfx.hitCross": {
+      "file": "audio/sfx/hit-cross.mp3",
+      "format": "mp3",
+      "samples": 8812,
+      "loop": false
+    },
+    "sfx.hitKingBible": {
+      "file": "audio/sfx/hit-king-bible.mp3",
+      "format": "mp3",
+      "samples": 8829,
+      "loop": false
+    },
+    "sfx.hitFireWand": {
+      "file": "audio/sfx/hit-fire-wand.mp3",
+      "format": "mp3",
+      "samples": 13230,
+      "loop": false
+    },
+    "sfx.hitGarlic": {
+      "file": "audio/sfx/hit-garlic.mp3",
+      "format": "mp3",
+      "samples": 5292,
+      "loop": false
+    },
+    "sfx.enemyDeath": {
+      "file": "audio/sfx/enemy-death.mp3",
+      "format": "mp3",
+      "samples": 13225,
+      "loop": false
+    },
+    "sfx.gemPickup": {
+      "file": "audio/sfx/gem-pickup.mp3",
+      "format": "mp3",
+      "samples": 5299,
+      "loop": false
+    },
+    "sfx.playerHurt": {
+      "file": "audio/sfx/player-hurt.mp3",
+      "format": "mp3",
+      "samples": 13239,
+      "loop": false
+    },
+    "sfx.levelUp": {
+      "file": "audio/sfx/level-up.mp3",
+      "format": "mp3",
+      "samples": 39687,
+      "loop": false
+    },
+    "sfx.chestOpen": {
+      "file": "audio/sfx/chest-open.mp3",
+      "format": "mp3",
+      "samples": 52924,
+      "loop": false
+    },
+    "sfx.playerDeath": {
+      "file": "audio/sfx/player-death.mp3",
+      "format": "mp3",
+      "samples": 66150,
+      "loop": false
+    },
+    "sfx.uiSelect": {
+      "file": "audio/sfx/ui-select.mp3",
+      "format": "mp3",
+      "samples": 3537,
+      "loop": false
+    },
+    "sfx.interferenceSend": {
+      "file": "audio/sfx/interference-send.mp3",
+      "format": "mp3",
+      "samples": 22050,
+      "loop": false
+    },
+    "sfx.interferenceReceive": {
+      "file": "audio/sfx/interference-receive.mp3",
+      "format": "mp3",
+      "samples": 30796,
+      "loop": false
+    },
+    "music.title": {
+      "file": "audio/music/title.mp3",
+      "format": "mp3",
+      "samples": 1782528,
+      "loop": true
+    },
+    "music.stage": {
+      "file": "audio/music/stage.mp3",
+      "format": "mp3",
+      "samples": 2335744,
+      "loop": true
+    },
     "boss.death": {
       "file": "bosses/death.json",
       "format": "lottie",
