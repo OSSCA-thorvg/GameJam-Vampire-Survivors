@@ -151,6 +151,7 @@ const opponentFeed = createOpponentFeed();
 let panes: Panes | null = null;
 let opponentView: OpponentView | null = null;
 let opponentHud: OpponentHud | null = null;
+let matchEnded = false;
 let youLabel: PaneLabel | null = null;
 /** The dimmed world and its line after a versus death (#20); `null` in `?gallery` and `?stress`. */
 let defeat: DefeatOverlay | null = null;
@@ -228,7 +229,11 @@ function render(): void {
   }
   session?.render();
   if (opponentView && panes?.opponentVisible) {
-    opponentView.render(opponentFeed, performance.now());
+    opponentView.render(
+      opponentFeed,
+      performance.now(),
+      !hidden && !matchEnded && opponentHud?.state === 'live',
+    );
     opponentHud?.sync(opponentFeed.latest()?.view.t ?? null);
   }
   if (import.meta.env.DEV) debugHooks?.onRender();
@@ -288,10 +293,16 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
       validated,
     );
     if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
+      registerSnapshotField('motion', () => library?.motionSnapshot());
       if (message.debug?.gallery) {
         gallery = buildGallery(context, library);
         registerSnapshotField('gallery', () => gallery?.snapshot());
         registerSnapshotField('galleryPreview', () => gallery?.previewVisible() ?? false);
+        registerSnapshotField('galleryMotion', () => gallery?.motionState() ?? 'idle');
+        if (import.meta.env.DEV)
+          registerDebugHandler('galleryMotion', () => {
+            gallery?.toggleMotion();
+          });
         if (import.meta.env.DEV)
           registerDebugHandler('galleryPreview', () => {
             gallery?.togglePreview();
@@ -587,6 +598,7 @@ function applyPanes(): void {
   if (!panes || size.scale <= 0) return;
   panes.apply(size.layout, size.width / size.scale, size.height / size.scale);
   youLabel?.setVisible(size.layout !== 'single');
+  if (size.layout === 'single') opponentView?.suspendPlayback();
 }
 
 /**
@@ -605,6 +617,7 @@ function startRun(seed: number, characterId: string, finale: Finale, mode: RunMo
   opponentFeed.clear();
   opponentView?.clear();
   opponentHud?.setState('live');
+  matchEnded = false;
   defeat?.setVisible(false);
   const run = session.start(seed, characterId, finale, mode);
   run.input.dx = inputX;
@@ -624,6 +637,7 @@ function endRun(): void {
   opponentFeed.clear();
   opponentView?.clear();
   opponentHud?.setState('live');
+  matchEnded = false;
   session?.end();
   defeat?.setVisible(false);
   paused = false;
@@ -634,6 +648,8 @@ function endRun(): void {
 
 /** The versus match is decided (#20): stop stepping and rendering, so the last frame stays on the canvas. */
 function forceEnd(): void {
+  matchEnded = true;
+  opponentView?.suspendPlayback();
   paused = true;
   loop?.pause();
   loop?.stop();
@@ -688,6 +704,7 @@ function handle(message: GameMainToWorker): void {
       break;
     case 'visibility':
       hidden = message.hidden;
+      if (hidden) opponentView?.suspendPlayback();
       loop?.setVisibility(message.hidden);
       if (import.meta.env.DEV) debugHooks?.onVisibility(message.hidden);
       break;
@@ -724,6 +741,7 @@ function handle(message: GameMainToWorker): void {
       break;
     case 'opponentState':
       opponentHud?.setState(message.state);
+      if (message.state !== 'live') opponentView?.suspendPlayback();
       break;
     case 'debug':
       if (import.meta.env.DEV) dispatchDebug(message.command);

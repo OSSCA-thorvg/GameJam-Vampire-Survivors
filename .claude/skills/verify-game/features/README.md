@@ -26,6 +26,7 @@ One file per user-facing feature. A PR that adds or changes user-facing behaviou
 | `versus-match.md`              | versus play: same seed, opponent panel, status rate, death, disconnect, AFK, 15:00, Rematch                             | #20   |
 | `interference.md`              | versus interference pickups: drop rules, Swarm, Gem Thief, Elite Call, banners, the server cap, `J`                     | #21   |
 | `deployed-site.md`             | the GitHub Pages build: base path, CSP meta, single player, the multiplayer entry with or without a server, `smoke.mjs` | #23   |
+| `motion.md`                    | native actor/effect motion, markers, active playback and measured resource budgets                                      | #84   |
 
 ## Baseline preconditions
 

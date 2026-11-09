@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "issue": 84,
+  "assetId": "enemy.wraith",
+  "style": "grounded-undead-drag",
+  "decisionSource": "Explicit user reply in this task on 2026-11-08",
+  "question": "미라의 첫 단독 포즈도 요청한 다리 방향과 달라 1회 후 중단했습니다. 미라 보행을 어떤 방향으로 마무리할까요?",
+  "answer": "한쪽 발을 끄는 미라 특성 동작으로 확정",
+  "previewReviewedByUser": {
+    "bankSha256": "f8d0e89f970e76339bcfcdff630356faac8a5034208df19fd4524329babb78ea",
+    "gifSha256": "6cd2688833914bbc57351e298c4b6aabad31f5c32f1c6b9dbb329f1beabc071b",
+    "file": "verification/issue-84/generation/enemies-stage/wraith-002/bank-001/move-native.gif",
+    "timingNote": "GIF has 80ms preview frames; native move remains8@12fps."
+  },
+  "acceptance": [
+    "Retain original purple bandaged grounded two-foot humanoid identity, size and anchor.",
+    "Intentional asymmetric locomotion: one foot trails/drags while the other takes repeated short steps, with arm and bandage motion.",
+    "Review complete idle8 and move8, native4+8, stable head/torso scale, ground contact, limb coherence and last-first seam; reject hops, teleporting, clipping or a translated still.",
+    "All original source reports/prompts and previously held reviews remain unchanged. The prior request for alternating physical legs is not retroactively claimed successful.",
+    "Use all8 immutable source move poses in order; no selected partial cycle or frame reorder. Preserve .01 motion threshold, binaryalpha/shared64color and actualnative timing."
+  ],
+  "disposition": "The user changed the intended locomotion style after seeing the exact Wraith002 preview. New candidate and two new reviews must bind this decision; earlier failures remain historical evidence. No further remote image calls."
+}

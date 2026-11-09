@@ -1,5 +1,6 @@
-import { ELITE, ENEMY_LIST, VIEW_QUANT, type PlayerView } from '@vs/shared';
-import { describe, expect, it } from 'vitest';
+import { ELITE, ENEMY_LIST, VIEW_QUANT, type DrawableAssetId, type PlayerView } from '@vs/shared';
+import { describe, expect, it, vi } from 'vitest';
+import type { AssetInstance, AssetSource } from '../assets/library';
 import { createOpponentFeed } from './opponent-feed';
 import { createOpponentView, OPPONENT_RENDER_DELAY_MS } from './opponent-view';
 import { fakeGameView } from './view-test-helpers';
@@ -133,4 +134,68 @@ describe('createOpponentView', () => {
     expect(view.gemsShown).toBe(48);
     expect(view.pickupsShown).toBe(8);
   });
+});
+
+it('runs only fresh visible opponent poses on the presentation clock and resumes their existing leases', () => {
+  const fake = fakeGameView();
+  const instances = new Map<AssetInstance, DrawableAssetId>();
+  const active = new Set<AssetInstance>();
+  const setMotionState = vi.fn<NonNullable<AssetSource['setMotionState']>>();
+  const tickPresentation = vi.fn<NonNullable<AssetSource['tickPresentation']>>();
+  const resetPlayback = vi.fn<NonNullable<AssetSource['resetPlayback']>>();
+  const library: AssetSource = {
+    create(id) {
+      const instance = fake.options.library.create(id);
+      instances.set(instance, id);
+      return instance;
+    },
+    setPlaybackActive(instance, playing, clock) {
+      if (playing && clock === 'presentation') active.add(instance);
+      else active.delete(instance);
+    },
+    resetPlayback,
+    setMotionState,
+    tickPresentation,
+  };
+  const view = createOpponentView({ ...fake.options, library });
+  const feed = createOpponentFeed();
+  const bat = ENEMY_LIST.indexOf('bat') * 2;
+  feed.push(baseView({ x: 0, e: [bat, 1, 0] }), 1000);
+  feed.push(baseView({ x: 40, e: [bat, 1, 0] }), 1100);
+  view.render(feed, 1190); // render time is clamped before the first relayed view
+  expect([...active].map((instance) => instances.get(instance)).sort()).toEqual([
+    'enemy.bat',
+    'player.warden',
+  ]);
+  const player = [...active].find((instance) => instances.get(instance) === 'player.warden');
+  if (!player) throw new Error('Missing native opponent player');
+  expect(setMotionState).toHaveBeenLastCalledWith(player, 'move');
+  view.render(feed, 1210);
+  expect(tickPresentation).toHaveBeenLastCalledWith(0.02);
+
+  const created = view.countPaints();
+  const resets = resetPlayback.mock.calls.length;
+  view.render(feed, 1310); // the delayed render has caught up with a stalled feed
+  expect(active.size).toBe(0);
+  expect(view.enemiesShown).toBe(1);
+  expect(tickPresentation).toHaveBeenCalledTimes(1);
+  expect(setMotionState).toHaveBeenLastCalledWith(player, 'move');
+
+  feed.push(baseView({ x: 40, e: [bat, 1, 0] }), 2800);
+  feed.push(baseView({ x: 40, e: [bat, 1, 0] }), 2900);
+  view.render(feed, 3000, false); // peer away or out
+  expect(active.size).toBe(0);
+  view.render(feed, 3010);
+  expect(active.has(player)).toBe(true);
+  expect(setMotionState).toHaveBeenLastCalledWith(player, 'idle');
+  expect(tickPresentation).toHaveBeenCalledTimes(1); // no stalled time is applied
+  view.render(feed, 3020);
+  expect(tickPresentation).toHaveBeenLastCalledWith(0.01);
+  view.suspendPlayback(); // local tab becomes hidden without rendering
+  expect(active.size).toBe(0);
+  expect(view.enemiesShown).toBe(1);
+  expect(resetPlayback).toHaveBeenCalledTimes(resets);
+  expect(view.countPaints()).toBe(created);
+  view.clear();
+  expect(view.enemiesShown).toBe(0);
 });

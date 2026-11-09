@@ -373,3 +373,99 @@ it('reuses preloaded image bytes while image-backed instances advance independen
   expect(fetch).toHaveBeenCalledTimes(2);
   expect(calls.filters).toEqual([0, 0, 0]);
 });
+
+it('pauses reversibly through activity while legacy release permanently unregisters playback', async () => {
+  vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  vi.stubGlobal('fetch', () => Promise.resolve(new Response(lottieJson)));
+  const library = await AssetLibrary.load(
+    TVG,
+    'https://example.test/',
+    () => undefined,
+    manifest({
+      'fx.levelUp': {
+        file: 'fx/level-up.json',
+        format: 'lottie',
+        size: [96, 96],
+        anchor: [0.5, 0.5],
+      },
+    }),
+  );
+  const first = library.create('fx.levelUp');
+  library.setPlaybackActive(first, false);
+  library.tick(0.5);
+  expect(first.lottie?.frame()).toBe(0);
+  library.setPlaybackActive(first, true);
+  library.tick(0.25);
+  expect(first.lottie?.frame()).toBe(7.5);
+  library.release(first);
+  library.setPlaybackActive(first, true);
+  library.tick(0.25);
+  expect(first.lottie?.frame()).toBe(7.5);
+  library.create('fx.levelUp');
+  expect(library.motionSnapshot()).toMatchObject({ created: 2, active: 1 });
+});
+
+it('keeps presentation playback independent of simulation and removes both when released', async () => {
+  vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  vi.stubGlobal('fetch', () => Promise.resolve(new Response(lottieJson)));
+  const library = await AssetLibrary.load(
+    TVG,
+    'https://example.test/',
+    () => undefined,
+    manifest({
+      'fx.levelUp': {
+        file: 'fx/level-up.json',
+        format: 'lottie',
+        size: [96, 96],
+        anchor: [0.5, 0.5],
+      },
+    }),
+  );
+  const simulation = library.create('fx.levelUp');
+  const presentation = library.create('fx.levelUp');
+  library.setPlaybackActive(presentation, true, 'presentation');
+  library.tick(0.25);
+  expect(simulation.lottie?.frame()).toBe(7.5);
+  expect(presentation.lottie?.frame()).toBe(0);
+  library.tickPresentation(0.5);
+  expect(simulation.lottie?.frame()).toBe(7.5);
+  expect(presentation.lottie?.frame()).toBe(15);
+  library.setPlaybackActive(presentation, false);
+  library.tickPresentation(0.25);
+  expect(presentation.lottie?.frame()).toBe(15);
+  library.setPlaybackActive(presentation, true, 'presentation');
+  library.tickPresentation(0.25);
+  expect(presentation.lottie?.frame()).toBe(22.5);
+  library.release(presentation);
+  library.tickPresentation(0.25);
+  expect(presentation.lottie?.frame()).toBe(22.5);
+  expect(library.motionSnapshot()).toMatchObject({ created: 2, active: 1 });
+});
+
+it('replays a finished one-shot from the same native instance when reset', async () => {
+  vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  vi.stubGlobal('fetch', () => Promise.resolve(new Response(lottieJson)));
+  const library = await AssetLibrary.load(
+    TVG,
+    'https://example.test/',
+    () => undefined,
+    manifest({
+      'fx.hit': {
+        file: 'fx/hit.json',
+        format: 'lottie',
+        size: [96, 96],
+        anchor: [0.5, 0.5],
+        loop: false,
+      },
+    }),
+  );
+  const effect = library.create('fx.hit');
+  library.tick(2);
+  expect(effect.lottie?.frame()).toBe(29);
+  const created = library.motionSnapshot().created;
+  library.resetPlayback(effect);
+  expect(effect.lottie?.frame()).toBe(0);
+  library.tick(0.1);
+  expect(effect.lottie?.frame()).toBe(3);
+  expect(library.motionSnapshot().created).toBe(created);
+});

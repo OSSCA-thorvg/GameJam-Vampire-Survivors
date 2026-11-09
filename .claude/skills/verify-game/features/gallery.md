@@ -4,14 +4,14 @@ Development/e2e `/?gallery` shows every drawable catalog ID through the replacea
 
 ## Sub-features
 
-- Loading text shows `Loading n/total` until assetsReady; the `assets` snapshot reports `ready`, `loaded`, `total`, `placeholders`, `font`. Baseline is 84/84, font `hud`, no placeholders (`placeholders` is `[]`).
-- `gallery` reports `ids`, `panX`, `panY`, `width`, `height`, `lottieFrame`: all 83 drawable IDs, fonts excluded; real arrow input pans through all groups; white crosses mark anchors.
+- Loading text shows `Loading n/total` until assetsReady; the `assets` snapshot reports `ready`, `loaded`, `total`, `placeholders`, `font`. Baseline is 85/85, font `hud`, no placeholders (`placeholders` is `[]`).
+- `gallery` reports `ids`, `panX`, `panY`, `width`, `height`, `lottieFrame`: all 84 drawable IDs, fonts excluded; real arrow input pans through all groups; white crosses mark anchors.
 - Every drawable ID draws as art (#5 starter pack); the only magenta on screen is the `ui.placeholder` reference itself. Both Lottie effects, `fx.levelUp` and `fx.chestOpen`, animate. Static instance creation makes no requests after loading.
 - Speed preview (#5, dev builds only): `V` (`KeyV`, debug command `galleryPreview`) toggles a view of `stage.ground` tiled across the screen with a labelled cluster of 30 instances for each of the 18 mass IDs (six enemies, three gems, nine mass projectiles) drifting at 100 units/s, odd rows rightward and the middle row leftward, flipped. The `galleryPreview` snapshot field is `true` while it shows; the worker logs `[debug] gallery preview shown`/`hidden`. Ground tiles show no seams. Its Paints are created once, the first time it opens.
-- Replacing one PNG file (for example the ghoul with another144×160 PNG) and reloading changes only that asset at its unchanged36×40 logical dimensions.
-- File-only PNG replacement and manifest SVG format switching preserve the logical size/anchor after reload. Broken drawables warn once, render magenta, and keep simulating.
+- Replacing the static `portrait.warden` PNG at four-times `ASSET_SIZES` dimensions changes only that portrait cell; all four static portraits retain their logical size/anchor. Animated actor primaries and their owned pose banks remain untouched.
+- A temporary orange bat PNG establishes the static-format baseline, file-only green PNG replacement and an inert SVG format switch preserve its32×32 logical size/anchor after reload. Broken drawables warn once, render magenta, and keep simulating.
 - `font.hud` can move to a different manifest path; absent/invalid fonts including HTML returned with HTTP 200 warn once and select `default`, with boot continuing.
-- Catalog edits without assets:sync fail the real check; after syncing, a new `needed` ID is labelled and magenta in the gallery, and `pnpm check` still fails, naming the ID, until its art, manifest entry and `placeholder` status exist (`assets-catalog.test.ts`, #5).
+- Catalog edits without assets:sync fail the real asset/catalog/graph tests; after syncing, the same checks name the new `needed` ID without generated-ID drift, and that ID is labelled and magenta in the gallery until its art and manifest entry exist. The mutation invokes the real tests directly so fixture formatting does not hide the intended negative checks; full `pnpm check` remains the normal release gate.
 
 ## How to get to it (user POV)
 
@@ -22,18 +22,18 @@ Open `/?gallery` after verify:launch and Doctor succeed. No server is needed. Ho
 ### Claude in Chrome
 
 1. Detect the extension with tabs_context_mcp, create a new verification tab, start GIF recording and navigate to `http://localhost:5180/?gallery`. Use Playwright when the extension is unavailable.
-2. Read `await window.__vsTest.waitFor(s => s.assets?.ready, 30000)` and capture a screenshot. Check 84/84, hud, 83 drawable IDs, an empty placeholders list and no font.hud in gallery.ids.
+2. Read `await window.__vsTest.waitFor(s => s.assets?.ready, 30000)` and capture a screenshot. Check 85/85, hud, 84 drawable IDs, an empty placeholders list and no font.hud in gallery.ids.
 3. Press `v` once with `computer` `key`, wait for `s.galleryPreview === true`, screenshot, wait 1 s, screenshot again (the clusters moved; the middle row drifts left, flipped), zoom on tile corners to check for seams, press `v` again and wait for `false`.
 4. Use real ArrowDown key presses with repeat, taking screenshots after each pan; inspect every group, readable labels and white anchor crosses. Record the ring before/after its frame advances. ArrowUp returns toward the top.
-5. In the isolated verification worktree, save the bat PNG and manifest, replace its bytes with a diagnostic green 128×128 PNG, reload and record the changed bat at the same32×32 logical size/anchor. Write an inert cyan32×32 SVG, switch only the manifest file/format, reload and record the same logical contract. Restore files after the journey.
+5. Save the manifest. Leave the actor primary JSON/owned PNG bank intact. Create an orange128×128 `enemies/bat-test.png`, temporarily point enemy.bat to PNG/nearest with loop removed, reload, then change only this PNG to green and reload at the same32×32 size/anchor. Switch to an inert cyan32×32 SVG, remove filter/loop, reload, then restore the manifest and remove both fixtures. Separately replace only the static portrait.warden PNG at four-times its logical size; compare all four portrait cells and restore its bytes.
 6. Temporarily rename the bat file and reload: magenta bat, one worker warning and continuing steps. Restore. Read worker logs through the Playwright companion because extension console cannot inspect workers.
 7. Temporarily relocate identical font bytes and edit font.hud: hud still works. Then reference an absent .ttf and an HTML .ttf: default font, one clear warning each, continuing steps. Restore all files.
-8. Add a temporary catalog ID, run pnpm check (fails generated IDs), assets:sync, check (now fails only in `assets-catalog.test.ts`, naming the new ID), reload and pan to the new magenta ID. Restore catalog and generated IDs.
+8. Add a temporary catalog ID; run `pnpm exec vitest run packages/shared/src/assets.test.ts packages/shared/src/assets-catalog.test.ts packages/shared/src/motion-graph.test.ts` (fails generated IDs), run assets:sync, and repeat those real checks (fails naming the new ID, without generated-ID drift). Reload and pan to the new magenta ID. Restore catalog and generated IDs. Direct tests avoid the deliberately edited Markdown fixture failing formatting before the intended catalog assertions.
 9. Export the GIF, screenshots, snapshot JSON and companion worker/network logs to verification/issue-<N>/, close only the created tab, then cleanup.
 
 ### Playwright
 
-Save the following two complete specs to `verification/issue-<N>/journeys/gallery.spec.ts` (#3: loading, panning, replacement, fallbacks, catalog drift) and `verification/issue-<N>/journeys/gallery-pack.spec.ts` (#5: no placeholders, magenta budget, both Lottie effects, the speed preview, the ghoul swap). Run it against a launched/Doctored client using the commands in verify-game. It creates dedicated browser contexts, uses real keyboard input, collects evidence and restores temporary disk edits.
+Save the following two complete specs to `verification/issue-<N>/journeys/gallery.spec.ts` (#3: loading, panning, replacement, fallbacks, catalog drift) and `verification/issue-<N>/journeys/gallery-pack.spec.ts` (#5: no placeholders, magenta budget, both Lottie effects, the speed preview, the static portrait swap). Run it against a launched/Doctored client using the commands in verify-game. It creates dedicated browser contexts, uses real keyboard input, collects evidence and restores temporary disk edits.
 
 ```ts
 import { test, expect } from '@playwright/test';
@@ -78,7 +78,11 @@ function command(args: string[]) {
   const run = spawnSync('pnpm', args, { cwd: root, encoding: 'utf8' });
   return { status: run.status, output: run.stdout + run.stderr };
 }
-function diagnosticPng(width: number, height: number) {
+function diagnosticPng(
+  width: number,
+  height: number,
+  rgb: readonly [number, number, number] = [20, 240, 100],
+) {
   const crc = (bytes: Buffer) => {
     let c = 0xffffffff;
     for (const b of bytes) {
@@ -104,9 +108,9 @@ function diagnosticPng(width: number, height: number) {
   for (let y = 0; y < height; y++)
     for (let x = 0; x < width; x++) {
       const i = y * (1 + width * 4) + 1 + x * 4;
-      rows[i] = 20;
-      rows[i + 1] = 240;
-      rows[i + 2] = 100;
+      rows[i] = rgb[0];
+      rows[i + 1] = rgb[1];
+      rows[i + 2] = rgb[2];
       rows[i + 3] = 255;
     }
   return Buffer.concat([
@@ -133,15 +137,15 @@ test('gallery: loading progress, all IDs, panning, animation and no repeat fetch
   context.on('request', (r) => requests.push(r.url()));
   try {
     await page.goto('/?gallery');
-    await expect(page.locator('#loading')).toContainText(/Loading \d+\/84/);
+    await expect(page.locator('#loading')).toContainText(/Loading \d+\/85/);
     await ev.shot('loading');
     release();
     const ready = await assetsReady(page);
     ev.json('ready', ready);
     await expect(page.locator('#loading')).toHaveCount(0);
-    expect(selected(ready)).toMatchObject({ loaded: 84, total: 84, font: 'hud' });
+    expect(selected(ready)).toMatchObject({ loaded: 85, total: 85, font: 'hud' });
     expect(selected(ready).placeholders).toEqual([]);
-    expect(gallery(ready).ids).toHaveLength(83);
+    expect(gallery(ready).ids).toHaveLength(84);
     expect(gallery(ready).ids).not.toContain('font.hud');
     await ev.shot('top');
     const requestCount = requests.length;
@@ -173,25 +177,51 @@ test('gallery: PNG replacement and SVG format switch preserve logical size/ancho
 }) => {
   const ev = startEvidence(page, 'gallery-swap');
   const svg = file('assets/enemies/bat-test.svg');
+  const png = file('assets/enemies/bat-test.png');
+  const contract = {
+    size: baseline.assets['enemy.bat'].size,
+    anchor: baseline.assets['enemy.bat'].anchor,
+  };
+  expect(contract.size).toEqual([32, 32]);
+  expect(contract.anchor).toEqual([0.5, 0.5]);
   try {
     await openGame(page, '/?gallery');
     await assetsReady(page);
     await holdKeys(page, ['ArrowDown'], 850);
     await ev.shot('original-bat');
-    const replacement = diagnosticPng(128, 128);
-    writeFileSync(batPath, replacement);
+    // Native actor JSON and its owned bank remain untouched. Establish a temporary static PNG first.
+    const orange = diagnosticPng(128, 128, [240, 140, 20]);
+    writeFileSync(png, orange);
     await expect
       .poll(async () =>
-        Buffer.compare(
-          await (await page.request.get('/' + baseline.assets['enemy.bat'].file)).body(),
-          replacement,
-        ),
+        Buffer.compare(await (await page.request.get('/enemies/bat-test.png')).body(), orange),
+      )
+      .toBe(0);
+    writeManifest((json) => {
+      json.assets['enemy.bat'].file = 'enemies/bat-test.png';
+      json.assets['enemy.bat'].format = 'png';
+      json.assets['enemy.bat'].filter = 'nearest';
+      delete json.assets['enemy.bat'].loop;
+    });
+    await openGame(page, '/?gallery');
+    expect(selected(await assetsReady(page)).placeholders).not.toContain('enemy.bat');
+    await holdKeys(page, ['ArrowDown'], 850);
+    await ev.shot('orange-png-baseline');
+    const pngManifest = readFileSync(manifestPath);
+    const replacement = diagnosticPng(128, 128);
+    writeFileSync(png, replacement);
+    await expect
+      .poll(async () =>
+        Buffer.compare(await (await page.request.get('/enemies/bat-test.png')).body(), replacement),
       )
       .toBe(0);
     await openGame(page, '/?gallery');
     expect(selected(await assetsReady(page)).placeholders).not.toContain('enemy.bat');
     await holdKeys(page, ['ArrowDown'], 850);
     await ev.shot('green-png-replacement');
+    expect(readFileSync(manifestPath)).toEqual(pngManifest);
+    expect(readFileSync(batPath)).toEqual(batBytes);
+    expect(JSON.parse(pngManifest.toString()).assets['enemy.bat']).toMatchObject(contract);
     const svgSource =
       '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" fill="#00ffff"/></svg>';
     writeFileSync(svg, svgSource);
@@ -202,20 +232,24 @@ test('gallery: PNG replacement and SVG format switch preserve logical size/ancho
       json.assets['enemy.bat'].file = 'enemies/bat-test.svg';
       json.assets['enemy.bat'].format = 'svg';
       delete json.assets['enemy.bat'].filter;
+      delete json.assets['enemy.bat'].loop;
     });
     await openGame(page, '/?gallery');
     const state = await assetsReady(page);
     expect(selected(state).placeholders).not.toContain('enemy.bat');
     await holdKeys(page, ['ArrowDown'], 850);
     await ev.shot('cyan-svg-format-switch');
-    ev.json('svg', state);
+    expect(JSON.parse(readFileSync(manifestPath, 'utf8')).assets['enemy.bat']).toMatchObject(
+      contract,
+    );
+    ev.json('svg', { state, contract });
     expect(pageErrors(ev)).toEqual([]);
   } finally {
-    writeFileSync(batPath, batBytes);
     writeFileSync(manifestPath, manifestBytes);
-    try {
-      unlinkSync(svg);
-    } catch {}
+    for (const temporary of [png, svg])
+      try {
+        unlinkSync(temporary);
+      } catch {}
     ev.flush();
   }
 });
@@ -308,13 +342,22 @@ test('gallery: catalog drift fails checks and synchronized new ID appears', asyn
       original.toString() +
         '\n## Verification sample\n\n| ID | Size | Format | Original role | Used by | Status |\n|---|---|---|---|---|---|\n| `ui.verificationSample` | 32×32 | svg | Sync proof | #3 | needed |\n',
     );
-    const failed = command(['check']);
+    // Run the real catalog/graph checks directly: the deliberately edited fixture is not Prettier output.
+    const checks = [
+      'exec',
+      'vitest',
+      'run',
+      'packages/shared/src/assets.test.ts',
+      'packages/shared/src/assets-catalog.test.ts',
+      'packages/shared/src/motion-graph.test.ts',
+    ];
+    const failed = command(checks);
     ev.json('unsynced-check', failed);
     expect(failed.status).not.toBe(0);
     expect(failed.output).toContain('generated IDs');
     expect(command(['assets:sync']).status).toBe(0);
     // #5: a synced `needed` ID without art still fails the check, naming the ID; the generated IDs now match.
-    const synced = command(['check']);
+    const synced = command(checks);
     ev.json('synced-check', synced);
     expect(synced.status).not.toBe(0);
     expect(synced.output).toContain('ui.verificationSample');
@@ -353,9 +396,9 @@ import {
 
 const root = resolve(import.meta.dirname, '../../..');
 const packManifest = JSON.parse(readFileSync(resolve(root, 'assets/manifest.json'), 'utf8'));
-const ghoulFile = packManifest.assets['enemy.ghoul'].file;
-const ghoulPath = resolve(root, 'assets', ghoulFile);
-const ghoulBytes = readFileSync(ghoulPath);
+const portraitFile = packManifest.assets['portrait.warden'].file;
+const portraitPath = resolve(root, 'assets', portraitFile);
+const portraitBytes = readFileSync(portraitPath);
 function diagnosticPng(width: number, height: number) {
   const crc = (bytes: Buffer) => {
     let c = 0xffffffff;
@@ -492,7 +535,7 @@ test('pack: every catalog ID has art, no stray magenta, both Lottie effects anim
     await page.goto('/?gallery');
     const ready = await assetsReady(page);
     ev.json('ready', ready);
-    expect(assetsOf(ready)).toMatchObject({ loaded: 84, total: 84, placeholders: [] });
+    expect(assetsOf(ready)).toMatchObject({ loaded: 85, total: 85, placeholders: [] });
     const box = await page.locator('#app canvas').boundingBox();
     const scale = (box?.width ?? 1280) / 1280;
     // Only ui.placeholder (the 64×64 magenta reference) may contain magenta.
@@ -558,13 +601,13 @@ test('pack: V opens the speed preview over tiled ground and toggles back', async
   }
 });
 
-test('pack: replacing ghoul PNG preserves its36×40 logical size and changes only that cell', async ({
+test('pack: replacing a static portrait PNG preserves its logical size/anchor and changes only that cell', async ({
   page,
 }) => {
-  const ev = startEvidence(page, 'gallery-ghoul-swap');
+  const ev = startEvidence(page, 'gallery-portrait-swap');
   const clips = async () => {
     const out: Record<string, Buffer> = {};
-    for (const id of ['enemy.bat', 'enemy.ghoul', 'enemy.skeleton', 'enemy.brute'])
+    for (const id of ['portrait.warden', 'portrait.ember', 'portrait.swift', 'portrait.aurelia'])
       out[id] = await page.screenshot({ clip: await clipOf(page, id, 0) });
     return out;
   };
@@ -573,11 +616,17 @@ test('pack: replacing ghoul PNG preserves its36×40 logical size and changes onl
     await assetsReady(page);
     const before = await clips();
     await ev.shot('before-swap');
-    const swapped = diagnosticPng(144, 160);
-    writeFileSync(ghoulPath, swapped);
+    const [width, height] = ASSET_SIZES['portrait.warden'];
+    const entry = packManifest.assets['portrait.warden'];
+    expect(entry.format).toBe('png');
+    expect(entry.size).toEqual([width, height]);
+    expect(entry.anchor).toEqual([0.5, 0.5]);
+    const beforeManifest = readFileSync(resolve(root, 'assets/manifest.json'));
+    const swapped = diagnosticPng(width * 4, height * 4);
+    writeFileSync(portraitPath, swapped);
     await expect
       .poll(async () =>
-        Buffer.compare(await (await page.request.get('/' + ghoulFile)).body(), swapped),
+        Buffer.compare(await (await page.request.get('/' + portraitFile)).body(), swapped),
       )
       .toBe(0);
     await openGame(page, '/?gallery');
@@ -589,10 +638,11 @@ test('pack: replacing ghoul PNG preserves its36×40 logical size and changes onl
       (id) => Buffer.compare(before[id]!, after[id]!) !== 0,
     );
     ev.json('swap', { changed, snapshot: s });
-    expect(changed).toEqual(['enemy.ghoul']);
+    expect(changed).toEqual(['portrait.warden']);
+    expect(readFileSync(resolve(root, 'assets/manifest.json'))).toEqual(beforeManifest);
     expect(pageErrors(ev)).toEqual([]);
   } finally {
-    writeFileSync(ghoulPath, ghoulBytes);
+    writeFileSync(portraitPath, portraitBytes);
     ev.flush();
   }
 });
@@ -603,9 +653,11 @@ test('pack: replacing ghoul PNG preserves its36×40 logical size and changes onl
 - 2026-11-08 (#3): gallery is dev/e2e only; fonts are intentionally not drawable. Baseline counts change when later art issues add entries; derive expected placeholder lists from IDs and seeded art.
 - 2026-11-08 (#3): Vite returns missing assets as index.html with HTTP 200. Picture dimensions and sfnt framing must reject that response; an HTTP-status check alone is insufficient.
 - 2026-11-08 (#3): extension key presses are instantaneous; use repeated presses and snapshot pan changes, while Playwright uses timed holds. Worker logs and request assertions need the Playwright companion.
-- 2026-11-08 (#3): catalog mutation runs pnpm check twice and needs exclusive file/port access; its timeout is 120 seconds. File restoration always runs. Lottie JSON is parsed per independent animation instance; the no-Picture.load cloning invariant applies to static formats.
+- 2026-11-08 (#3): catalog mutation runs the real asset/catalog/graph tests twice and needs exclusive file/port access; its timeout is 120 seconds. File restoration always runs. Lottie JSON is parsed per independent animation instance; the no-Picture.load cloning invariant applies to static formats.
 
 - 2026-11-08 (#3): Vite discovers newly created public files asynchronously; the fixture journeys wait for matching HTTP bytes before reloading, without restarting the server.
 - 2026-11-08 (#5): ground tiles placed edge to edge show hairline seams at fractional view scales (anti-aliased edges let the backdrop through), even though the art is seamless. The preview overlaps tiles by 1 unit (scale 129/128); #7 must do the same.
 - 2026-11-08 (#5): the magenta check counts pure `#ff00ff` pixels per screenshot and allows the `ui.placeholder` reference (64×64 at the view scale); it decodes the PNG on a throwaway page canvas, never the game canvas.
-- 2026-11-08 (#5): sixty instant extension presses pan only about 8 units; drive the full pan, the Lottie clips and the ghoul swap with the Playwright `gallery-pack` spec, and the speed preview (a single `v`) with either driver.
+- 2026-11-08 (#5): sixty instant extension presses pan only about 8 units; drive the full pan, the Lottie clips and the static portrait swap with the Playwright `gallery-pack` spec, and the speed preview (a single `v`) with either driver.
+
+- 2026-11-08 (#84): Native actor primaries are JSON, not PNG. PNG-format mutation uses a temporary bat fixture and explicit manifest transition; static pixel isolation compares the four non-animated portraits. Replacing a native primary requires its whole validated12-image owned bank/graph and receipt policy (ADR0018), not PNG bytes written into JSON. Original actor JSON and pose resources are never edited by these journeys.

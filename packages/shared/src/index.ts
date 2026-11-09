@@ -85,3 +85,6 @@ export {
   interferenceIndex,
 } from './content/interference.js';
 export type { InterferenceDef, InterferenceEffect } from './content/interference.js';
+
+export { lottieProfile } from './lottie-motion.js';
+export type { LottieProfile, MotionState, MotionRange, ActorMotion } from './lottie-motion.js';

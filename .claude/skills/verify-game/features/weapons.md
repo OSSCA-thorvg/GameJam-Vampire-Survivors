@@ -231,6 +231,30 @@ test('weapons 3: G grants the Magic Wand, which fires bolts at the nearest enemy
 }, testInfo) => {
   const ev = startEvidence(page, 'weapons-3-magic-wand');
   noteEvidence(testInfo, ev);
+  const choices: { kind: string; name: string }[] = [];
+  async function unpausedSample(): Promise<GameSnapshot> {
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const value = await snapshot(page);
+      if (value.state !== 'levelUp') return value;
+      const cards = await page
+        .locator('[role="dialog"][aria-label="Level up"] button.card')
+        .evaluateAll((elements) =>
+          elements.map((element) => ({
+            kind: element.getAttribute('data-kind') ?? '',
+            name: element.querySelector('.card-name')?.textContent ?? '',
+          })),
+        );
+      const pick = cards.findIndex((card) =>
+        ['upgradeWeapon', 'newPassive', 'upgradePassive', 'heal'].includes(card.kind),
+      );
+      if (pick < 0)
+        throw new Error('Magic Wand precondition: no card preserves the exact weapon inventory');
+      choices.push(cards[pick]!);
+      await page.keyboard.press(String(pick + 1));
+      await page.waitForTimeout(100);
+    }
+    throw new Error('Magic Wand precondition: level-up choices did not resume the run');
+  }
   try {
     await startRun(page);
     await waitForSnapshot(page, (s) => s.timeS >= 2, 5_000);
@@ -244,7 +268,7 @@ test('weapons 3: G grants the Magic Wand, which fires bolts at the nearest enemy
     const bolts: { nearestGone: boolean }[] = [];
     let shots = 0;
     for (let i = 0; i < 60; i++) {
-      const s = await snapshot(page);
+      const s = await unpausedSample();
       counts.push(s.projectiles as number);
       if ((s.projectiles as number) > 0 && shots < 3) {
         // The bolt starts under the player sprite: a burst of screenshots shows it leaving toward the nearest enemy.
@@ -267,10 +291,11 @@ test('weapons 3: G grants the Magic Wand, which fires bolts at the nearest enemy
       }
       await page.waitForTimeout(100);
     }
+    await unpausedSample();
     await page.keyboard.press('g');
     await page.waitForTimeout(300);
     const end = await snapshot(page);
-    ev.json('projectiles', { counts, bolts, weapons: end.weapons });
+    ev.json('projectiles', { counts, bolts, choices, weapons: end.weapons });
     expect(shots).toBeGreaterThan(0);
     // A bolt kills a bat (10 damage, 5 HP): the enemy nearest at launch is gone shortly after.
     expect(bolts.some((b) => b.nearestGone)).toBe(true);
@@ -602,7 +627,7 @@ for (const [n, id] of ['garlic', 'cross'].entries())
     }
   });
 
-test('weapons 13: performance with six weapons at level 8 at minute 14', async ({
+test('weapons 13: performance with six maxed base weapons through minute 14 including natural evolutions', async ({
   page,
 }, testInfo) => {
   test.setTimeout(600_000);
@@ -611,9 +636,11 @@ test('weapons 13: performance with six weapons at level 8 at minute 14', async (
   const result: Record<string, unknown> = {};
   try {
     await startRun(page);
+    await page.keyboard.press('KeyI'); // precondition only: survive the full stage for this performance sample
+    await waitForSnapshot(page, (s) => s.debugInvulnerable === true, 2_000);
     await waitForSnapshot(page, (s) => s.timeS >= 1, 5_000);
     await grantByG(page, 5);
-    // Precondition: every slot at level 8 through `L`, and Hollow Heart and Pummarola to survive minute 14.
+    // Precondition: every slot at level 8 through `L`, with the real invulnerability precondition for the minute-14 sample.
     result.toL8 = await levelUntil(
       page,
       (s) => weapons(s).every((w) => w.level >= 8),
@@ -628,6 +655,7 @@ test('weapons 13: performance with six weapons at level 8 at minute 14', async (
       const s = await snapshot(page);
       if (s.timeS >= 14 * 60 || s.state === 'results') break;
       if (s.state === 'levelUp') await answer(page, ['Hollow Heart', 'Pummarola'], []);
+      else if (s.state === 'chest') await page.keyboard.press('Enter');
       else {
         await page.keyboard.press(']');
         await page.waitForTimeout(200);
@@ -668,6 +696,7 @@ test('weapons 13: performance with six weapons at level 8 at minute 14', async (
         paints: s.debug,
       });
       if (s.state === 'results') break;
+      if (s.state === 'chest') await page.keyboard.press('Enter');
       if (samples.length % 10 === 0) await ev.shot(`dense-${String(samples.length / 10)}`);
       await page.waitForTimeout(500);
     }
@@ -1043,3 +1072,9 @@ for (const target of [1, 1.5]) {
 - Fast-forwarding to minute 14 (`]`) stops at each level-up until it is answered; journey 13 alternates `]` and answers. The first fps samples after the jump are low (20–49) because the one-second fps window still holds the fast-forward frame; the median over 30 s is 60 on an Apple M4 Pro (headed Chrome) (2026-11-08, #13).
 - `debug.paintsCreated` grows while a journey presses `L` dozens of times within seconds (`fx.levelUp` is prewarmed to 2, so overlapping rings grow it), and would grow if more than 200 blue gems lay on the ground (`gem.blue`'s prewarm); neither is a weapon pool. So journey 14 measures the count right before and after 8 s of six level-8 weapons firing (flat in both runs: 1577 → 1577 with the G weapons, and with Fire Wand and Garlic), and checks that a run ends on the paints the next one starts with; `all-weapons.test.ts` checks every projectile pool stays at its prewarm with six weapons at level 8 for 60 s (2026-11-08, #13).
 - Weapon numbers of #13 are the issue's initial values, untuned against footage (`docs/reference/gameplay.md` § Weapons) (2026-11-08, #13).
+
+- 2026-11-09 (#84): Magic Wand journey3 recorded60zero-projectile samples while a natural Level2 dialog paused the run. It now answers only existing-weapon upgrades, passive cards or heal through real numbered keys and records each choice; if no safe card is offered it fails the explicit setup precondition. InitialWhip1/Wand1, finalexactWhip/Wand/Knife IDs, positive shots, nearest-enemy disappearance and projectile cap assertions are unchanged.
+
+- 2026-11-09 (#84): Journey13 died at7:57 before its unchanged14:00 precondition. It now confirms the real I invulnerability flag and closes natural chest overlays with Enter during fast-forward and the unchanged30s sampler. All six base slots are still maxed through real L/card choices first; the recorded minute14 inventory may naturally contain an evolved weapon at its own max level1, so the title no longer describes every later slot as level8. No physics, time, count or cap assertion was relaxed.
+
+- 2026-11-09 (#84, follow-up #112): Two area1.5 journey15 runs produced only3/0isolated Garlic ticks. Inventory-matched actual-world controls match main and native branches for both recorded builds across five seeds;9/10main controls fail the unchanged minimum count. Competing ranged weapons remove enemies before they enter the75-unit ring. This is a state-only sample/precondition failure, separate from native opacity or pixel detection. Keep `ticks.length > 3`, area and inside/outside assertions unchanged; #112 isolates the real-card build policy after #84. Original failures and control limits are recorded, not counted as passes.

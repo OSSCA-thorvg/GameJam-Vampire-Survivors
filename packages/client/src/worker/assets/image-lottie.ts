@@ -1,10 +1,11 @@
 import type { LottieAnimation, ThorVGNamespace } from '@thorvg/webcanvas';
 import { inspectPng, MAX_IMAGE_ENCODED_BYTES } from '@vs/shared';
-import { validateLottie } from '@vs/shared';
+import { validateLottie, type LottieProfile, type ValidatedLottie } from '@vs/shared';
 
 export interface CachedLottie {
   json: string;
   images: ReadonlyMap<string, Uint8Array>;
+  definition: ValidatedLottie;
 }
 
 /** Bounded reads apply to static PNGs and same-owner Lottie image resources. */
@@ -67,10 +68,11 @@ export async function preloadLottie(
   json: string,
   ownerFile: string,
   baseUrl: string,
+  profile: LottieProfile = 'flat',
 ): Promise<CachedLottie> {
   if (json.length > 2 * 1024 * 1024) throw new Error('Lottie JSON exceeds byte budget');
   const value: unknown = JSON.parse(json);
-  const validated = validateLottie(value, ownerFile);
+  const validated = validateLottie(value, ownerFile, profile);
   const images = new Map<string, Uint8Array>();
   const ownerUrl = new URL(ownerFile, baseUrl);
   for (const image of validated.images) {
@@ -80,32 +82,47 @@ export async function preloadLottie(
     // ThorVG 1.1.3 prepends one slash to u='' image sources; only this exact known alias is accepted.
     images.set('/' + image.path, bytes);
   }
-  return { json, images };
+  return { json, images, definition: validated };
+}
+
+const resourceStates = new WeakMap<LottieAnimation, { error: Error | null }>();
+
+/** Native image callbacks can occur when a later pose is first prepared, after initial load. */
+export function assertLottieResources(animation: LottieAnimation): void {
+  const error = resourceStates.get(animation)?.error;
+  if (error) throw error;
 }
 
 /** Returning false (including wrapper-caught throws) permits native fallback; never return false here. */
-export function createCachedLottie(TVG: ThorVGNamespace, source: CachedLottie): LottieAnimation {
+export function createCachedLottie(
+  TVG: ThorVGNamespace,
+  source: Pick<CachedLottie, 'json' | 'images'>,
+  onResolve?: () => void,
+): LottieAnimation {
   const animation = new TVG.LottieAnimation();
   try {
     const picture = animation.picture;
     if (!picture) throw new Error('Lottie picture missing before load');
-    let failure: Error | undefined;
+    const state: { error: Error | null } = { error: null };
+    resourceStates.set(animation, state);
     picture.resolver((paint, path) => {
       try {
+        onResolve?.();
         const bytes = source.images.get(path);
         if (!bytes || !(paint instanceof TVG.Picture))
           throw new Error('Unexpected Lottie image resolver source');
         paint.load(bytes, { type: 'png' });
         paint.filter(TVG.FilterMethod.Nearest);
       } catch (error) {
-        failure = error instanceof Error ? error : new Error(String(error));
+        state.error = error instanceof Error ? error : new Error(String(error));
       }
       return true;
     });
     animation.load(source.json);
-    if (failure) throw failure;
+    assertLottieResources(animation);
     return animation;
   } catch (error) {
+    resourceStates.delete(animation);
     animation.dispose();
     throw error;
   }

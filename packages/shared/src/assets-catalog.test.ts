@@ -2,6 +2,7 @@
 // ADR 0007 budget and stays inert (ADR 0011): assets are fetched by the worker and parsed by ThorVG.
 import { existsSync, readFileSync } from 'node:fs';
 import { validateLottie } from './lottie';
+import { lottieProfile } from './lottie-motion';
 import { massBudgetErrors, scanSvg, svgSafetyErrors } from './svg-safety';
 import { describe, expect, it } from 'vitest';
 import { parseCatalog, type CatalogRow } from './catalog';
@@ -51,10 +52,10 @@ function expectedFile(row: Pick<CatalogRow, 'id' | 'format'>): string {
   return `${FOLDERS[first] ?? '?'}/${name.join('-')}.${EXTENSIONS[row.format] ?? '?'}`;
 }
 
-function lottieErrors(text: string, owner = 'fx/level-up.json'): string[] {
+function lottieErrors(text: string, owner = 'fx/level-up.json', id = ''): string[] {
   try {
     const value: unknown = JSON.parse(text);
-    validateLottie(value, owner);
+    validateLottie(value, owner, lottieProfile(id));
     return [];
   } catch (error) {
     return [error instanceof Error ? error.message : String(error)];
@@ -136,7 +137,12 @@ describe('starter asset pack', () => {
       const entry = manifest.assets[row.id];
       if (!entry) return [`${row.id}: no manifest entry`];
       if (entry.format === 'png') return [];
-      if (entry.format !== 'svg') return [`${row.id}: mass art must be static SVG or PNG`];
+      if (entry.format === 'lottie')
+        return lottieErrors(read(entry.file), entry.file, row.id).map(
+          (problem) => `${row.id}: ${problem}`,
+        );
+      if (entry.format !== 'svg')
+        return [`${row.id}: mass art must be budgeted SVG/PNG or validated native motion`];
       return massBudgetErrors(read(entry.file)).map((problem) => `${row.id}: ${problem}`);
     });
     expect(errors).toEqual([]);
@@ -146,7 +152,7 @@ describe('starter asset pack', () => {
     const lotties = entries.filter(([, entry]) => entry.format === 'lottie');
     expect(lotties.length).toBeGreaterThan(0);
     const errors = lotties.flatMap(([id, entry]) =>
-      lottieErrors(read(entry.file), entry.file).map((problem) => `${id}: ${problem}`),
+      lottieErrors(read(entry.file), entry.file, id).map((problem) => `${id}: ${problem}`),
     );
     expect(errors).toEqual([]);
   });

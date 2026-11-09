@@ -86,6 +86,7 @@ test('stress: prewarmed paints survive real remove/add cycles', async ({ page, b
     const before = await snapshot(page);
     const samples = [];
     for (let window = 0; window < 5; window++) {
+      const windowStartedAt = Date.now();
       const start = await snapshot(page);
       const fps = [];
       for (let second = 0; second < 10; second++) {
@@ -102,12 +103,21 @@ test('stress: prewarmed paints survive real remove/add cycles', async ({ page, b
         expect(debug.visiblePaints).toBe(3000);
         fps.push(value.fps);
       }
+      // Churn is scheduled by fixed simulation steps, not wall time; retain all 50 wall-clock samples above.
+      await waitForSnapshot(page, (value) => value.steps >= start.steps + 600, 15_000);
       const end = await snapshot(page);
       expect(
         (end.debug as { churnCycles: number }).churnCycles -
           (start.debug as { churnCycles: number }).churnCycles,
       ).toBeGreaterThanOrEqual(5);
-      samples.push({ start, end, fps });
+      samples.push({
+        start,
+        end,
+        fps,
+        wallMs: Date.now() - windowStartedAt,
+        simulatedSteps: end.steps - start.steps,
+        simulatedSeconds: (end.steps - start.steps) / 60,
+      });
     }
     await ev.shot('after-churn');
     const hardware = await page.evaluate(() => {
@@ -198,3 +208,5 @@ Production absence: `pnpm build` (its last line is `check-prod-bundle: ok, …`)
 
 - Stress churn runs every 2 **simulated** seconds; retain `steps` and `churnCycles` with paint counts so low frame rates cannot disguise skipped work. The debug snapshot allocates only when requested, outside the owned per-entity hot loop.
 - Per-run reset order is pool `releaseAll()` followed by store `clear()`; ordinary removal must call binding `unbind(slot)` first. Bindings store physical pool handles, and use preallocated stable-UID bookkeeping to distinguish unbound slots from handle zero.
+
+- 2026-11-09 (#84): The headed native stress journey observed only586total steps/9.7667simulated seconds and4churn cycles after a fixed10wall-second window during cold preparation. It now retains all50wall-clock fps/count samples, then waits within15s for600actual simulation steps per window before asserting at least5cycles. Wall and simulation spans are recorded separately; no count, cycle or runtime assertion is reduced.

@@ -4,53 +4,29 @@
     "ui.placeholder": {
       "file": "ui/placeholder.png",
       "format": "png",
-      "size": [
-        64,
-        64
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [64, 64],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "enemy.bat": {
-      "file": "enemies/bat.png",
-      "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "enemies/bat.json",
+      "format": "lottie",
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "fx.levelUp": {
       "file": "fx/level-up.json",
       "format": "lottie",
-      "size": [
-        96,
-        96
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [96, 96],
+      "anchor": [0.5, 0.5],
       "loop": true
     },
     "ui.favicon": {
       "file": "ui/favicon.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "font.hud": {
@@ -58,1040 +34,560 @@
       "format": "ttf"
     },
     "boss.death": {
-      "file": "bosses/death.png",
-      "format": "png",
-      "size": [
-        128,
-        128
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "bosses/death.json",
+      "format": "lottie",
+      "size": [128, 128],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "boss.reaper10": {
-      "file": "bosses/reaper10.png",
-      "format": "png",
-      "size": [
-        112,
-        112
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "bosses/reaper10.json",
+      "format": "lottie",
+      "size": [112, 112],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "boss.reaper5": {
-      "file": "bosses/reaper5.png",
-      "format": "png",
-      "size": [
-        96,
-        96
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "bosses/reaper5.json",
+      "format": "lottie",
+      "size": [96, 96],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "enemy.brute": {
-      "file": "enemies/brute.png",
-      "format": "png",
-      "size": [
-        56,
-        56
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "enemies/brute.json",
+      "format": "lottie",
+      "size": [56, 56],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "enemy.ghoul": {
-      "file": "enemies/ghoul.png",
-      "format": "png",
-      "size": [
-        36,
-        40
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "enemies/ghoul.json",
+      "format": "lottie",
+      "size": [36, 40],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "enemy.skeleton": {
-      "file": "enemies/skeleton.png",
-      "format": "png",
-      "size": [
-        36,
-        44
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "enemies/skeleton.json",
+      "format": "lottie",
+      "size": [36, 44],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "enemy.wisp": {
-      "file": "enemies/wisp.png",
-      "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "enemies/wisp.json",
+      "format": "lottie",
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "enemy.wraith": {
-      "file": "enemies/wraith.png",
-      "format": "png",
-      "size": [
-        64,
-        64
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "enemies/wraith.json",
+      "format": "lottie",
+      "size": [64, 64],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "enemy.lottieTest": {
       "file": "enemies/lottie-test.json",
       "format": "lottie",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ]
+      "size": [32, 32],
+      "anchor": [0.5, 0.5]
     },
     "fx.chestOpen": {
       "file": "fx/chest-open.json",
       "format": "lottie",
-      "size": [
-        128,
-        128
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [128, 128],
+      "anchor": [0.5, 0.5],
       "loop": true
     },
     "fx.enemyDeath": {
-      "file": "fx/enemy-death.png",
-      "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "fx/enemy-death.json",
+      "format": "lottie",
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
+      "loop": false
     },
     "fx.freeze": {
-      "file": "fx/freeze.png",
-      "format": "png",
-      "size": [
-        64,
-        64
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "fx/freeze.json",
+      "format": "lottie",
+      "size": [64, 64],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "fx.hit": {
-      "file": "fx/hit.png",
-      "format": "png",
-      "size": [
-        24,
-        24
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "fx/hit.json",
+      "format": "lottie",
+      "size": [24, 24],
+      "anchor": [0.5, 0.5],
+      "loop": false
     },
     "fx.warning": {
-      "file": "fx/warning.png",
-      "format": "png",
-      "size": [
-        48,
-        48
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "fx/warning.json",
+      "format": "lottie",
+      "size": [48, 48],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "gem.blue": {
       "file": "pickups/gem-blue.png",
       "format": "png",
-      "size": [
-        12,
-        16
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [12, 16],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "gem.green": {
       "file": "pickups/gem-green.png",
       "format": "png",
-      "size": [
-        12,
-        16
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [12, 16],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "gem.red": {
       "file": "pickups/gem-red.png",
       "format": "png",
-      "size": [
-        14,
-        18
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [14, 18],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.passive.bracer": {
       "file": "icons/passive-bracer.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.passive.candelabrador": {
       "file": "icons/passive-candelabrador.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.passive.clover": {
       "file": "icons/passive-clover.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.passive.emptyTome": {
       "file": "icons/passive-empty-tome.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.passive.hollowHeart": {
       "file": "icons/passive-hollow-heart.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.passive.pummarola": {
       "file": "icons/passive-pummarola.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.passive.spellbinder": {
       "file": "icons/passive-spellbinder.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.passive.spinach": {
       "file": "icons/passive-spinach.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.weapon.axe": {
       "file": "icons/weapon-axe.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.weapon.bloodyTear": {
       "file": "icons/weapon-bloody-tear.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.weapon.cross": {
       "file": "icons/weapon-cross.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.weapon.deathSpiral": {
       "file": "icons/weapon-death-spiral.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.weapon.fireWand": {
       "file": "icons/weapon-fire-wand.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.weapon.garlic": {
       "file": "icons/weapon-garlic.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.weapon.heavenSword": {
       "file": "icons/weapon-heaven-sword.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.weapon.hellfire": {
       "file": "icons/weapon-hellfire.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.weapon.holyWand": {
       "file": "icons/weapon-holy-wand.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.weapon.kingBible": {
       "file": "icons/weapon-king-bible.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.weapon.knife": {
       "file": "icons/weapon-knife.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.weapon.magicWand": {
       "file": "icons/weapon-magic-wand.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.weapon.soulEater": {
       "file": "icons/weapon-soul-eater.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.weapon.thousandEdge": {
       "file": "icons/weapon-thousand-edge.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.weapon.unholyVespers": {
       "file": "icons/weapon-unholy-vespers.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "icon.weapon.whip": {
       "file": "icons/weapon-whip.png",
       "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "pickup.chest": {
       "file": "pickups/chest.png",
       "format": "png",
-      "size": [
-        32,
-        28
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [32, 28],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "pickup.floorChicken": {
       "file": "pickups/floor-chicken.png",
       "format": "png",
-      "size": [
-        24,
-        24
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [24, 24],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "pickup.interference.eliteCall": {
       "file": "pickups/interference-elite-call.png",
       "format": "png",
-      "size": [
-        28,
-        28
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [28, 28],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "pickup.interference.gemThief": {
       "file": "pickups/interference-gem-thief.png",
       "format": "png",
-      "size": [
-        28,
-        28
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [28, 28],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "pickup.interference.swarm": {
       "file": "pickups/interference-swarm.png",
       "format": "png",
-      "size": [
-        28,
-        28
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [28, 28],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "pickup.littleClover": {
       "file": "pickups/little-clover.png",
       "format": "png",
-      "size": [
-        24,
-        24
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [24, 24],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "pickup.orologion": {
       "file": "pickups/orologion.png",
       "format": "png",
-      "size": [
-        24,
-        24
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [24, 24],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "pickup.rosary": {
       "file": "pickups/rosary.png",
       "format": "png",
-      "size": [
-        24,
-        24
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [24, 24],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "pickup.vacuum": {
       "file": "pickups/vacuum.png",
       "format": "png",
-      "size": [
-        24,
-        24
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [24, 24],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "player.ember": {
-      "file": "characters/ember.png",
-      "format": "png",
-      "size": [
-        48,
-        48
-      ],
-      "anchor": [
-        0.5,
-        0.9
-      ],
-      "filter": "nearest"
+      "file": "characters/ember.json",
+      "format": "lottie",
+      "size": [48, 48],
+      "anchor": [0.5, 0.9],
+      "loop": true
     },
     "player.swift": {
-      "file": "characters/swift.png",
-      "format": "png",
-      "size": [
-        48,
-        48
-      ],
-      "anchor": [
-        0.5,
-        0.9
-      ],
-      "filter": "nearest"
+      "file": "characters/swift.json",
+      "format": "lottie",
+      "size": [48, 48],
+      "anchor": [0.5, 0.9],
+      "loop": true
     },
     "player.warden": {
-      "file": "characters/warden.png",
-      "format": "png",
-      "size": [
-        48,
-        48
-      ],
-      "anchor": [
-        0.5,
-        0.9
-      ],
-      "filter": "nearest"
+      "file": "characters/warden.json",
+      "format": "lottie",
+      "size": [48, 48],
+      "anchor": [0.5, 0.9],
+      "loop": true
     },
     "portrait.ember": {
       "file": "characters/portrait-ember.png",
       "format": "png",
-      "size": [
-        128,
-        128
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [128, 128],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "portrait.swift": {
       "file": "characters/portrait-swift.png",
       "format": "png",
-      "size": [
-        128,
-        128
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [128, 128],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "portrait.warden": {
       "file": "characters/portrait-warden.png",
       "format": "png",
-      "size": [
-        128,
-        128
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [128, 128],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "stage.brazier": {
-      "file": "stage/brazier.png",
-      "format": "png",
-      "size": [
-        24,
-        40
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "stage/brazier.json",
+      "format": "lottie",
+      "size": [24, 40],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "stage.brazierBroken": {
       "file": "stage/brazier-broken.png",
       "format": "png",
-      "size": [
-        24,
-        20
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [24, 20],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "stage.ground": {
       "file": "stage/ground.png",
       "format": "png",
-      "size": [
-        128,
-        128
-      ],
-      "anchor": [
-        0,
-        0
-      ],
+      "size": [128, 128],
+      "anchor": [0, 0],
       "filter": "nearest"
     },
     "ui.hpBar": {
       "file": "ui/hp-bar.png",
       "format": "png",
-      "size": [
-        40,
-        6
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [40, 6],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "ui.skull": {
       "file": "ui/skull.png",
       "format": "png",
-      "size": [
-        16,
-        16
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [16, 16],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "ui.xpBar": {
       "file": "ui/xp-bar.png",
       "format": "png",
-      "size": [
-        400,
-        12
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [400, 12],
+      "anchor": [0.5, 0.5],
       "filter": "nearest"
     },
     "weapon.axe": {
-      "file": "weapons/axe.png",
-      "format": "png",
-      "size": [
-        28,
-        28
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "weapons/axe.json",
+      "format": "lottie",
+      "size": [28, 28],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "weapon.bloodyTear": {
-      "file": "weapons/bloody-tear.png",
-      "format": "png",
-      "size": [
-        180,
-        44
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "weapons/bloody-tear.json",
+      "format": "lottie",
+      "size": [180, 44],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "weapon.cross": {
-      "file": "weapons/cross.png",
-      "format": "png",
-      "size": [
-        28,
-        28
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "weapons/cross.json",
+      "format": "lottie",
+      "size": [28, 28],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "weapon.deathSpiral": {
-      "file": "weapons/death-spiral.png",
-      "format": "png",
-      "size": [
-        36,
-        36
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "weapons/death-spiral.json",
+      "format": "lottie",
+      "size": [36, 36],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "weapon.fireWand": {
-      "file": "weapons/fire-wand.png",
-      "format": "png",
-      "size": [
-        20,
-        20
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "weapons/fire-wand.json",
+      "format": "lottie",
+      "size": [20, 20],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "weapon.garlic": {
-      "file": "weapons/garlic.png",
-      "format": "png",
-      "size": [
-        100,
-        100
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "weapons/garlic.json",
+      "format": "lottie",
+      "size": [100, 100],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "weapon.heavenSword": {
-      "file": "weapons/heaven-sword.png",
-      "format": "png",
-      "size": [
-        32,
-        32
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "weapons/heaven-sword.json",
+      "format": "lottie",
+      "size": [32, 32],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "weapon.hellfire": {
-      "file": "weapons/hellfire.png",
-      "format": "png",
-      "size": [
-        40,
-        40
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "weapons/hellfire.json",
+      "format": "lottie",
+      "size": [40, 40],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "weapon.holyWand": {
-      "file": "weapons/holy-wand.png",
-      "format": "png",
-      "size": [
-        14,
-        14
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "weapons/holy-wand.json",
+      "format": "lottie",
+      "size": [14, 14],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "weapon.kingBible": {
-      "file": "weapons/king-bible.png",
-      "format": "png",
-      "size": [
-        24,
-        28
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "weapons/king-bible.json",
+      "format": "lottie",
+      "size": [24, 28],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "weapon.knife": {
-      "file": "weapons/knife.png",
-      "format": "png",
-      "size": [
-        20,
-        6
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "weapons/knife.json",
+      "format": "lottie",
+      "size": [20, 6],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "weapon.magicWand": {
-      "file": "weapons/magic-wand.png",
-      "format": "png",
-      "size": [
-        12,
-        12
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "weapons/magic-wand.json",
+      "format": "lottie",
+      "size": [12, 12],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "weapon.soulEater": {
-      "file": "weapons/soul-eater.png",
-      "format": "png",
-      "size": [
-        140,
-        140
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "weapons/soul-eater.json",
+      "format": "lottie",
+      "size": [140, 140],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "weapon.thousandEdge": {
-      "file": "weapons/thousand-edge.png",
-      "format": "png",
-      "size": [
-        22,
-        6
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "weapons/thousand-edge.json",
+      "format": "lottie",
+      "size": [22, 6],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "weapon.unholyVespers": {
-      "file": "weapons/unholy-vespers.png",
-      "format": "png",
-      "size": [
-        26,
-        30
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "weapons/unholy-vespers.json",
+      "format": "lottie",
+      "size": [26, 30],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "weapon.whip": {
-      "file": "weapons/whip.png",
-      "format": "png",
-      "size": [
-        160,
-        40
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
-      "filter": "nearest"
+      "file": "weapons/whip.json",
+      "format": "lottie",
+      "size": [160, 40],
+      "anchor": [0.5, 0.5],
+      "loop": true
     },
     "player.aurelia": {
-      "size": [
-        48,
-        48
-      ],
-      "anchor": [
-        0.5,
-        0.9
-      ],
-      "file": "characters/aurelia.png",
-      "format": "png",
-      "filter": "nearest"
+      "size": [48, 48],
+      "anchor": [0.5, 0.9],
+      "file": "characters/aurelia.json",
+      "format": "lottie",
+      "loop": true
     },
     "portrait.aurelia": {
-      "size": [
-        128,
-        128
-      ],
-      "anchor": [
-        0.5,
-        0.5
-      ],
+      "size": [128, 128],
+      "anchor": [0.5, 0.5],
       "file": "characters/portrait-aurelia.png",
       "format": "png",
       "filter": "nearest"

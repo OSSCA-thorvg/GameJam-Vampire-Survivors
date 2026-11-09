@@ -1,7 +1,10 @@
+import { NativePlayback } from './playback';
+import type { MotionState } from '@vs/shared';
 import type { LottieAnimation, Paint, ThorVGNamespace } from '@thorvg/webcanvas';
 import {
   ASSET_IDS,
   ASSET_SIZES,
+  lottieProfile,
   type DrawableAssetEntry,
   type DrawableAssetId,
   type ManifestValidation,
@@ -20,6 +23,22 @@ export interface AssetInstance {
   offsetY: number;
   lottie?: LottieAnimation;
 }
+type PlaybackClock = 'simulation' | 'presentation';
+
+export type AssetSource = Pick<AssetLibrary, 'create'> &
+  Partial<
+    Pick<
+      AssetLibrary,
+      | 'setPlaybackActive'
+      | 'tickPresentation'
+      | 'resetPlayback'
+      | 'setMotionState'
+      | 'setHitFeedback'
+      | 'setHitFlash'
+      | 'setPlaybackDuration'
+      | 'restart'
+    >
+  >;
 interface StaticMaster {
   kind: 'static';
   paint: Paint;
@@ -33,13 +52,6 @@ interface AnimatedMaster {
   frames: number;
 }
 type Master = StaticMaster | AnimatedMaster;
-interface Playback {
-  animation: LottieAnimation;
-  time: number;
-  fps: number;
-  frames: number;
-  loop: boolean;
-}
 
 export function isDrawableId(id: string): id is DrawableAssetId {
   return ASSET_IDS.some((known) => known === id) && !id.startsWith('font.');
@@ -75,13 +87,15 @@ async function loadMaster(
   TVG: ThorVGNamespace,
   baseUrl: string,
   entry: DrawableAssetEntry,
+  id: DrawableAssetId,
+  onResolve: () => void,
 ): Promise<Master> {
   const response = await fetch(new URL(entry.file, baseUrl));
   if (!response.ok) throw new Error(`HTTP ${String(response.status)}`);
   if (entry.format === 'lottie') {
     const json = await response.text();
-    const source = await preloadLottie(json, entry.file, baseUrl);
-    const animation = createCachedLottie(TVG, source);
+    const source = await preloadLottie(json, entry.file, baseUrl, lottieProfile(id));
+    const animation = createCachedLottie(TVG, source, onResolve);
     try {
       const info = animation.info();
       const size = animation.picture?.size();
@@ -89,6 +103,8 @@ async function loadMaster(
         !info ||
         !Number.isFinite(info.totalFrames) ||
         info.totalFrames <= 0 ||
+        source.definition.width !== entry.size[0] ||
+        source.definition.height !== entry.size[1] ||
         !Number.isFinite(info.fps) ||
         info.fps <= 0 ||
         !Number.isFinite(info.duration) ||
@@ -136,7 +152,20 @@ export class AssetLibrary {
     return this.placeholderIds;
   }
   private readonly masters = new Map<DrawableAssetId, Master>();
-  private readonly live = new Map<AssetInstance, Playback>();
+  private readonly live = new Map<AssetInstance, NativePlayback>();
+  private readonly active = new Set<NativePlayback>();
+  private readonly presentation = new Set<NativePlayback>();
+  private readonly eventClips = new WeakSet<AssetInstance>();
+  private created = 0;
+  private readonly counters = {
+    frameCalls: 0,
+    resolverCalls: 0,
+    segmentChanges: 0,
+    slotApplications: 0,
+  };
+  private readonly noteResolver = (): void => {
+    this.counters.resolverCalls++;
+  };
   private constructor(private readonly TVG: ThorVGNamespace) {}
 
   static async load(
@@ -154,7 +183,7 @@ export class AssetLibrary {
       entries.map(async ([id, entry]) => {
         if (entry.format === 'ttf' || !isDrawableId(id)) return;
         try {
-          library.masters.set(id, await loadMaster(TVG, baseUrl, entry));
+          library.masters.set(id, await loadMaster(TVG, baseUrl, entry, id, library.noteResolver));
         } catch (error) {
           console.warn(
             `[assets] ${id} failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -186,7 +215,7 @@ export class AssetLibrary {
     const offsetX = -anchor[0] * size[0];
     const offsetY = -anchor[1] * size[1];
     if (master.kind === 'static') return { paint: master.paint.duplicate(), offsetX, offsetY };
-    const lottie = createCachedLottie(this.TVG, master.source);
+    const lottie = createCachedLottie(this.TVG, master.source, this.noteResolver);
     const paint = lottie.picture;
     if (!paint) {
       lottie.dispose();
@@ -194,33 +223,79 @@ export class AssetLibrary {
     }
     paint.size(...size);
     const instance = { paint, offsetX, offsetY, lottie };
-    this.live.set(instance, {
+    const playback = new NativePlayback({
       animation: lottie,
-      time: 0,
       fps: master.fps,
       frames: master.frames,
       loop: master.entry.loop !== false,
+      motion: master.source.definition.motion,
+      counters: this.counters,
     });
+    this.created++;
+    if (id.startsWith('fx.') || id.startsWith('weapon.')) this.eventClips.add(instance);
+    this.live.set(instance, playback);
+    this.active.add(playback);
     return instance;
   }
 
   tick(dtSec: number): void {
-    for (const playback of this.live.values()) {
-      playback.time += dtSec;
-      const frame = playback.time * playback.fps;
-      playback.animation.frame(
-        playback.loop ? frame % playback.frames : Math.min(frame, Math.max(0, playback.frames - 1)),
-      );
-    }
+    if (!Number.isFinite(dtSec) || dtSec < 0) throw new RangeError('Invalid playback step');
+    if (dtSec === 0) return;
+    for (const playback of this.active) playback.tick(dtSec);
+  }
+  /** Advances display-only actors from the visible opponent pane's clock. */
+  tickPresentation(dtSec: number): void {
+    if (!Number.isFinite(dtSec) || dtSec < 0) throw new RangeError('Invalid playback step');
+    if (dtSec === 0) return;
+    for (const playback of this.presentation) playback.tick(dtSec);
+  }
+
+  setPlaybackActive(
+    instance: AssetInstance,
+    active: boolean,
+    clock: PlaybackClock = 'simulation',
+  ): void {
+    const playback = this.live.get(instance);
+    if (!playback) return;
+    playback.setActive(active);
+    if (active && clock === 'simulation') this.active.add(playback);
+    else this.active.delete(playback);
+    if (active && clock === 'presentation') this.presentation.add(playback);
+    else this.presentation.delete(playback);
+  }
+  resetPlayback(instance: AssetInstance): void {
+    this.live.get(instance)?.reset();
+  }
+  setMotionState(instance: AssetInstance, state: MotionState): void {
+    this.live.get(instance)?.setMotion(state);
+  }
+  setHitFeedback(instance: AssetInstance, remaining: number): boolean {
+    return this.live.get(instance)?.setFeedback(remaining) ?? false;
+  }
+  setHitFlash(instance: AssetInstance, shown: boolean): boolean {
+    return this.live.get(instance)?.setFlash(shown) ?? false;
+  }
+  setPlaybackDuration(instance: AssetInstance, duration: number): void {
+    const playback = this.live.get(instance);
+    if (!playback) return;
+    if (!this.eventClips.has(instance))
+      throw new Error('Duration fitting requires a flat effect or weapon');
+    playback.setDuration(duration);
+  }
+  motionSnapshot() {
+    return {
+      created: this.created,
+      active: this.active.size + this.presentation.size,
+      ...this.counters,
+    };
   }
   /** Restarts a Lottie instance's playback at frame 0 (a pooled one-shot effect being reused, #11). */
   restart(instance: AssetInstance): void {
-    const playback = this.live.get(instance);
-    if (!playback) return;
-    playback.time = 0;
-    playback.animation.frame(0);
+    this.resetPlayback(instance);
   }
+
   release(instance: AssetInstance): void {
+    this.setPlaybackActive(instance, false);
     this.live.delete(instance);
   }
   isPlaceholder(id: DrawableAssetId): boolean {

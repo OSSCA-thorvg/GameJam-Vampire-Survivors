@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 import type { AssetResolver, Paint, ThorVGNamespace } from '@thorvg/webcanvas';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { inspectPng, MAX_IMAGE_ENCODED_BYTES } from '@vs/shared';
+import { NativePlayback } from './playback';
 import { createCachedLottie, preloadLottie, readImageBytes } from './image-lottie';
 
 const bytes = Uint8Array.from(
@@ -43,6 +44,11 @@ class Animation {
       accepted = false;
     }
     returned.push(accepted);
+  }
+  frame(value?: number): number | this {
+    if (value === undefined) return 0;
+    this.load();
+    return this;
   }
   dispose() {
     disposed++;
@@ -155,4 +161,33 @@ it('cancels advertised and streamed oversized image bodies', async () => {
   );
   await expect(readImageBytes(streamed)).rejects.toThrow(/budget/);
   expect(cancelled).toHaveBeenCalledTimes(2);
+});
+
+it('suppresses native fallback even when a resolver observer throws', () => {
+  expect(() =>
+    createCachedLottie(TVG, { json: source(), images: new Map([[nativePath, bytes]]) }, () => {
+      throw new Error('observer failed');
+    }),
+  ).toThrow(/observer failed/);
+  expect(returned).toEqual([true]);
+});
+
+it('surfaces a later-pose resolver failure from the actual playback adapter without native fallback', () => {
+  const animation = createCachedLottie(TVG, {
+    json: source(),
+    images: new Map([[nativePath, bytes]]),
+  });
+  const playback = new NativePlayback({
+    animation,
+    fps: 30,
+    frames: 30,
+    loop: true,
+    motion: null,
+    counters: { frameCalls: 0, segmentChanges: 0, slotApplications: 0 },
+  });
+  nativePath = '//unowned.test/late-pose.png';
+  expect(() => {
+    playback.tick(1 / 60);
+  }).toThrow(/Unexpected Lottie image resolver/);
+  expect(returned).toEqual([true, true]);
 });

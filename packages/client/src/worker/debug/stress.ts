@@ -1,6 +1,6 @@
 import type { Scene } from '@thorvg/webcanvas';
 import { createRng, PROJECTILE_CAP, type DrawableAssetId } from '@vs/shared';
-import type { AssetLibrary } from '../assets/library';
+import type { AssetSource } from '../assets/library';
 import { createStore } from '../ecs/store';
 import { createSpatialGrid } from '../ecs/spatial-grid';
 import { PaintPool, RenderBinding } from '../render/pool';
@@ -96,7 +96,7 @@ export function parseStressCount(value: string): number | null {
 
 /** All owned storage and Paints are created here. Steps and render only reuse them. */
 export function createStressScene(
-  library: Pick<AssetLibrary, 'create'>,
+  library: AssetSource,
   layer: Pick<Scene, 'add'>,
   count: number,
   now: () => number = () => performance.now(),
@@ -126,6 +126,7 @@ export function createStressScene(
     vx[slot] = rng.range(-35, 35);
     vy[slot] = rng.range(-35, 35);
     binding.bind(slot, 0);
+    library.setMotionState?.(pool.get(store.cols.paintHandle[slot] ?? 0), 'move');
   };
   for (let i = 0; i < count; i++) spawn();
 

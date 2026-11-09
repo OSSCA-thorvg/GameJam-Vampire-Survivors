@@ -286,7 +286,10 @@ async function boot(): Promise<void> {
   if (document.hidden) post({ type: 'visibility', hidden: true });
 
   if (import.meta.env.DEV) {
-    if (debug?.gallery) registerDebugKey('KeyV', { kind: 'galleryPreview' });
+    if (debug?.gallery) {
+      registerDebugKey('KeyV', { kind: 'galleryPreview' });
+      registerDebugKey('KeyO', { kind: 'galleryMotion' });
+    }
     registerDebugKey('KeyG', { kind: 'grantWeapon' });
     registerDebugKey('KeyL', { kind: 'levelUp' });
     registerDebugKey('KeyP', { kind: 'grantPassive' });

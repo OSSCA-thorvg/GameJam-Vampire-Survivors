@@ -7,7 +7,7 @@ Multiplayer interference items (#21, ADRs 0005, 0006, 0008): in a versus match, 
 - **Drops (versus only):** from 1:00 of simulated time a kill may drop an interference pickup at the kill's position (`pickup.interference.swarm`, `.gemThief`, `.eliteCall`, drawn from their catalog IDs): normal kills 0.4%, elites 25%, at least 20 s after the previous drop, and only while fewer than 2 lie in the world. Weights Swarm 3, Gem Thief 2, Elite Call 2. Initial values, untuned (the owner decided not to tune against the original). Snapshot `interferenceOnGround` counts them; the `pickups` field (#16) still lists light-source pickups only.
 - **Collection:** walking within 30 units collects it (no magnet). The worker posts `interferenceCollected { kind }`, the page sends `interference { kind }` (one frame per pickup), and the sender's HUD shows "Sent <label>" in ThorVG under the timer for 2 s.
 - **Routing:** the server picks the target (the other player with two; a random living opponent otherwise) and sends `interferenceIncoming { kind, fromPlayerId, fromNickname }`. Each sender gets a burst of 4 and then one per 20 s per match (`INTERFERENCE_SEND_LIMIT`); excess is dropped without an `error` and logged as `interference_capped` (`room-server.md`).
-- **Banner:** the target sees "<nickname> sent <label>!" with the `fx.warning` icon at the top centre (`.interference-banner`, DOM, `textContent` only), fading out after 3 s; at most 3 stack. Snapshot `banners` lists the shown texts. The nickname never reaches the worker.
+- **Banner:** the target sees "<nickname> sent <label>!" with the `fx.warning` icon at the top centre (`.interference-banner`, DOM, `textContent` only), fading out after 3 s; at most 3 stack. The native `fx.warning` effect is represented here by its eagerly validated static PNG data-URL poster; canvas playback remains Lottie. The icon must decode (`naturalWidth > 0`), and showing the banner must not fetch the JSON as an HTML image. Snapshot `banners` lists the shown texts. The nickname never reaches the worker.
 - **Swarm:** 30 of the current wave's highest-weight enemy appear on a ring 1.1 × half the view diagonal around the target's player (`enemies` +30 at once), never past 400.
 - **Gem Thief:** every gem on the target's ground disappears (`gems` 0); `player.xp` and `player.level` are not reduced.
 - **Elite Call:** one elite of the wave's main enemy appears 400 units from the target in a random direction (`elites` +1), with its red marker and chest.
@@ -93,6 +93,13 @@ test('interference 1: A collects Swarm, Gem Thief and Elite Call; B gets each ef
       const tBanner = Date.now();
       await b.ev.shot(`b-${kind}-banner`);
       const bannerText = await b.page.locator('.interference-banner').first().textContent();
+      const icon = b.page.locator('.interference-banner img').first();
+      await expect
+        .poll(() =>
+          icon.evaluate((image) => (image instanceof HTMLImageElement ? image.naturalWidth : 0)),
+        )
+        .toBeGreaterThan(0);
+      expect(await icon.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
       const sent = a.frames.filter((f) => f.dir === '→' && f.type === 'interference' && f.t >= t0);
       const got = b.frames.filter(
         (f) => f.dir === '←' && f.type === 'interferenceIncoming' && f.t >= t0,
@@ -359,3 +366,5 @@ test('interference 5: the server routes at most INTERFERENCE_SEND_LIMIT per send
 - B keeps collecting gems between the two snapshots around Gem Thief, so B may level up meanwhile (XP then restarts from 0); the exact "XP and level unchanged" proof is the unit test in `systems/interference.test.ts` (2026-11-09, #21).
 - Measured against the local Docker server: collection to B's banner 164–215 ms, A's `interference` frame to B's `interferenceIncoming` 0–2 ms; Swarm took B from 18 to 47 enemies, Gem Thief from 19 gems to 0, Elite Call from 0 elites to 1 (2026-11-09, #21).
 - The server cap counts per match: after 4 `interference` frames in a burst, the next is routed only 20 s later. Journey 1 sends 3, so rerunning it in the same match is fine but a fourth and fifth `J` in quick succession are dropped (2026-11-09, #21).
+
+- 2026-11-09 (#84): `fx.warning` is native Lottie after the motion migration; an HTML image cannot decode its JSON URL. `loadAssetUrls` eagerly validates the single same-owner PNG poster, logical size, bounded transport and actual decode, caches a PNG data URL under the unchanged CSP and fails closed on invalid native posters. The real incoming-banner journey checks a decoded image instead of assuming a `.png` URL suffix. Native canvas animation, source art and all logical IDs remain unchanged.

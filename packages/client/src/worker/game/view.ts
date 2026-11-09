@@ -1,6 +1,6 @@
 import type { Matrix, Scene, Shape, ThorVGNamespace } from '@thorvg/webcanvas';
 import { CHARACTERS, type CharacterId } from '@vs/shared';
-import type { AssetLibrary } from '../assets/library';
+import type { AssetSource } from '../assets/library';
 import { VIEW_HEIGHT, VIEW_WIDTH } from '../constants';
 import { createGround } from '../render/ground';
 import { createHud } from '../render/hud';
@@ -36,7 +36,7 @@ const MARKER_OPACITY = 90;
 
 export interface GameViewOptions {
   TVG: Pick<ThorVGNamespace, 'Shape' | 'Text'>;
-  library: Pick<AssetLibrary, 'create'>;
+  library: AssetSource;
   layers: {
     world: Pick<Scene, 'translate'>;
     ground: Pick<Scene, 'add'>;
@@ -155,6 +155,8 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
     e33: 1,
   };
   let shownMarkers = 0;
+  let previousHp = 0;
+  let feedbackOn = false;
 
   const view: GameView = {
     enemyPools,
@@ -185,7 +187,11 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
       ground.acquire();
       const pool = playerPools.get(characterId) ?? defaultPool;
       player = pool.get(pool.acquire());
-      player.paint.opacity(OPAQUE);
+      if (!player.lottie) player.paint.opacity(OPAQUE);
+      else if (!library.setHitFeedback || !library.setMotionState)
+        throw new Error('Native player requires motion and hit-feedback controls');
+      previousHp = 0;
+      feedbackOn = false;
       opacity = OPAQUE;
       hud.setVisible(true);
     },
@@ -224,13 +230,33 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
       world.fxBinding?.sync(fx, fx.cols.x, fx.cols.y, fx.cols.rot, fx.cols.flip, fx.cols.scale);
       syncWeaponVisuals(world);
       syncFreeze(world);
-      setTransform(player, p.x, p.y, 0, 1, p.facingX < 0);
-      const blink =
-        p.invulnTime > 0 && Math.floor(p.invulnTime / BLINK_SEC) % 2 === 0 ? BLINK_DIM : OPAQUE;
-      if (blink !== opacity) {
-        opacity = blink;
-        player.paint.opacity(blink);
+      for (let i = 0; i < enemies.count; i++) {
+        const pool = enemyPools[enemies.cols.poolId[i] ?? 0];
+        if (pool)
+          library.setMotionState?.(
+            pool.get(enemies.cols.paintHandle[i] ?? 0),
+            (enemies.cols.vx[i] ?? 0) !== 0 || (enemies.cols.vy[i] ?? 0) !== 0 ? 'move' : 'idle',
+          );
       }
+      library.setMotionState?.(player, p.dirX !== 0 || p.dirY !== 0 ? 'move' : 'idle');
+      setTransform(player, p.x, p.y, 0, 1, p.facingX < 0);
+      if (player.lottie) {
+        if (p.invulnTime > 0 && (!feedbackOn || p.hp < previousHp)) {
+          library.setHitFeedback?.(player, p.invulnTime);
+          feedbackOn = true;
+        } else if (feedbackOn && p.invulnTime === 0) {
+          library.setHitFeedback?.(player, 0);
+          feedbackOn = false;
+        }
+      } else {
+        const blink =
+          p.invulnTime > 0 && Math.floor(p.invulnTime / BLINK_SEC) % 2 === 0 ? BLINK_DIM : OPAQUE;
+        if (blink !== opacity) {
+          opacity = blink;
+          player.paint.opacity(blink);
+        }
+      }
+      previousHp = p.hp;
       sentToast.sync(world.time < world.sentToastUntil ? world.sentToast : -1);
       hud.sync({
         x: p.x,
@@ -318,7 +344,12 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
       const target = (flash[i] ?? 0) > 0 ? HIT_FLASH_OPACITY : OPAQUE;
       if (shownOpacity[i] === target) continue;
       shownOpacity[i] = target;
-      enemyPools[poolId[i] ?? 0]?.get(paintHandle[i] ?? 0).paint.opacity(target);
+      const instance = enemyPools[poolId[i] ?? 0]?.get(paintHandle[i] ?? 0);
+      if (!instance) continue;
+      if (instance.lottie) {
+        if (!library.setHitFlash?.(instance, target === HIT_FLASH_OPACITY))
+          throw new Error('Native enemy requires declared hit feedback');
+      } else instance.paint.opacity(target);
     }
   }
 

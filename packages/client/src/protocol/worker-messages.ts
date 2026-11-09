@@ -247,6 +247,7 @@ export type DebugCommand =
   | { kind: 'fastForward'; seconds: number }
   /** #5: toggles the `?gallery` speed preview (`KeyV`). */
   | { kind: 'galleryPreview' }
+  | { kind: 'galleryMotion' }
   /** #10: adds the first weapon of `WEAPON_LIST` the player does not own, at level 1 (`KeyG`). */
   | { kind: 'grantWeapon' }
   /** #11: grants exactly the XP missing for the next level (`KeyL`). */

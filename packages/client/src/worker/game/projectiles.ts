@@ -199,7 +199,14 @@ export function spawnProjectile(
     cols.aimY[slot] = speed > 0 ? vy / speed : 0;
     cols.returnAfter[slot] = opts.returnAfter ?? 0;
   }
-  world.projectileBinding?.bind(slot, PROJECTILE_ASSETS.indexOf(assetId));
+  world.projectileBinding?.bind(
+    slot,
+    PROJECTILE_ASSETS.indexOf(assetId),
+    assetId === 'weapon.axe' || assetId === 'weapon.cross' || assetId === 'weapon.heavenSword'
+      ? 360 / SPIN_DEG_PER_SEC
+      : undefined,
+    cols.rot[slot] ?? 0,
+  );
   return slot;
 }
 
