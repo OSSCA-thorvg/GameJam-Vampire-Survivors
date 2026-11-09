@@ -8,7 +8,7 @@ import { installDebugTools, recordStats, registerDebugKey } from './debug';
 import { createInput } from './input';
 import { checkSupport } from './support';
 import { loadAssetUrls, type AssetUrl } from './ui/asset-url';
-import { showStressResult } from './stress-results';
+import { logStressProgress, showStressResult } from './stress-results';
 import { installTestBridge, registerMainSnapshotField, type MainTestBridge } from './test-bridge';
 import { createResizer } from './resize';
 import { computeViewport, type Viewport } from './viewport';
@@ -166,7 +166,14 @@ async function boot(): Promise<void> {
         return;
       }
     }
-    // Only dev and e2e workers send test bridge replies, and they were handled above.
+    if (import.meta.env.DEV || import.meta.env.MODE === 'perf') {
+      if (event.data.type === 'stressProgress') {
+        logStressProgress(event.data);
+        return;
+      }
+    }
+    // Only dev and e2e workers send test bridge replies, and only dev and perf workers stress progress; both are
+    // handled above.
     const message = event.data as GameWorkerToMain;
     switch (message.type) {
       case 'ready':
@@ -217,7 +224,9 @@ async function boot(): Promise<void> {
     }
   });
   worker.addEventListener('error', (event) => {
-    console.error('[vs] game worker error:', event.message);
+    console.error(
+      `[vs] game worker error: ${event.message} at ${event.filename}:${String(event.lineno)}:${String(event.colno)}`,
+    );
     showMessage('The game could not start.', [event.message || 'The game worker failed to load.']);
   });
 

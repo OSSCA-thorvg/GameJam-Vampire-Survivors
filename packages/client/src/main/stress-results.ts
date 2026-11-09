@@ -1,7 +1,7 @@
 // #22: shows a finished stress scenario's summary (dev and `perf` builds only). Every call into this module is wrapped
 // in `if (import.meta.env.DEV || import.meta.env.MODE === 'perf')`, and it has no top-level side effects, so the normal
 // production bundle drops it. Text goes through `textContent` only (ADR 0011).
-import type { StressResult } from '../protocol/worker-messages';
+import type { StressProgress, StressResult } from '../protocol/worker-messages';
 
 /** The full summary: the worker's timings plus what only the main thread knows. */
 export type StressSummary = StressResult & { ua: string; gpu: string; loadMs: number | null };
@@ -51,4 +51,9 @@ export function showStressResult(
   box.append(button, text);
   root.append(box);
   return summary;
+}
+
+/** #119: logs a scenario's progress, or the worker error it carries, as `[stress] progress {json}` (`console.warn`). */
+export function logStressProgress(progress: StressProgress): void {
+  console.warn(`[stress] progress ${JSON.stringify(progress)}`);
 }

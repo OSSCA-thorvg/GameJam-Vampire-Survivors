@@ -541,6 +541,8 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         post,
         counts: recorderCounts,
         start: performance.now(),
+        simTime: () => session?.world?.time ?? stepCount / 60,
+        steps: () => stepCount,
       });
     }
     const gameLoop = createLoop({ step, render });
