@@ -5,7 +5,7 @@
 import WebSocket from 'ws';
 
 /** Keep in step with PROTOCOL_VERSION in packages/shared/src/protocol.ts. */
-const PROTOCOL_VERSION = 1;
+const PROTOCOL_VERSION = 2;
 
 const origin = process.argv[2];
 const url = process.argv[3] ?? 'ws://localhost:8787/ws';

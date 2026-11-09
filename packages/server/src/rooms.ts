@@ -8,12 +8,14 @@ import {
   SIMULTANEOUS_DEATH_WINDOW_MS,
   START_DELAY_MS,
   STATUS_MIN_INTERVAL_MS,
+  VIEW_MIN_INTERVAL_MS,
   normalizeNickname,
   type EliminationReason,
   type ErrorCode,
   type InterferenceKind,
   type PlayerInfo,
   type PlayerStatus,
+  type PlayerView,
   type RankingEntry,
   type RoomPhase,
   type ServerMessage,
@@ -74,6 +76,8 @@ interface Player {
   survived: boolean;
   kills: number;
   lastStatusAt: number | null;
+  /** Server time of the last relayed `view` (#114); throttles the relay to one per `VIEW_MIN_INTERVAL_MS`. */
+  lastViewAt: number | null;
   /** `interference` messages routed this match (#21): `INTERFERENCE_SEND_LIMIT`, refilled from the match start. */
   interferenceBucket: TokenBucket;
   away: boolean;
@@ -292,6 +296,23 @@ export class RoomRegistry {
   }
 
   /**
+   * Relays at most one `view` per `VIEW_MIN_INTERVAL_MS` per player as `peerView` to the others, only while the room
+   * is `playing` (#114, ADR 0018). Nothing of the view is stored.
+   */
+  relayView(playerId: string, view: PlayerView): Outcome {
+    const found = this.inMatch(playerId);
+    if (found === 'violation') return violation('wrongPhase');
+    if (found === null) return null;
+    const { room, player } = found;
+    if (room.phase !== 'playing') return null;
+    const t = this.now();
+    if (player.lastViewAt !== null && t - player.lastViewAt < VIEW_MIN_INTERVAL_MS) return null;
+    player.lastViewAt = t;
+    this.broadcast(room, { type: 'peerView', playerId, view }, playerId);
+    return null;
+  }
+
+  /**
    * Routes interference to one living, connected opponent chosen at random; only during `playing`. Beyond the sender's
    * `INTERFERENCE_SEND_LIMIT` for the match (#21) it is dropped, like a late in-match message.
    */
@@ -384,6 +405,7 @@ export class RoomRegistry {
       survived: false,
       kills: 0,
       lastStatusAt: null,
+      lastViewAt: null,
       interferenceBucket: this.interferenceBucket(),
       away: false,
       afkTimer: null,
@@ -482,6 +504,7 @@ export class RoomRegistry {
     p.survived = false;
     p.kills = 0;
     p.lastStatusAt = null;
+    p.lastViewAt = null;
     p.interferenceBucket = this.interferenceBucket();
     p.away = false;
   }

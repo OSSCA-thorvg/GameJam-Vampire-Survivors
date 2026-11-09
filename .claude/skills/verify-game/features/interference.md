@@ -315,8 +315,8 @@ test('interference 5: the server routes at most INTERFERENCE_SEND_LIMIT per send
     const a = await open();
     const b = await open();
     const send = (p: { ws: WebSocket }, m: unknown) => p.ws.send(JSON.stringify(m));
-    send(a, { type: 'hello', v: 1 });
-    send(b, { type: 'hello', v: 1 });
+    send(a, { type: 'hello', v: 2 });
+    send(b, { type: 'hello', v: 2 });
     send(a, { type: 'createRoom', nickname: 'Alice' });
     await until(() => a.log.some((m) => m.type === 'roomState'));
     const code = a.log.find((m) => m.type === 'roomState')?.code as string;

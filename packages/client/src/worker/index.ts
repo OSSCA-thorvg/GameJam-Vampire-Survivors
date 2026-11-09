@@ -30,6 +30,8 @@ import { AssetLibrary } from './assets/library';
 import { createLayers } from './render/layers';
 import { createDefeatOverlay, type DefeatOverlay } from './render/defeat';
 import { createStatusEmitter } from './game/status';
+import { createViewEmitter, summarizeView } from './game/view-stream';
+import { createOpponentFeed, readOpponentFeed } from './game/opponent-feed';
 import { createSpawnLog } from './game/spawn-log';
 import { createGameView } from './game/view';
 import { createSession, type Session } from './game/session';
@@ -123,6 +125,10 @@ const chests = createChestFlow({
 });
 /** A versus run's `status` messages (#20); single-player runs post none. */
 const statuses = createStatusEmitter(post);
+/** A versus run's world views (#114, ADR 0018); none in single player or while the tab is hidden. */
+const views = createViewEmitter(post);
+/** The opponent's latest relayed views (#114); drawn by the split panes (#115). */
+const opponentFeed = createOpponentFeed();
 /** The dimmed world and its line after a versus death (#20); `null` in `?gallery` and `?stress`. */
 let defeat: DefeatOverlay | null = null;
 /** The `E` debug key's next pair in `EVOLUTIONS`, kept across runs (dev builds only). */
@@ -172,6 +178,7 @@ function step(dtSec: number): void {
     world.step(dtSec);
     drainCollected(world, postCollected);
     statuses.afterStep(world, dtSec);
+    views.afterStep(world, dtSec, hidden);
     if ((import.meta.env.DEV || import.meta.env.MODE === 'perf') && worldScenario)
       worldScenario.afterStep(world);
     else {
@@ -386,6 +393,10 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
           runs.world ? interferenceOnGround(runs.world) : 0,
         );
         registerSnapshotField('elites', () => (runs.world ? countElites(runs.world) : 0));
+        registerSnapshotField('viewOut', () =>
+          views.last ? { ...summarizeView(views.last), sent: views.sent } : null,
+        );
+        registerSnapshotField('opponentFeed', () => readOpponentFeed(opponentFeed));
         // An unsupported `?stress` value falls back to this view, but it is still a stress boot: no `debug` field (#92).
         if (!message.debug?.stress)
           registerSnapshotField('debug', () => ({ paintsCreated: gameView.countPaints() }));
@@ -502,6 +513,8 @@ function startRun(seed: number, characterId: string, finale: Finale, mode: RunMo
   levelUps.reset();
   chests.reset();
   statuses.reset();
+  views.reset();
+  opponentFeed.clear();
   defeat?.setVisible(false);
   const run = session.start(seed, characterId, finale, mode);
   run.input.dx = inputX;
@@ -517,6 +530,8 @@ function startRun(seed: number, characterId: string, finale: Finale, mode: RunMo
 function endRun(): void {
   levelUps.reset();
   chests.reset();
+  views.reset();
+  opponentFeed.clear();
   session?.end();
   defeat?.setVisible(false);
   paused = false;
@@ -606,6 +621,9 @@ function handle(message: GameMainToWorker): void {
       break;
     case 'applyInterference':
       if (session?.world) queueInterference(session.world, message.kind);
+      break;
+    case 'opponentView':
+      if (session?.world?.mode === 'versus') opponentFeed.push(message.view, performance.now());
       break;
     case 'debug':
       if (import.meta.env.DEV) dispatchDebug(message.command);

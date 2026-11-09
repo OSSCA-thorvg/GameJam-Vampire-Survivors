@@ -6,7 +6,7 @@
 import WebSocket from 'ws';
 
 /** Keep in step with PROTOCOL_VERSION in packages/shared/src/protocol.ts. */
-const PROTOCOL_VERSION = 1;
+const PROTOCOL_VERSION = 2;
 const TIMEOUT_MS = 5000;
 const FOREIGN_ORIGIN = 'https://evil.example';
 

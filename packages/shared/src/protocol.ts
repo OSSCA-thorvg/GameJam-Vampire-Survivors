@@ -5,13 +5,13 @@
  *
  * Flow: the client's first message is `hello { v }`; the server answers `welcome { playerId }` and from then on
  * pushes `roomState` whenever a room changes. Messages that belong to a running match (`status`, `interference`,
- * `died`, `survived`, `visibility`) are answered with `wrongPhase` when the sender is in no room or its room is in
+ * `died`, `survived`, `visibility`, `view`) are answered with `wrongPhase` when the sender is in no room or its room is in
  * `lobby`, and are dropped silently when they arrive late (after `finished`, or from an eliminated player), so a
  * client is never closed for a race with the result.
  */
 
 /** Version of the client–server protocol (ADR 0006). Bumped on every incompatible message change. */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /** Room code alphabet without look-alike characters (ADR 0006). */
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -44,6 +44,48 @@ export const MATCH_TIME_LIMIT_S = 900;
 export const MATCH_DEADLINE_GRACE_S = 10;
 /** Longest raw `nickname` string the validator accepts before normalization; bounds the work done on it. */
 export const NICKNAME_RAW_MAX = 64;
+
+// ---------------------------------------------------------------------------------------------------------------
+// The view stream (#114, ADR 0018): a quantized snapshot of the sender's own world, relayed to the opponent for display.
+
+/** Least time between two relayed `view` messages of one player, by server receive time (ADR 0018). */
+export const VIEW_MIN_INTERVAL_MS = 100;
+/** World units per encoded offset step. */
+export const VIEW_QUANT = 4;
+/** Largest `|dx|` and `|dy|`, in steps: 720 units, the 640×360 half view plus the 64-unit spawn margin. */
+export const VIEW_REL_MAX = 180;
+/** Most enemies in one view: the nearest, when more are in range. */
+export const VIEW_ENEMY_MAX = 160;
+/** Most idle gems in one view. */
+export const VIEW_GEM_MAX = 48;
+/** Most pickups (light-source and interference) in one view. */
+export const VIEW_PICKUP_MAX = 8;
+/** Largest kind and character index on the wire; the receiver skips kinds its content does not know. */
+export const VIEW_KIND_MAX = 63;
+/** Largest `|x|`, `|y|` of the player, in whole world units. */
+export const VIEW_POS_MAX = 1_000_000;
+/** Largest `t`, simulated ms (one hour, four times the match time limit). */
+export const VIEW_TIME_MAX_MS = 3_600_000;
+/** The encoder's budget for one `view` message, below `MAX_MESSAGE_BYTES` with room for the relay's `playerId`. */
+export const VIEW_MAX_BYTES = 3072;
+
+/**
+ * One player's world as the opponent sees it (ADR 0018). `t` simulated ms; `x`, `y` the player in whole world units;
+ * `f` 1 when facing left; `c` the `CHARACTERS` index; `h` HP in permille. `e`, `g` and `p` are flat `[kind, dx, dy]`
+ * triples for enemies (`ENEMY_LIST index * 2 + elite bit`), idle gems (`GEM_ASSETS` index) and pickups (the pickup
+ * pool index: `PICKUPS`, then `INTERFERENCE`), with `dx`, `dy` = `round((entity - player) / VIEW_QUANT)`.
+ */
+export interface PlayerView {
+  t: number;
+  x: number;
+  y: number;
+  f: 0 | 1;
+  c: number;
+  h: number;
+  e: number[];
+  g: number[];
+  p: number[];
+}
 
 export const INTERFERENCE_KINDS = ['swarm', 'gemThief', 'eliteCall'] as const;
 export type InterferenceKind = (typeof INTERFERENCE_KINDS)[number];
@@ -107,7 +149,9 @@ export type ClientMessage =
   | { type: 'interference'; kind: InterferenceKind }
   | { type: 'died'; kills: number; elapsedMs: number }
   | { type: 'survived'; kills: number }
-  | { type: 'visibility'; hidden: boolean };
+  | { type: 'visibility'; hidden: boolean }
+  /** #114: this player's world view (ADR 0018), relayed as `peerView`. */
+  | { type: 'view'; view: PlayerView };
 
 export type ServerMessage =
   | { type: 'welcome'; playerId: string }
@@ -122,6 +166,8 @@ export type ServerMessage =
     }
   | { type: 'playerEliminated'; playerId: string; reason: EliminationReason }
   | { type: 'peerAway'; playerId: string; away: boolean }
+  /** #114: another player's `view`, relayed unchanged (ADR 0018). */
+  | { type: 'peerView'; playerId: string; view: PlayerView }
   | {
       type: 'matchResult';
       outcome: 'win' | 'draw';
@@ -205,6 +251,43 @@ export function isPlayerStatus(x: unknown): x is PlayerStatus {
   );
 }
 
+const VIEW_KEYS = ['t', 'x', 'y', 'f', 'c', 'h', 'e', 'g', 'p'] as const;
+
+function isIntIn(x: unknown, min: number, max: number): x is number {
+  return typeof x === 'number' && Number.isSafeInteger(x) && x >= min && x <= max;
+}
+
+/** Flat `[kind, dx, dy]` triples: at most `maxCount`, kinds in `0..VIEW_KIND_MAX`, offsets in `±VIEW_REL_MAX`. */
+function isTriples(x: unknown, maxCount: number): x is number[] {
+  if (!Array.isArray(x) || x.length % 3 !== 0 || x.length > 3 * maxCount) return false;
+  for (let i = 0; i < x.length; i += 3) {
+    if (
+      !isIntIn(x[i], 0, VIEW_KIND_MAX) ||
+      !isIntIn(x[i + 1], -VIEW_REL_MAX, VIEW_REL_MAX) ||
+      !isIntIn(x[i + 2], -VIEW_REL_MAX, VIEW_REL_MAX)
+    )
+      return false;
+  }
+  return true;
+}
+
+/** A `PlayerView` with exactly its keys and every number an integer in its range (ADR 0018). */
+export function isPlayerView(x: unknown): x is PlayerView {
+  return (
+    isPlainObject(x) &&
+    hasExactKeys(x, VIEW_KEYS) &&
+    isIntIn(x.t, 0, VIEW_TIME_MAX_MS) &&
+    isIntIn(x.x, -VIEW_POS_MAX, VIEW_POS_MAX) &&
+    isIntIn(x.y, -VIEW_POS_MAX, VIEW_POS_MAX) &&
+    (x.f === 0 || x.f === 1) &&
+    isIntIn(x.c, 0, VIEW_KIND_MAX) &&
+    isIntIn(x.h, 0, 1000) &&
+    isTriples(x.e, VIEW_ENEMY_MAX) &&
+    isTriples(x.g, VIEW_GEM_MAX) &&
+    isTriples(x.p, VIEW_PICKUP_MAX)
+  );
+}
+
 /** Upper bound on list lengths in server messages; rooms are far smaller. */
 const MAX_LIST = 64;
 const ERROR_MESSAGE_MAX = 200;
@@ -255,6 +338,7 @@ const CLIENT_FIELDS: Record<ClientMessageType, readonly [readonly string[], Fiel
   ],
   survived: [['kills'], (o) => isNonNegativeInt(o.kills)],
   visibility: [['hidden'], (o) => isBoolean(o.hidden)],
+  view: [['view'], (o) => isPlayerView(o.view)],
 };
 
 const SERVER_FIELDS: Record<ServerMessageType, readonly [readonly string[], FieldCheck]> = {
@@ -287,6 +371,7 @@ const SERVER_FIELDS: Record<ServerMessageType, readonly [readonly string[], Fiel
     (o) => isId(o.playerId) && isOneOf(ELIMINATION_REASONS, o.reason),
   ],
   peerAway: [['playerId', 'away'], (o) => isId(o.playerId) && isBoolean(o.away)],
+  peerView: [['playerId', 'view'], (o) => isId(o.playerId) && isPlayerView(o.view)],
   matchResult: [
     ['outcome', 'winnerId', 'ranking'],
     (o) =>

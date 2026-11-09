@@ -234,6 +234,9 @@ export class Connection {
       case 'visibility':
         outcome = registry.visibility(playerId, message.hidden);
         break;
+      case 'view':
+        outcome = registry.relayView(playerId, message.view);
+        break;
       default:
         assertNever(message);
     }

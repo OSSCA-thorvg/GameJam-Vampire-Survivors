@@ -1,6 +1,6 @@
 # 0005. Multiplayer: each player survives in a separate world, linked by interference items
 
-- Status: Accepted
+- Status: Partly superseded by [0018](0018-show-the-opponent-world-from-a-relayed-view-stream.md) (only the "no live view of the opponent's world" line; separate worlds, interference and the win rule retained)
 - Date: 2026-11-07
 
 ## Context
@@ -25,7 +25,7 @@
   - **Gem Thief** — removes the experience gems lying in the target's world.
   - **Elite Call** — spawns an elite enemy near the target.
 - The target sees a warning in their HUD naming the sender and the effect.
-- Each player sees a compact panel with every opponent's nickname, HP, level, kills and alive/dead state. There is no live view of the opponent's world.
+- Each player sees a compact panel with every opponent's nickname, HP, level, kills and alive/dead state. There is no live view of the opponent's world (superseded by ADR 0018).
 - Rooms hold a configurable maximum number of players, initially 2. Nothing in the protocol assumes exactly 2.
 
 ## Alternatives considered

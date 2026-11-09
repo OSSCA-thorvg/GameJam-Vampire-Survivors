@@ -18,7 +18,8 @@ A 2-player versus match (#20, ADRs 0004, 0005, 0006, 0009, 0011): after the lobb
 - **Dialogs:** level-ups and chests still open over the versus world and pause only it (`versus.overlay` is `'levelUp'` or `'chest'`; `state` stays `'versusPlaying'`); while one is open no `status` is sent.
 - **Single player** is unchanged: `mode: 'single'`, no game WebSocket, no panel, #17's results screen on death.
 - **Interference (#21):** enemy kills drop Swarm, Gem Thief and Elite Call pickups from 1:00; collecting one sends it to the opponent's world, whose banner names the sender. Journeys in `interference.md`.
-- Snapshot fields: `spawnLog`, `mode`, `defeated` (worker), `versus` (`{ overlay, offline }` or `null`, main) and `state` (`'versusPlaying'`, `'versusResult'`).
+- **View stream (#114, ADR 0018):** each page sends `view { view }` (a quantized `PlayerView` of its own world: player position, facing, character, HP permille and `[kind, dx, dy]` triples of nearby enemies, idle gems and pickups) 9–10 times per second, never two within 110 ms, never while its tab is hidden, after its death or after the result; each body is at most 3072 bytes. The server relays it unchanged as `peerView { playerId, view }`; the worker keeps the opponent's last 3 (`opponentFeed`). Swarm, Gem Thief and Elite Call sent to the opponent show up in the sender's `opponentFeed` (enemies, gems 0, elites ≥ 1). Single player sends none (`viewOut` stays `null`). Nothing draws the feed yet: the split panes are #115.
+- Snapshot fields: `spawnLog`, `mode`, `defeated`, `viewOut` (`{ t, x, y, enemies, elites, gems, pickups, sent }` of the last view posted, or `null`) and `opponentFeed` (`{ t, x, y, facing, character, hpPermille, enemies, elites, gems, pickups, received }` of the newest received, or `null`) (worker), `versus` (`{ overlay, offline }` or `null`, main) and `state` (`'versusPlaying'`, `'versusResult'`).
 
 ## How to get to it (user POV)
 
@@ -46,7 +47,9 @@ Save these files under `verification/issue-<N>/journeys/` (the native spec in `j
 - `VERIFY_JOURNEYS=verification/issue-<N>/journeys VERIFY_EVIDENCE_DIR=$PWD/verification/issue-<N> pnpm exec playwright test -c e2e/playwright.config.ts --project chromium -g versus` runs journeys 1–4; add `VERIFY_SERVER_CONTROL=1` for journey 7 (own server only) and `VERIFY_DEADLINE=1` for journey 6 (against the short-limit server only).
 - `VERIFY_JOURNEYS=verification/issue-<N>/journeys/native VERIFY_EVIDENCE_DIR=$PWD/verification/issue-<N> pnpm exec playwright test -c e2e/playwright.config.ts --project hidden-tab` runs journey 5 (Linux: prefix `xvfb-run -a`).
 
-Evidence per journey and player: `versus-<n>-<name>/<a|b>/` with screenshots, `page-console.log`, `worker-console.log`, `ws-frames.log` and JSON (`spawn-logs.json`, `panel-rate.json`, `hp-seen-by-b.json`, `death.json`, `disconnect.json`, `time-limit.json`, `single.json`, `hidden-20s.json`, `hidden-35s.json`, `deadline.json`, `offline.json`).
+- Journey 8 (#114, the view stream): `VERIFY_JOURNEYS=verification/issue-<N>/journeys VERIFY_EVIDENCE_DIR=$PWD/verification/issue-<N> pnpm exec playwright test -c e2e/playwright.config.ts --project chromium -g "versus 8"`, and journey 8b (native hidden tab): `VERIFY_JOURNEYS=verification/issue-<N>/journeys/native VERIFY_EVIDENCE_DIR=$PWD/verification/issue-<N> pnpm exec playwright test -c e2e/playwright.config.ts --project chromium -g "versus 8b"` (the `hidden-tab` project matches only files named `hidden-tab.spec.ts`; the spec still owns its headed native browser). Both need the server rebuilt for protocol 2 (`pnpm server:up`).
+
+Evidence per journey and player: `versus-<n>-<name>/<a|b>/` with screenshots, `page-console.log`, `worker-console.log`, `ws-frames.log` and JSON (`spawn-logs.json`, `panel-rate.json`, `hp-seen-by-b.json`, `death.json`, `disconnect.json`, `time-limit.json`, `single.json`, `hidden-20s.json`, `hidden-35s.json`, `deadline.json`, `offline.json`, `view-rate.json`, `view-interference.json`, `single-view.json`, `view-hidden.json`).
 
 `versus-helpers.ts`:
 
@@ -828,6 +831,344 @@ test('versus 7: losing the server mid-match keeps playing locally and ends with 
 });
 ```
 
+`view-stream.spec.ts` (journeys 8 and 8c):
+
+```ts
+// versus-match.md journey 8 (#114, ADR 0018): the view stream between two browser contexts against the Docker server.
+// Debug keys reach preconditions only: `I` (invulnerable) and `J` (an interference pickup 48 units right).
+import { expect, test } from '@playwright/test';
+import {
+  answerLevelUps,
+  noteEvidence,
+  pageErrors,
+  snapshot,
+  waitForSnapshot,
+  type GameSnapshot,
+} from '../../../e2e/helpers';
+import { answerDialogs, meet, player, startMatch, type Frame, type Player } from './versus-helpers';
+
+interface ViewOut {
+  t: number;
+  x: number;
+  y: number;
+  enemies: number;
+  elites: number;
+  gems: number;
+  pickups: number;
+  sent: number;
+}
+interface Feed extends Omit<ViewOut, 'sent'> {
+  facing: number;
+  character: number;
+  hpPermille: number;
+  received: number;
+}
+const viewOut = (s: GameSnapshot) => (s.viewOut as ViewOut | null | undefined) ?? null;
+const feed = (s: GameSnapshot) => (s.opponentFeed as Feed | null | undefined) ?? null;
+const px = (s: GameSnapshot) => (s.player as { x: number } | null)?.x ?? NaN;
+const frames = (p: Player, dir: '→' | '←', type: string, from = 0, to = Infinity): Frame[] =>
+  p.frames.filter((f) => f.dir === dir && f.type === type && f.t >= from && f.t < to);
+const bytes = (s: string) => Buffer.byteLength(s, 'utf8');
+const viewOf = (f: Frame) => JSON.stringify((JSON.parse(f.body) as { view: unknown }).view);
+
+async function invulnerable(p: Player): Promise<void> {
+  await p.page.keyboard.press('i');
+  await waitForSnapshot(p.page, (s) => s.debugInvulnerable === true, 2_000);
+}
+
+/** Polls both pages together until `pred` holds; returns the pair and when. */
+async function untilBoth(
+  a: Player,
+  b: Player,
+  pred: (sa: GameSnapshot, sb: GameSnapshot) => boolean,
+  ms: number,
+): Promise<{ sa: GameSnapshot; sb: GameSnapshot; at: number }> {
+  const end = Date.now() + ms;
+  for (;;) {
+    const [sa, sb] = await Promise.all([snapshot(a.page), snapshot(b.page)]);
+    if (pred(sa, sb)) return { sa, sb, at: Date.now() };
+    if (Date.now() > end) throw new Error('untilBoth: timed out');
+    await a.page.waitForTimeout(20);
+  }
+}
+
+test('versus 8: views stream at 9-10/s, relay exactly, match the sender and carry interference', async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(300_000);
+  const a = await player(browser, 'versus-8-view-stream/a');
+  const b = await player(browser, 'versus-8-view-stream/b');
+  noteEvidence(testInfo, a.ev);
+  try {
+    await meet(a, b);
+    await startMatch(a, b);
+    for (const p of [a, b]) await invulnerable(p);
+    const stopA = answerDialogs(a.page);
+    const stopB = answerDialogs(b.page);
+    await waitForSnapshot(a.page, (s) => s.timeS > 2, 10_000);
+
+    // 10 s window; B walks right for the first 3 s.
+    const from = Date.now();
+    await b.page.keyboard.down('ArrowRight');
+    const samples: unknown[] = [];
+    let bReleased = false;
+    let worstDx = 0;
+    let equalAtSameT = 0;
+    while (Date.now() - from < 10_000) {
+      if (!bReleased && Date.now() - from >= 3_000) {
+        await b.page.keyboard.up('ArrowRight');
+        bReleased = true;
+      }
+      const [sa, sb] = await Promise.all([snapshot(a.page), snapshot(b.page)]);
+      const fa = feed(sa);
+      const vb = viewOut(sb);
+      if (fa) worstDx = Math.max(worstDx, Math.abs(fa.x - px(sb)));
+      if (fa && vb && fa.t === vb.t) {
+        expect([fa.enemies, fa.elites, fa.gems, fa.pickups]).toEqual([
+          vb.enemies,
+          vb.elites,
+          vb.gems,
+          vb.pickups,
+        ]);
+        equalAtSameT++;
+      }
+      samples.push({ at: Date.now() - from, aFeed: fa, bOut: vb, bX: px(sb) });
+      await a.page.waitForTimeout(200);
+    }
+    const to = from + 10_000;
+    const aSent = frames(a, '→', 'view', from, to);
+    const aGot = frames(a, '←', 'peerView', from, to);
+    const bSent = frames(b, '→', 'view', from, to);
+    const gaps = aSent.slice(1).map((f, i) => f.t - (aSent[i]?.t ?? 0));
+    const bSentViews = new Set(frames(b, '→', 'view').map(viewOf));
+    const rate = {
+      windowMs: to - from,
+      aSent: aSent.length,
+      aReceived: aGot.length,
+      bSent: bSent.length,
+      minGapMsA: Math.min(...gaps),
+      maxBytesA: Math.max(...aSent.map((f) => bytes(f.body))),
+      maxBytesB: Math.max(...bSent.map((f) => bytes(f.body))),
+      relayedNotSent: aGot.filter((f) => !bSentViews.has(viewOf(f))).length,
+      errors: [...a.frames, ...b.frames].filter((f) => f.type === 'error').map((f) => f.body),
+      closes: [...a.log, ...b.log].filter((l) => l.endsWith(' close')),
+      worstDx,
+      equalAtSameT,
+      samples,
+    };
+    a.ev.json('view-rate', rate);
+    await a.ev.shot('a-window-end');
+    await b.ev.shot('b-window-end');
+    for (const n of [rate.aSent, rate.aReceived, rate.bSent]) {
+      expect(n).toBeGreaterThanOrEqual(80);
+      expect(n).toBeLessThanOrEqual(100);
+    }
+    expect(rate.minGapMsA).toBeGreaterThanOrEqual(100);
+    expect(Math.max(rate.maxBytesA, rate.maxBytesB)).toBeLessThanOrEqual(3072);
+    expect(rate.relayedNotSent).toBe(0);
+    expect(rate.errors).toEqual([]);
+    expect(rate.closes).toEqual([]);
+    expect(rate.worstDx).toBeLessThanOrEqual(60);
+    expect(rate.equalAtSameT).toBeGreaterThan(0);
+
+    // Interference from B lands in A's world and shows in B's feed of A.
+    const effects: Record<string, unknown> = {};
+    const collect = async (kind: string) => {
+      await b.page.keyboard.press('j');
+      await waitForSnapshot(b.page, (s) => (s.interferenceOnGround as number) >= 1, 2_000);
+      await b.page.keyboard.down('ArrowRight');
+      await waitForSnapshot(b.page, (s) => s.interferenceOnGround === 0, 5_000);
+      await b.page.keyboard.up('ArrowRight');
+      effects[`${kind}CollectedAt`] = Date.now();
+    };
+
+    const before = await snapshot(a.page);
+    await collect('swarm');
+    const swarmed = await waitForSnapshot(
+      a.page,
+      (s) => (s.enemies as number) >= (before.enemies as number) + 30,
+      5_000,
+    );
+    const outBefore = viewOut(before)?.enemies ?? 0;
+    // A's view shows more enemies once the pack walks into range; then B's feed of A matches it at the same t.
+    const swarmSync = await untilBoth(
+      a,
+      b,
+      (sa, sb) => {
+        const out = viewOut(sa);
+        const f = feed(sb);
+        return (
+          out !== null &&
+          f !== null &&
+          out.enemies >= outBefore + 10 &&
+          f.t === out.t &&
+          f.enemies === out.enemies
+        );
+      },
+      10_000,
+    );
+    effects.swarm = {
+      aEnemiesBefore: before.enemies,
+      aViewEnemiesBefore: outBefore,
+      aEnemiesAfter: swarmed.enemies,
+      syncedAfterMs: swarmSync.at - (effects.swarmCollectedAt as number),
+      aOut: viewOut(swarmSync.sa),
+      bFeed: feed(swarmSync.sb),
+    };
+    await a.ev.shot('a-after-swarm');
+
+    await collect('gemThief');
+    const noGems = await waitForSnapshot(a.page, (s) => s.gems === 0, 5_000);
+    const gemsZeroAt = Date.now();
+    const gemSync = await untilBoth(a, b, (_sa, sb) => feed(sb)?.gems === 0, 2_000);
+    effects.gemThief = {
+      aGems: noGems.gems,
+      feedZeroAfterMs: gemSync.at - gemsZeroAt,
+      bFeed: feed(gemSync.sb),
+    };
+
+    await collect('eliteCall');
+    const eliteSync = await untilBoth(a, b, (_sa, sb) => (feed(sb)?.elites ?? 0) >= 1, 3_000);
+    effects.eliteCall = {
+      feedEliteAfterMs: eliteSync.at - (effects.eliteCallCollectedAt as number),
+      aElites: eliteSync.sa.elites,
+      bFeed: feed(eliteSync.sb),
+    };
+    a.ev.json('view-interference', effects);
+    await b.ev.shot('b-after-elite');
+    expect((effects.gemThief as { feedZeroAfterMs: number }).feedZeroAfterMs).toBeLessThanOrEqual(
+      300,
+    );
+
+    await stopA();
+    await stopB();
+    expect([...pageErrors(a.ev), ...pageErrors(b.ev)]).toEqual([]);
+  } finally {
+    await a.close();
+    await b.close();
+  }
+});
+
+test('versus 8c: single player opens no WebSocket and posts no view', async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(60_000);
+  const solo = await player(browser, 'versus-8-single');
+  noteEvidence(testInfo, solo.ev);
+  try {
+    await solo.page.keyboard.press('Enter');
+    await waitForSnapshot(solo.page, (s) => s.state === 'characterSelect', 5_000);
+    await solo.page.keyboard.press('Enter');
+    await waitForSnapshot(solo.page, (s) => s.state === 'playing', 5_000);
+    await solo.page.keyboard.press('i');
+    // A level-up pauses a single-player run; answer it so the run keeps stepping.
+    const stop = answerLevelUps(solo.page);
+    const s = await waitForSnapshot(solo.page, (x) => x.timeS >= 5, 40_000);
+    await stop();
+    solo.ev.json('single-view', {
+      mode: s.mode,
+      viewOut: s.viewOut,
+      opponentFeed: s.opponentFeed,
+      gameSockets: solo.log,
+    });
+    expect(s.mode).toBe('single');
+    expect(s.viewOut).toBeNull();
+    expect(s.opponentFeed).toBeNull();
+    expect(solo.log).toEqual([]);
+    expect(pageErrors(solo.ev)).toEqual([]);
+  } finally {
+    await solo.close();
+  }
+});
+```
+
+`native/view-hidden.spec.ts` (journey 8b):
+
+```ts
+// versus-match.md journey 8b (#114): a natively hidden tab sends no `view` and resumes within 200 ms of showing.
+// Player B runs in the task-owned headed browser of e2e/helpers/native-test.ts; A in a second headless browser.
+import { expect } from '@playwright/test';
+import { test } from '../../../../e2e/helpers/native-test';
+import { hidePage } from '../../../../e2e/helpers/hide-page';
+import { noteEvidence, pageErrors, waitForSnapshot } from '../../../../e2e/helpers';
+import { answerDialogs, meet, player, startMatch } from '../versus-helpers';
+
+test.use({
+  launchOptions: {
+    headless: false,
+    ignoreDefaultArgs: [
+      '--disable-background-timer-throttling',
+      '--disable-renderer-backgrounding',
+    ],
+  },
+});
+
+test('versus 8b (native hidden tab): no view while hidden, the first within 200 ms of showing', async ({
+  page,
+  playwright,
+  baseURL,
+}, testInfo) => {
+  test.setTimeout(180_000);
+  const other = await playwright.chromium.launch({
+    args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+  });
+  const url = baseURL ?? 'http://localhost:5180/';
+  const a = await player(other, 'versus-8b-view-hidden/a', true, url);
+  const b = await player(page, 'versus-8b-view-hidden/b', false, url);
+  noteEvidence(testInfo, b.ev);
+  let visibility;
+  try {
+    await meet(a, b);
+    await startMatch(a, b);
+    for (const p of [a, b]) {
+      await p.page.keyboard.press('i');
+      await waitForSnapshot(p.page, (s) => s.debugInvulnerable === true, 2_000);
+    }
+    const stopA = answerDialogs(a.page);
+    const stopB = answerDialogs(b.page);
+    await waitForSnapshot(b.page, (s) => s.timeS > 3, 10_000);
+    const hiddenAt = Date.now();
+    visibility = await hidePage(b.page);
+    const docHidden = await b.page.evaluate(() => document.visibilityState);
+    await b.page.waitForTimeout(5_000 - (Date.now() - hiddenAt));
+    await visibility.show();
+    const shownAt = Date.now();
+    await b.page.waitForTimeout(1_000);
+    // The window is B's own `visibility` frames: `hidePage` resolves a little after the tab is really hidden.
+    const vis = b.frames.filter((f) => f.dir === '→' && f.type === 'visibility' && f.t >= hiddenAt);
+    const hiddenFrameAt = vis.find((f) => f.body.includes('"hidden":true'))?.t ?? hiddenAt;
+    const shownFrameAt = vis.find((f) => f.body.includes('"hidden":false'))?.t ?? shownAt;
+    const views = b.frames.filter((f) => f.dir === '→' && f.type === 'view');
+    const whileHidden = views.filter((f) => f.t > hiddenFrameAt && f.t < shownFrameAt);
+    const firstAfter = views.find((f) => f.t >= shownFrameAt);
+    const result = {
+      docHidden,
+      hiddenMs: shownFrameAt - hiddenFrameAt,
+      viewsWhileHidden: whileHidden.length,
+      firstAfterShowMs: firstAfter ? firstAfter.t - shownFrameAt : null,
+      // A 50 ms margin at both ends: the two browsers' frame events are a few ms apart in time (2026-11-09).
+      aPeerViewWhileHidden: a.frames.filter(
+        (f) => f.type === 'peerView' && f.t > hiddenFrameAt + 50 && f.t < shownFrameAt - 50,
+      ).length,
+    };
+    b.ev.json('view-hidden', result);
+    expect(docHidden).toBe('hidden');
+    expect(result.viewsWhileHidden).toBe(0);
+    expect(result.aPeerViewWhileHidden).toBe(0);
+    expect(result.firstAfterShowMs).not.toBeNull();
+    expect(result.firstAfterShowMs ?? Infinity).toBeLessThanOrEqual(200);
+    await stopA();
+    await stopB();
+    expect([...pageErrors(a.ev), ...pageErrors(b.ev)]).toEqual([]);
+  } finally {
+    await visibility?.dispose().catch(() => undefined);
+    await a.close();
+    await b.close();
+    await other.close();
+  }
+});
+```
+
 ## Gotchas
 
 - A Warden standing still dies in about 15–40 s; journeys that measure anything first press `I` in both pages, and journey 1 turns it off in A only for the death (2026-11-09, #20).
@@ -838,3 +1179,6 @@ test('versus 7: losing the server mid-match keeps playing locally and ends with 
 - Measured against the local Docker server: 39 `status` sent and 39 `peerStatus` received per player in 10.3 s (3.8/s, minimum gap 260 ms); `away` seen 61 ms after hiding; disconnect → `disconnected` badge 109 ms, "Win" 10.5 s; AFK forfeit "Win" 30.5 s after hiding; deadline result 30.0 s after `startAt` with a 20 s limit (2026-11-09, #20).
 - The deadline journey needs `NODE_ENV=test` and `MATCH_TIME_LIMIT_S_OVERRIDE` (journey 6 used 20 s) through a compose override (`room-server.md` § Deadline journey); the 15:00 journey 3 never reaches the server deadline because both players report `survived` first (2026-11-09, #20).
 - In headless SwiftShader screenshots the ThorVG texts (the HUD timer and the defeat line alike) look dark with a light outline; judge their colour in a headed run (2026-11-09, #20).
+- Journey 8 compares `opponentFeed` with the sender's `viewOut` only when their `t` match: two snapshots of two pages are never taken at the same instant, and a level-up dialog in either world holds its views (no `view` while the world does not step), so the 10 s count can fall towards the low end of 80–100 (2026-11-09, #114).
+- Journey 8b measures the hidden window between the page's own `visibility` frames: `hidePage` resolves about 100 ms after the tab is really hidden, so a window from the call time counts a view sent while the tab was still visible (2026-11-09, #114).
+- Frame timestamps of two browsers differ by a few ms (a `peerView` was logged 5 ms before its sender logged the `view`), so journey 8b counts the opponent's `peerView` with a 50 ms margin at both ends of the hidden window (2026-11-09, #114).

@@ -7,6 +7,7 @@ import {
   MATCH_TIME_LIMIT_S,
   START_DELAY_MS,
   type PlayerStatus,
+  type PlayerView,
   type ServerMessage,
 } from '@vs/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -315,6 +316,83 @@ describe('status relay', () => {
     registry.createRoom('a', 'Alice');
     expect(registry.status('a', baseStatus)).toEqual({ error: 'wrongPhase', violation: true });
     expect(registry.status('x', baseStatus)).toEqual({ error: 'wrongPhase', violation: true });
+  });
+});
+
+describe('view relay (#114, ADR 0018)', () => {
+  const view: PlayerView = { t: 100, x: 1, y: -2, f: 0, c: 0, h: 1000, e: [0, 1, 1], g: [], p: [] };
+  const viewAt = (t: number): PlayerView => ({ ...view, t });
+
+  it('relays the same object to the other players only, never storing it', () => {
+    setup(3);
+    startedRoom(['a', 'b', 'c']);
+    expect(registry.relayView('a', view)).toBeNull();
+    for (const id of ['b', 'c']) {
+      const got = ofType(id, 'peerView');
+      expect(got).toHaveLength(1);
+      expect(got[0]).toEqual({ type: 'peerView', playerId: 'a', view });
+      expect(got[0]?.view).toBe(view);
+    }
+    expect(ofType('a', 'peerView')).toEqual([]);
+  });
+
+  it('drops a second view 50 ms later and relays one 100 ms after the last relayed', () => {
+    startedRoom(['a', 'b']);
+    registry.relayView('a', viewAt(1));
+    timers.advance(50);
+    expect(registry.relayView('a', viewAt(2))).toBeNull();
+    timers.advance(50);
+    registry.relayView('a', viewAt(3));
+    expect(ofType('b', 'peerView').map((m) => m.view.t)).toEqual([1, 3]);
+  });
+
+  it('caps a 60 Hz flood at 10 per second', () => {
+    startedRoom(['a', 'b']);
+    for (let i = 0; i < 60; i++) {
+      registry.relayView('a', viewAt(i));
+      timers.advance(1000 / 60);
+    }
+    expect(ofType('b', 'peerView').length).toBeLessThanOrEqual(10);
+    expect(ofType('b', 'peerView').length).toBeGreaterThanOrEqual(9);
+  });
+
+  it('is dropped during the countdown, after elimination and after finished', () => {
+    setup(3);
+    startedRoom(['a', 'b', 'c'], { play: false });
+    expect(registry.relayView('a', view)).toBeNull();
+    expect(ofType('b', 'peerView')).toEqual([]);
+    timers.advance(START_DELAY_MS);
+    registry.died('c', 0);
+    timers.advance(200);
+    expect(registry.relayView('c', view)).toBeNull();
+    expect(ofType('a', 'peerView')).toEqual([]);
+    registry.died('b', 0);
+    timers.advance(200);
+    expect(result('a')).toBeDefined();
+    expect(registry.relayView('a', view)).toBeNull();
+    expect(ofType('b', 'peerView')).toEqual([]);
+  });
+
+  it('is a wrongPhase violation from the lobby or without a room', () => {
+    registry.createRoom('a', 'Alice');
+    expect(registry.relayView('a', view)).toEqual({ error: 'wrongPhase', violation: true });
+    expect(registry.relayView('x', view)).toEqual({ error: 'wrongPhase', violation: true });
+  });
+
+  it('a new match resets the throttle', () => {
+    startedRoom(['a', 'b']);
+    registry.relayView('a', viewAt(1));
+    const stamp = timers.now;
+    registry.died('b', 0);
+    timers.advance(REMATCH_DELAY_MS + 200);
+    expect(lastState('a').phase).toBe('lobby');
+    for (const id of ['a', 'b']) expect(registry.setReady(id, true)).toBeNull();
+    expect(registry.startMatch('a')).toBeNull();
+    timers.advance(START_DELAY_MS);
+    // Wind the clock back to 10 ms after the old match's last view: only a cleared stamp lets this one through.
+    timers.now = stamp + 10;
+    registry.relayView('a', viewAt(2));
+    expect(ofType('b', 'peerView').map((m) => m.view.t)).toEqual([1, 2]);
   });
 });
 

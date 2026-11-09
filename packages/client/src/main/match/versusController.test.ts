@@ -1,7 +1,17 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { STATUS_MIN_INTERVAL_MS, type PlayerInfo } from '@vs/shared';
-import type { MainToWorker, RunSummary, WorkerStatus } from '../../protocol/worker-messages';
+import {
+  STATUS_MIN_INTERVAL_MS,
+  VIEW_MIN_INTERVAL_MS,
+  type PlayerInfo,
+  type PlayerView,
+} from '@vs/shared';
+import type {
+  MainToWorker,
+  RunSummary,
+  WorkerStatus,
+  WorkerView,
+} from '../../protocol/worker-messages';
 import type { VersusResult } from '../ui/versus-result';
 import {
   createVersusController,
@@ -11,6 +21,7 @@ import {
   SELF_DEADLINE_NOTE,
   STATUS_SEND_INTERVAL_MS,
   SURVIVED_BANNER,
+  VIEW_SEND_INTERVAL_MS,
   type VersusStart,
 } from './versusController';
 import { fakeNet } from './versus-test-helpers';
@@ -332,5 +343,106 @@ describe('interference (#21)', () => {
     u.emit({ type: 'interferenceIncoming', kind: 'swarm', fromPlayerId: 'b', fromNickname: 'Bob' });
     expect(u.sent.filter((m) => m.type === 'interference')).toEqual([]);
     expect(u.posted).toEqual([]);
+  });
+});
+
+describe('view stream (#114, ADR 0018)', () => {
+  const pv = (t: number): PlayerView => ({
+    t,
+    x: 1,
+    y: 2,
+    f: 0,
+    c: 0,
+    h: 1000,
+    e: [],
+    g: [],
+    p: [],
+  });
+  const wv = (t: number): WorkerView => ({ type: 'view', view: pv(t) });
+
+  function recordViews(t: ReturnType<typeof setup>): number[] {
+    const times: number[] = [];
+    const send = t.net.send.bind(t.net);
+    t.net.send = (m) => {
+      if (m.type === 'view') times.push(t.time());
+      return send(m);
+    };
+    return times;
+  }
+
+  it('never sends two views within 110 ms, keeping the latest', () => {
+    expect(VIEW_SEND_INTERVAL_MS).toBe(VIEW_MIN_INTERVAL_MS + 10);
+    const t = setup();
+    const times = recordViews(t);
+    // A worker view every 100 ms of wall time with ±15 ms jitter, for 10 s.
+    for (let i = 1; i <= 100; i++) {
+      t.advance(i % 2 === 0 ? 85 : 115);
+      t.controller.view(wv(i * 100));
+    }
+    t.advance(500);
+    for (let i = 1; i < times.length; i++)
+      expect((times[i] ?? 0) - (times[i - 1] ?? 0)).toBeGreaterThanOrEqual(VIEW_SEND_INTERVAL_MS);
+    expect(times.length).toBeGreaterThanOrEqual(80);
+    expect(times.length).toBeLessThanOrEqual(91);
+    const views = t.sent.filter((m) => m.type === 'view');
+    expect(views.at(-1)).toEqual({ type: 'view', view: pv(10_000) });
+  });
+
+  it('sends none while hidden, and drops a pending one on hiding', () => {
+    const t = setup();
+    let hidden = false;
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+    t.controller.view(wv(100));
+    t.controller.view(wv(200)); // pending behind the first
+    hidden = true;
+    document.dispatchEvent(new Event('visibilitychange'));
+    t.advance(500);
+    t.controller.view(wv(300));
+    t.advance(500);
+    expect(t.sent.filter((m) => m.type === 'view')).toEqual([{ type: 'view', view: pv(100) }]);
+    hidden = false;
+    document.dispatchEvent(new Event('visibilitychange'));
+    t.controller.view(wv(400));
+    expect(t.sent.filter((m) => m.type === 'view').at(-1)).toEqual({ type: 'view', view: pv(400) });
+    Reflect.deleteProperty(document, 'hidden');
+  });
+
+  it('sends none after this player died, after being eliminated, after the result or offline', () => {
+    const died = setup();
+    died.controller.gameOver(stats(false));
+    died.controller.view(wv(1));
+    expect(died.sent.some((m) => m.type === 'view')).toBe(false);
+
+    const out = setup();
+    out.controller.view(wv(1));
+    out.controller.view(wv(2)); // pending
+    out.emit({ type: 'playerEliminated', playerId: 'a', reason: 'afk' });
+    out.advance(500);
+    out.controller.view(wv(3));
+    expect(out.sent.filter((m) => m.type === 'view')).toEqual([{ type: 'view', view: pv(1) }]);
+
+    const result = setup();
+    result.emit({ type: 'matchResult', outcome: 'win', winnerId: 'b', ranking: [] });
+    result.controller.view(wv(1));
+    expect(result.sent.some((m) => m.type === 'view')).toBe(false);
+
+    const offline = setup();
+    offline.setState('closed');
+    offline.controller.view(wv(1));
+    expect(offline.sent.some((m) => m.type === 'view')).toBe(false);
+  });
+
+  it("forwards only the first opponent's peerView to the worker, until the result", () => {
+    const t = setup();
+    expect(t.controller.opponentId).toBe('b');
+    t.posted.length = 0;
+    t.emit({ type: 'peerView', playerId: 'b', view: pv(5) });
+    t.emit({ type: 'peerView', playerId: 'c', view: pv(6) });
+    t.emit({ type: 'peerView', playerId: 'a', view: pv(7) });
+    expect(t.posted).toEqual([{ type: 'opponentView', view: pv(5) }]);
+    t.emit({ type: 'matchResult', outcome: 'win', winnerId: 'a', ranking: [] });
+    t.posted.length = 0;
+    t.emit({ type: 'peerView', playerId: 'b', view: pv(8) });
+    expect(t.posted).toEqual([]);
   });
 });

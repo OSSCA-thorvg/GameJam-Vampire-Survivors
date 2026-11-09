@@ -7,7 +7,17 @@ import {
   normalizeNickname,
   parseClientMessage,
   parseServerMessage,
+  VIEW_ENEMY_MAX,
+  VIEW_GEM_MAX,
+  VIEW_KIND_MAX,
+  VIEW_MAX_BYTES,
+  VIEW_PICKUP_MAX,
+  VIEW_POS_MAX,
+  VIEW_REL_MAX,
+  VIEW_TIME_MAX_MS,
+  isPlayerView,
   type PlayerStatus,
+  type PlayerView,
 } from './protocol.js';
 
 const status: PlayerStatus = {
@@ -17,6 +27,18 @@ const status: PlayerStatus = {
   kills: 12,
   alive: true,
   elapsedMs: 61_000,
+};
+
+const view: PlayerView = {
+  t: 12_340,
+  x: -153,
+  y: 88,
+  f: 1,
+  c: 2,
+  h: 750,
+  e: [0, 10, -12, 5, -180, 180],
+  g: [2, 3, 4],
+  p: [5, 0, 12],
 };
 
 /** One valid and at least two invalid cases per client message type. */
@@ -108,6 +130,15 @@ const clientCases: Record<string, { valid: unknown; invalid: unknown[] }> = {
       { type: 'visibility', hidden: null },
     ],
   },
+  view: {
+    valid: { type: 'view', view },
+    invalid: [
+      { type: 'view' },
+      { type: 'view', view: { ...view, extra: 1 } },
+      { type: 'view', view: { ...view, h: 1001 } },
+      { type: 'view', view: { ...view, f: 2 } },
+    ],
+  },
 };
 
 describe('parseClientMessage', () => {
@@ -137,6 +168,7 @@ describe('parseClientMessage', () => {
         'startMatch',
         'status',
         'survived',
+        'view',
         'visibility',
       ].sort(),
     );
@@ -258,6 +290,14 @@ const serverCases: Record<string, { valid: unknown; invalid: unknown[] }> = {
       { type: 'peerAway', playerId: 'p1', away: 'yes' },
     ],
   },
+  peerView: {
+    valid: { type: 'peerView', playerId: 'p1', view },
+    invalid: [
+      { type: 'peerView', view },
+      { type: 'peerView', playerId: 'p 1', view },
+      { type: 'peerView', playerId: 'p1', view: { ...view, e: [0, 1] } },
+    ],
+  },
   matchResult: {
     valid: {
       type: 'matchResult',
@@ -304,6 +344,88 @@ describe('parseServerMessage', () => {
   it('rejects non-objects and client message types', () => {
     for (const bad of [null, 'x', 3, [], { type: 'hello', v: 1 }])
       expect(parseServerMessage(bad)).toBeNull();
+  });
+});
+
+describe('PlayerView (#114, ADR 0018)', () => {
+  const withoutKey = (key: keyof PlayerView): unknown =>
+    Object.fromEntries(Object.entries(view).filter(([k]) => k !== key));
+  const triples = (n: number, kind = 0, dx = 1, dy = -1): number[] =>
+    Array.from({ length: n }, () => [kind, dx, dy]).flat();
+
+  it('round-trips through JSON', () => {
+    const raw: unknown = JSON.parse(JSON.stringify({ type: 'view', view }));
+    expect(parseClientMessage(raw)).toEqual({ type: 'view', view });
+    expect(isPlayerView(view)).toBe(true);
+  });
+
+  it('rejects every malformed case', () => {
+    const bad: unknown[] = [
+      { ...view, extra: 1 },
+      withoutKey('t'),
+      withoutKey('p'),
+      { ...view, e: triples(VIEW_ENEMY_MAX + 1) },
+      { ...view, g: triples(VIEW_GEM_MAX + 1) },
+      { ...view, p: triples(VIEW_PICKUP_MAX + 1) },
+      { ...view, e: [0, 1, 2, 3] },
+      { ...view, e: [0, VIEW_REL_MAX + 1, 0] },
+      { ...view, g: [0, 0, -VIEW_REL_MAX - 1] },
+      { ...view, e: [VIEW_KIND_MAX + 1, 0, 0] },
+      { ...view, e: [-1, 0, 0] },
+      { ...view, e: [0, 1.5, 0] },
+      { ...view, e: [0, '1', 0] },
+      { ...view, e: { length: 0 } },
+      { ...view, x: 1.5 },
+      { ...view, x: VIEW_POS_MAX + 1 },
+      { ...view, t: -1 },
+      { ...view, t: VIEW_TIME_MAX_MS + 1 },
+      { ...view, h: 1001 },
+      { ...view, h: -1 },
+      { ...view, f: 2 },
+      { ...view, f: true },
+      { ...view, c: VIEW_KIND_MAX + 1 },
+      [],
+      null,
+    ];
+    for (const v of bad) {
+      expect(isPlayerView(v), JSON.stringify(v)).toBe(false);
+      expect(parseClientMessage({ type: 'view', view: v }), JSON.stringify(v)).toBeNull();
+    }
+  });
+
+  it('accepts full lists at the caps', () => {
+    expect(
+      isPlayerView({
+        ...view,
+        e: triples(VIEW_ENEMY_MAX),
+        g: triples(VIEW_GEM_MAX),
+        p: triples(VIEW_PICKUP_MAX),
+      }),
+    ).toBe(true);
+  });
+
+  it('the worst case fits VIEW_MAX_BYTES as view and MAX_MESSAGE_BYTES as peerView', () => {
+    const worst: PlayerView = {
+      t: VIEW_TIME_MAX_MS,
+      x: -VIEW_POS_MAX,
+      y: -VIEW_POS_MAX,
+      f: 1,
+      c: VIEW_KIND_MAX,
+      h: 1000,
+      e: triples(VIEW_ENEMY_MAX, VIEW_KIND_MAX, -VIEW_REL_MAX, -VIEW_REL_MAX),
+      g: triples(VIEW_GEM_MAX, VIEW_KIND_MAX, -VIEW_REL_MAX, -VIEW_REL_MAX),
+      p: triples(VIEW_PICKUP_MAX, VIEW_KIND_MAX, -VIEW_REL_MAX, -VIEW_REL_MAX),
+    };
+    const sent = JSON.stringify({ type: 'view', view: worst });
+    // A server id is a `randomUUID`: 36 characters.
+    const relayed = JSON.stringify({ type: 'peerView', playerId: 'x'.repeat(36), view: worst });
+    const bytes = (s: string) => new TextEncoder().encode(s).length;
+    // Measured 2026-11-09: 2910 and 2964 bytes (ADR 0018).
+    expect([bytes(sent), bytes(relayed)]).toEqual([2910, 2964]);
+    expect(parseClientMessage(JSON.parse(sent))).not.toBeNull();
+    expect(parseServerMessage(JSON.parse(relayed))).not.toBeNull();
+    expect(bytes(sent)).toBeLessThanOrEqual(VIEW_MAX_BYTES);
+    expect(bytes(relayed)).toBeLessThanOrEqual(MAX_MESSAGE_BYTES);
   });
 });
 

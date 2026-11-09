@@ -1,20 +1,28 @@
 // One versus match on the main thread (#20, ADRs 0004, 0005, 0006): it bridges the game worker and the server
 // socket. The worker simulates this player's own world from the match seed; nothing here synchronizes worlds. What
-// the player sees of the others is the opponent panel, fed only by the server's relayed messages.
+// the player sees of the others is the opponent panel, fed only by the server's relayed messages, and (#114, ADR 0018)
+// the first opponent's relayed world view, which the worker only draws.
 import {
   INTERFERENCE,
   interferenceIndex,
   MATCH_DEADLINE_GRACE_S,
   MATCH_TIME_LIMIT_S,
   STATUS_MIN_INTERVAL_MS,
+  VIEW_MIN_INTERVAL_MS,
   type ClientMessage,
   type EliminationReason,
   type InterferenceKind,
   type PlayerInfo,
   type PlayerStatus,
+  type PlayerView,
   type ServerMessage,
 } from '@vs/shared';
-import type { MainToWorker, RunSummary, WorkerStatus } from '../../protocol/worker-messages';
+import type {
+  MainToWorker,
+  RunSummary,
+  WorkerStatus,
+  WorkerView,
+} from '../../protocol/worker-messages';
 import type { NetClient } from '../net/client';
 import type { AssetUrl } from '../ui/asset-url';
 import { h } from '../ui/dom';
@@ -28,6 +36,12 @@ import type { VersusResult } from '../ui/versus-result';
  * its own receive time and drops the rest, so the client waits a little longer and network jitter loses none.
  */
 export const STATUS_SEND_INTERVAL_MS = STATUS_MIN_INTERVAL_MS + 10;
+
+/**
+ * Least time between two `view` messages sent (#114, ADR 0018): the server relays at most one per
+ * `VIEW_MIN_INTERVAL_MS` by its receive time, so the client waits a little longer, as for `status`.
+ */
+export const VIEW_SEND_INTERVAL_MS = VIEW_MIN_INTERVAL_MS + 10;
 
 export const SURVIVED_BANNER = 'Survived! Waiting for others';
 export const OFFLINE_BANNER = 'Disconnected from server — result unavailable';
@@ -72,6 +86,13 @@ export interface VersusControllerOptions {
 export interface VersusController {
   /** A worker `status`: relayed as `ClientMessage.status`, at most once per `STATUS_SEND_INTERVAL_MS`. */
   status(message: WorkerStatus): void;
+  /**
+   * A worker `view` (#114): sent as `ClientMessage.view`, at most once per `VIEW_SEND_INTERVAL_MS`, keeping the latest;
+   * never while the tab is hidden, after this player is out, after the local run ended, after the result or offline.
+   */
+  view(message: WorkerView): void;
+  /** The opponent whose views reach the worker: the first other player of the match start, fixed for the match. */
+  readonly opponentId: string | null;
   /** The worker's `gameOver`: `died` or `survived`, or the unofficial result when offline. */
   gameOver(stats: RunSummary): void;
   /** The worker's `interferenceCollected` (#21): sent as `ClientMessage.interference`; the server picks the target. */
@@ -109,6 +130,7 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
       clearTimeout(id);
     });
   const { selfId } = start;
+  const opponentId = start.players.find((p) => p.id !== selfId)?.id ?? null;
 
   /** No more messages to the server: the result arrived, or the socket left `open`. */
   let finished = false;
@@ -120,6 +142,9 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
   let lastSentAt: number | null = null;
   let latest: PlayerStatus | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let lastViewSentAt: number | null = null;
+  let latestView: PlayerView | null = null;
+  let viewTimer: ReturnType<typeof setTimeout> | null = null;
   /** Why each eliminated player is out, for the result's ranking; no prototype, as the keys are server ids. */
   const out = Object.create(null) as Record<string, EliminationReason>;
 
@@ -144,6 +169,19 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
     if (timer !== null) clearTimer(timer);
     timer = null;
     latest = null;
+    if (viewTimer !== null) clearTimer(viewTimer);
+    viewTimer = null;
+    latestView = null;
+  };
+  const viewBlocked = (): boolean =>
+    finished || offline || selfOut || localOver !== null || doc.hidden;
+  const sendLatestView = (): void => {
+    viewTimer = null;
+    const view = latestView;
+    latestView = null;
+    if (!view || viewBlocked()) return;
+    send({ type: 'view', view });
+    lastViewSentAt = now();
   };
   const sendLatest = (): void => {
     timer = null;
@@ -171,6 +209,12 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
   };
 
   const onVisibility = (): void => {
+    // A hidden tab sends no view (#114); a pending one is dropped, and the worker posts a fresh one on showing.
+    if (doc.hidden && viewTimer !== null) {
+      clearTimer(viewTimer);
+      viewTimer = null;
+      latestView = null;
+    }
     send({ type: 'visibility', hidden: doc.hidden });
   };
 
@@ -180,6 +224,11 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
     }),
     net.on('peerStatus', (m) => {
       panel.status(m.playerId, m.status);
+    }),
+    // #114: only the first opponent's world view reaches the worker, as display data.
+    net.on('peerView', (m) => {
+      if (finished || m.playerId !== opponentId) return;
+      post({ type: 'opponentView', view: m.view });
     }),
     net.on('peerAway', (m) => {
       panel.away(m.playerId, m.away);
@@ -253,6 +302,15 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
       if (wait <= 0) sendLatest();
       else timer = setTimer(sendLatest, wait);
     },
+    view(m) {
+      if (viewBlocked()) return;
+      latestView = m.view;
+      if (viewTimer !== null) return;
+      const wait = lastViewSentAt === null ? 0 : lastViewSentAt + VIEW_SEND_INTERVAL_MS - now();
+      if (wait <= 0) sendLatestView();
+      else viewTimer = setTimer(sendLatestView, wait);
+    },
+    opponentId,
     gameOver(stats) {
       if (finished || localOver) return;
       localOver = stats.cleared ? 'survived' : 'died';

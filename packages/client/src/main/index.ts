@@ -160,6 +160,9 @@ async function boot(): Promise<void> {
         if (import.meta.env.DEV || import.meta.env.MODE === 'perf')
           showStressResult(appRoot(), message.result, loadMs);
         break;
+      case 'view':
+        app?.view(message);
+        break;
       default:
         assertNever(message);
     }
