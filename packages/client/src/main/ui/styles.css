@@ -248,3 +248,48 @@
 #runtime-error button:focus-visible {
   outline: 2px solid var(--focus);
 }
+
+/* #129: the sound settings on the pause screen. */
+.screen .sound-settings {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--gap) / 2);
+}
+
+.screen .volume-row {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--gap) / 2);
+}
+
+.screen .volume-row > span:first-child {
+  min-width: 5rem;
+  text-align: right;
+}
+
+.screen .volume-value {
+  min-width: 2ch;
+  font-variant-numeric: tabular-nums;
+}
+
+.screen .volume-row button {
+  padding: 0.3rem 0.8rem;
+}
+
+/* #129: the corner mute button, above the screens and outside menu focus. */
+#sound-toggle {
+  position: fixed;
+  bottom: 0.75rem;
+  left: 0.75rem;
+  z-index: 10;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 6px;
+  color: var(--screen-fg);
+  background: rgb(8 8 16 / 70%);
+  font:
+    13px/1.4 system-ui,
+    sans-serif;
+  cursor: pointer;
+}

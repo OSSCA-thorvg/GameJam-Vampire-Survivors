@@ -13,6 +13,7 @@ import { createSpatialGrid, type SpatialGrid } from '../ecs/spatial-grid';
 import { createStore, type Store } from '../ecs/store';
 import { PaintPool, RenderBinding } from '../render/pool';
 import type { PlayerState } from './player';
+import { cueSfx, type SfxState } from './sfx';
 import type { World } from './world';
 
 /** Experience gem columns (#11). `state` 0 is idle on the ground, 1 is flying to the player; `tier` indexes `GEM_ASSETS`. */
@@ -138,7 +139,7 @@ const nearby = new Int32Array(GEM_STORE_CAPACITY);
  * at `GEM_FLY_START_SPEED` and accelerate by `GEM_FLY_ACCEL` toward the player's current position; one that reaches
  * `GEM_COLLECT_RADIUS` adds `value * stats.growth` to `player.xp` and is removed. Idle gems never despawn.
  */
-export function gemSystem(world: GemState & { player: PlayerState }, dt: number): void {
+export function gemSystem(world: GemState & SfxState & { player: PlayerState }, dt: number): void {
   const { gems, gemGrid, gemBinding, player } = world;
   const { x, y, vx, vy, value, state } = gems.cols;
   gemGrid.rebuild(x, y, gems.count);
@@ -168,6 +169,7 @@ export function gemSystem(world: GemState & { player: PlayerState }, dt: number)
       continue;
     }
     player.xp += (value[i] ?? 0) * player.stats.growth;
+    cueSfx(world, 'sfx.gemPickup');
     if (gems.uid[i] === world.mergeGemUid) world.mergeGemUid = NO_GEM;
     gemBinding?.unbind(i);
     gems.remove(i);

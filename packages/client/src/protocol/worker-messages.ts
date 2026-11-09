@@ -179,6 +179,11 @@ export type WorkerToMain =
   | { type: 'chestOpened'; rewards: ChestReward[] }
   /** #21: the player walked into an interference pickup; the main thread sends it to the server. */
   | { type: 'interferenceCollected'; kind: InterferenceKind }
+  /**
+   * #129: the world sounds cued since the last rendered frame, at most one per frame and only when non-zero; bit `i`
+   * is `WORLD_SFX[i]` (`@vs/shared`). The main thread plays them; hidden-tab ticks never render, so never post it.
+   */
+  | { type: 'sfx'; mask: number }
   | WorkerStatus
   /** #22: a named `?stress` scenario finished its measured window (dev and `perf` builds only). */
   | { type: 'stressResult'; result: StressResult }

@@ -18,6 +18,11 @@ import {
 } from './runtime-error';
 import { computeViewport, type Viewport } from './viewport';
 import { createBootLoading } from './boot-loading';
+import { createAudioDirector } from './audio/director';
+import { createAudioEngine } from './audio/engine';
+import { loadAudioEntries } from './audio/entries';
+import { loadAudioSettings } from './audio/settings';
+import { mountSoundToggle, type SoundToggle } from './ui/sound-toggle';
 
 function appRoot(): HTMLElement {
   const app = document.getElementById('app');
@@ -101,6 +106,29 @@ async function boot(): Promise<void> {
     iconUrl = resolve;
   });
 
+  /**
+   * #129: sound. The director listens for the first trusted gesture from now on, so a key pressed during the splash
+   * already unlocks the context; the splash itself stays silent (no music before the title). The files are fetched
+   * after `assetsReady`, so they never compete with the boot assets.
+   */
+  const audio = createAudioEngine({
+    entries: loadAudioEntries(assetBaseUrl),
+    baseUrl: assetBaseUrl,
+  });
+  const director = createAudioDirector({
+    engine: audio,
+    doc: document,
+    root: document.body,
+    initial: loadAudioSettings(),
+  });
+  director.screen({ name: 'booting' });
+  let soundToggle: SoundToggle | null = null;
+  director.onSettings((s) => {
+    soundToggle?.update(s.muted);
+  });
+  if (import.meta.env.DEV || import.meta.env.MODE === 'e2e')
+    registerMainSnapshotField('audio', () => audio.snapshot());
+
   /** The screens (#9), started on the title once the worker is ready; none in the `?gallery` and `?stress` scenes. */
   let app: App | null = null;
   /** The screen root, once the app started; carries the layout and the pane rects for the versus CSS (#115). */
@@ -141,7 +169,15 @@ async function boot(): Promise<void> {
       undefined,
       undefined,
       setPanes,
+      director,
     );
+    soundToggle = mountSoundToggle(document.body, {
+      muted: director.settings().muted,
+      onToggle: () => {
+        const s = director.settings();
+        director.setSettings({ ...s, muted: !s.muted });
+      },
+    });
     app = started;
     if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
       registerMainSnapshotField('state', () => started.state.name);
@@ -209,6 +245,7 @@ async function boot(): Promise<void> {
         break;
       case 'assetsReady':
         bootLoading.assetsReady();
+        void audio.load();
         loadMs = Math.round(performance.now());
         if (perf) console.warn(`[perf] assets ready ${String(loadMs)} ms after navigation`);
         break;
@@ -221,18 +258,22 @@ async function boot(): Promise<void> {
         if (import.meta.env.DEV) recordStats(message);
         break;
       case 'gameOver':
+        director.worker(message);
         app?.dispatch({ type: 'gameOver', stats: message.stats });
         break;
       case 'levelUp':
+        director.worker(message);
         app?.dispatch({ type: 'levelUp', level: message.level, options: message.options });
         break;
       case 'chestOpened':
+        director.worker(message);
         app?.dispatch({ type: 'chestOpened', rewards: message.rewards });
         break;
       case 'status':
         app?.status(message);
         break;
       case 'interferenceCollected':
+        director.worker(message);
         app?.interferenceCollected(message.kind);
         break;
       case 'stressResult':
@@ -241,6 +282,9 @@ async function boot(): Promise<void> {
         break;
       case 'view':
         app?.view(message);
+        break;
+      case 'sfx':
+        director.worker(message);
         break;
       default:
         assertNever(message);

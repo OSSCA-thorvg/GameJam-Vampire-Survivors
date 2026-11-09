@@ -2,7 +2,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ChestReward } from '@vs/shared';
 import type { LevelUpOption, MainToWorker, RunSummary } from '../protocol/worker-messages';
-import { CONNECTION_LOST, createApp, effects, reduce, type AppEvent, type AppState } from './app';
+import {
+  CONNECTION_LOST,
+  createApp,
+  effects,
+  reduce,
+  SILENT_SOUND,
+  type AppEvent,
+  type AppSound,
+  type AppState,
+} from './app';
 import { createVersusController } from './match/versusController';
 import { NetClient, type OpenSocket, type SocketHandlers } from './net/client';
 
@@ -207,6 +216,51 @@ describe('effects', () => {
 });
 
 describe('createApp (happy-dom)', () => {
+  it('#129: tells the sound every state, including the first, and hands the pause screen the settings', () => {
+    document.body.replaceChildren();
+    const root = document.createElement('div');
+    document.body.append(root);
+    const screens: AppState[] = [];
+    let settings = { muted: false, music: 5, sfx: 7 };
+    const listeners: ((s: typeof settings) => void)[] = [];
+    const sound: AppSound = {
+      screen: (state) => screens.push(state),
+      cue: () => undefined,
+      settings: () => settings,
+      setSettings: (s) => {
+        settings = s;
+        for (const fn of listeners) fn(s);
+      },
+      onSettings: (fn) => {
+        listeners.push(fn);
+        return () => undefined;
+      },
+    };
+    const app = createApp(
+      root,
+      () => undefined,
+      () => 1,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      sound,
+    );
+    app.dispatch({ type: 'start' });
+    app.dispatch({ type: 'confirm' });
+    app.dispatch({ type: 'pauseToggle' });
+    expect(screens.map((s) => s.name)).toEqual(['title', 'characterSelect', 'playing', 'playing']);
+    expect(screens.at(-1)).toEqual(paused);
+    const music = () => root.querySelector('[data-volume="music"]')?.textContent;
+    expect(music()).toBe('5');
+    button('Music +')?.click();
+    expect(settings.music).toBe(6);
+    expect(music()).toBe('6');
+    // A change from elsewhere (the M key, the corner toggle) updates the open pause screen.
+    sound.setSettings({ ...settings, muted: true });
+    expect(button('Sound: off')).toBeDefined();
+  });
+
   const key = (code: string) =>
     document.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }));
   const button = (name: string) =>
@@ -644,7 +698,7 @@ describe('createApp versus flow (happy-dom, fake socket and worker port)', () =>
   const button = (name: string) =>
     [...document.querySelectorAll('button')].find((b) => b.textContent === name);
 
-  async function inLobby() {
+  async function inLobby(sound: AppSound = SILENT_SOUND) {
     document.body.replaceChildren();
     const root = document.createElement('div');
     document.body.append(root);
@@ -668,6 +722,7 @@ describe('createApp versus flow (happy-dom, fake socket and worker port)', () =>
         return createVersusController(opts);
       },
       (n) => panes.push(n),
+      sound,
     );
     const socket = () => {
       const s = sockets.at(-1);
@@ -695,6 +750,32 @@ describe('createApp versus flow (happy-dom, fake socket and worker port)', () =>
     serverSays({ ...both, phase: 'countdown' });
     return { root, app, posted, sent, serverSays, both, versus: () => versusCreated, panes };
   }
+
+  it('#129: forwards the incoming interference cue and follows the versus screens', async () => {
+    const cues: string[] = [];
+    const screens: string[] = [];
+    const t = await inLobby({
+      ...SILENT_SOUND,
+      screen: (state) => screens.push(state.name),
+      cue: (id) => cues.push(id),
+    });
+    expect(t.app.state.name).toBe('versusPlaying');
+    t.serverSays({
+      type: 'interferenceIncoming',
+      kind: 'swarm',
+      fromPlayerId: 'b',
+      fromNickname: 'Bob',
+    });
+    expect(cues).toEqual(['sfx.interferenceReceive']);
+    // Room updates are transitions too, so names repeat.
+    expect([...new Set(screens)]).toEqual([
+      'title',
+      'characterSelect',
+      'multiplayerEntry',
+      'lobby',
+      'versusPlaying',
+    ]);
+  });
 
   it('the countdown starts a versus run (once); status is relayed; a death sends died; matchResult shows Lose; Rematch returns to the lobby', async () => {
     // `startAt` is now: the lobby's countdown ends at once and calls `startVersus`.

@@ -1,6 +1,7 @@
 import { ENEMIES, ENEMY_LIST } from '@vs/shared';
 import { ENEMY_FLAG_DEAD, ENEMY_KNOCKBACK_RESIST } from './enemies';
 import { spawnFx } from './fx';
+import { cueHit, cueSfx } from './sfx';
 import type { World } from './world';
 
 /** Seconds an enemy flashes after a hit (`flash`), and how long the `fx.hit` effect shows. */
@@ -44,6 +45,8 @@ export function damageEnemy(
   if (source >= 0) {
     const { damageBySlot } = world.runStats;
     damageBySlot[source] = (damageBySlot[source] ?? 0) + Math.max(0, Math.min(amount, before));
+    const weapon = world.weapons[source];
+    if (weapon) cueHit(world, weapon.def.pattern);
   }
   const hp = before - amount;
   cols.hp[slot] = hp;
@@ -80,6 +83,7 @@ export function cleanupSystem(world: World, dt: number): void {
     event.xp = ENEMY_XP[t] ?? 0;
     event.flags = flags[i] ?? 0;
     world.stats.kills++;
+    cueSfx(world, 'sfx.enemyDeath');
     spawnFx(world, 'fx.enemyDeath', event.x, event.y, 0, false, DEATH_FX_SEC);
     enemyBinding?.unbind(i);
     enemies.remove(i);

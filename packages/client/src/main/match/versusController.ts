@@ -17,6 +17,7 @@ import {
   type PlayerStatus,
   type PlayerView,
   type ServerMessage,
+  type SfxId,
 } from '@vs/shared';
 import type {
   MainToWorker,
@@ -83,6 +84,8 @@ export interface VersusControllerOptions {
   clearTimer?: (id: ReturnType<typeof setTimeout>) => void;
   raf?: (cb: () => void) => number;
   cancelRaf?: (id: number) => void;
+  /** #129: plays a main-thread sound cue (`sfx.interferenceReceive` for an incoming interference); silent when omitted. */
+  cue?: (id: SfxId) => void;
 }
 
 export interface VersusController {
@@ -276,6 +279,7 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
       const def = INTERFERENCE[interferenceIndex(m.kind)];
       if (!def) return;
       post({ type: 'applyInterference', kind: def.kind });
+      opts.cue?.('sfx.interferenceReceive');
       incoming.show(m.fromNickname, def.label);
     }),
     net.on('matchResult', (m) => {
