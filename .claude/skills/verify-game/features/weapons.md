@@ -826,7 +826,7 @@ test('weapons 14: the paint count stays flat across runs with every new weapon f
 
 #### Garlic ring and hit radius (#91, journey 15)
 
-Save the spec as `verification/issue-<N>/journeys/garlic-ring.spec.ts` and run it like the ones above with `-g "weapons 15"`. Four fresh runs (area 1 twice, area 1.5 twice; area 1.5 comes from Candelabrador at 5 taken before Garlic). Each samples snapshots back to back inside the page for 30 s while standing still, finds the garlic ticks (a step whose new damage is all 5 × might hits, compared with the step right before), and classifies every enemy whose circle edge was within 15 units of the hit radius: hit when it is gone (a bat dies to the L1 tick) or farther from the player 80 ms later, not hit when it kept coming closer. Evidence: `garlic-ring/area<1|15>-run<1|2>/` (`state.json` with the cards taken and `stats`, `ticks.json` with every tick, each classified enemy's `edge` and `after`, and the `inside`, `outside` and `betweenOldAndNew` counts; `ring-*.png`). Measure the drawn ring in the frames with a radial lavender-pixel profile around the player (the issue's run used `verification/issue-91/ring-screenshot.py`): the outer edge where at least half the pixels on the circle are lavender is 49–50 px at area 1 and 74–75 px at area 1.5.
+Save the spec as `verification/issue-<N>/journeys/garlic-ring.spec.ts` and run it like the ones above with `-g "weapons 15"`. Pass `--repeat-each 3` to run the four cases in three independent Playwright repetitions, twice each at area 1 and 1.5. The fixed start seeds were approved for this fixture and selected in ascending order from the first 18 seeds per area that reach the strict card build with the real level-up generator. Selection used card availability only, before observing any combat. Each browser attempt replaces the seed on the first real Warden single-player start message and checks the worker’s start log. Start Warden and use real `I` for survival, then real `L` and numbered cards to build Whip 1 / Garlic 1 with might 1. At area 1.5 take Candelabrador to 5 before Garlic. The isolated selector prefers the target, then safe passive upgrades, then safe new passives. Keep Whip, Garlic and the completed Candelabrador at their target levels during the measurement. If no safe card is offered, reload to the title and select Warden again. The level-up dialog ignores Escape and Quit. Cap each case at three total attempts, including unsafe hands during sampling. Report a failed measurement after a valid setup immediately. Each case samples snapshots back to back inside the page for 30 s while standing still, finds the garlic ticks (a step whose new damage is all 5 × might hits, compared with the step right before), and classifies every enemy whose circle edge was within 15 units of the hit radius: hit when it is gone (a bat dies to the L1 tick) or farther from the player 80 ms later, not hit when it kept coming closer. Evidence: `garlic-ring/repeat-<1|2|3>/area<1|15>-run<1|2>/` (`attempt-*.json` with expected and worker-observed seed, every offered hand, choice, snapshots, outcome and elapsed time, `attempt-*-rows.json` with sampled enemies and aggregate damage, `state.json` with the valid inventory and `stats`, `ticks.json` with every tick, each classified enemy's `edge` and `after`, and the `inside`, `outside` and `betweenOldAndNew` counts; `*-ring-*.png`). Measure the drawn ring in the frames with a radial lavender-pixel profile around the player (the issue's run used `verification/issue-91/ring-screenshot.py`): the outer edge where at least half the pixels on the circle are lavender is 49–50 px at area 1 and 74–75 px at area 1.5.
 
 ```ts
 // Feature-map journey 15 for .claude/skills/verify-game/features/weapons.md (#91): the Garlic ring drawn on screen equals its hit radius. Enemies whose circle reaches inside the drawn ring at a
@@ -840,9 +840,30 @@ import {
   waitForSnapshot,
   type GameSnapshot,
 } from '../../../e2e/helpers';
+import { selectIsolatedBuildCard } from '../../../e2e/helpers/isolated-build';
 
 type Item = { id: string; level: number };
 type Card = { kind: string | null; name: string };
+type Policy = Parameters<typeof selectIsolatedBuildCard>[1];
+type Stage = 'candelabrador' | 'garlic' | 'settling' | 'measurement';
+type Hand = {
+  stage: Stage;
+  offered: Card[];
+  selected: Card | null;
+  before: GameSnapshot;
+  after?: GameSnapshot;
+};
+type Attempt = {
+  expectedSeed: number;
+  observedSeed?: number;
+  startedAt: number;
+  outcome: 'failed' | 'unsafe-hand' | 'passed';
+  hands: Hand[];
+  rows: Row[];
+  initial?: GameSnapshot;
+  beforeSampling?: GameSnapshot;
+  afterSampling?: GameSnapshot;
+};
 type Row = {
   t: number;
   state: string;
@@ -856,59 +877,106 @@ const ENEMY_RADIUS = [12, 16]; // bat, ghoul (ENEMY_LIST order)
 const level = (s: GameSnapshot, id: string) =>
   [...(s.weapons as Item[]), ...(s.passives as Item[])].find((w) => w.id === id)?.level ?? 0;
 
-async function cards(page: Page): Promise<Card[]> {
-  return page.locator('[role="dialog"][aria-label="Level up"] button.card').evaluateAll((els) =>
+const isolatedWeapons = [
+  { id: 'whip', level: 1 },
+  { id: 'garlic', level: 1 },
+];
+const fixedBuild: Policy = {
+  wantedNames: [],
+  blockedNames: ['Candelabrador', 'Garlic', 'Whip'],
+};
+
+/** First 18 ascending seeds that complete each build using only the real card generator and selector. */
+const fixtureSeeds = {
+  small: [4, 5, 9, 12, 13, 14, 21, 23, 25, 26, 27, 28, 30, 32, 35, 38, 40, 43],
+  large: [5, 35, 57, 111, 169, 170, 198, 216, 232, 294, 449, 566, 568, 590, 640, 702, 736, 748],
+};
+
+/** Use the existing start message as the test boundary, then restore the original method before forwarding it. */
+async function installFixtureSeed(page: Page) {
+  await page.addInitScript(() => {
+    const raw = new URL(location.href).searchParams.get('garlicFixtureSeed');
+    if (raw === null) return;
+    const seed = Number(raw);
+    if (!Number.isInteger(seed) || seed < 0 || seed > 0xffff_ffff)
+      throw new Error('Invalid Garlic fixture seed');
+    const prototype = Worker.prototype;
+    const original = prototype.postMessage;
+    prototype.postMessage = function (
+      this: Worker,
+      ...args: [message: unknown, transferOrOptions?: Transferable[] | StructuredSerializeOptions]
+    ) {
+      const [message] = args;
+      if (
+        message !== null &&
+        typeof message === 'object' &&
+        'type' in message &&
+        message.type === 'startRun' &&
+        'mode' in message &&
+        message.mode === 'single' &&
+        'characterId' in message &&
+        message.characterId === 'warden'
+      ) {
+        prototype.postMessage = original;
+        args[0] = { ...message, seed };
+      }
+      Reflect.apply(original, this, args);
+    };
+  });
+}
+
+class NoSafeCard extends Error {
+  constructor(stage: Stage) {
+    super(`No safe level-up card during ${stage}`);
+  }
+}
+
+async function answer(page: Page, policy: Policy, stage: Stage, attempt: Attempt) {
+  const before = await snapshot(page);
+  const buttons = page.locator('[role="dialog"][aria-label="Level up"] button.card');
+  await buttons.first().waitFor({ timeout: 2_000 });
+  const offered = await buttons.evaluateAll((els) =>
     els.map((el) => ({
       kind: el.getAttribute('data-kind'),
       name: el.querySelector('.card-name')?.textContent ?? '',
     })),
   );
-}
-
-/** Answers one dialog: a wanted card, else a passive that is not avoided, else anything that adds no weapon. */
-async function answer(page: Page, want: string[], avoid: string[]) {
-  const before = await snapshot(page);
-  const shown = await cards(page);
-  let pick = shown.findIndex((c) => want.includes(c.name));
-  // Upgrades first, so the passive slots stay free for Candelabrador.
-  for (const kind of ['upgradePassive', 'upgradeWeapon', 'newPassive'])
-    if (pick < 0) pick = shown.findIndex((c) => c.kind === kind && !avoid.includes(c.name));
-  if (pick < 0)
-    pick = shown.findIndex(
-      (c) => c.kind !== 'newWeapon' && !avoid.includes(c.name) && c.name !== 'Whip',
-    );
-  if (pick < 0) pick = shown.findIndex((c) => !avoid.includes(c.name));
-  if (pick < 0) pick = 0;
-  await page.keyboard.press(String(pick + 1));
+  const index = selectIsolatedBuildCard(offered, policy);
+  const hand: Hand = {
+    stage,
+    offered,
+    selected: index === null ? null : (offered[index] ?? null),
+    before,
+  };
+  attempt.hands.push(hand);
+  if (index === null) throw new NoSafeCard(stage);
+  await page.keyboard.press(String(index + 1));
   const lv = (before.player as { level: number }).level;
-  await waitForSnapshot(
+  hand.after = await waitForSnapshot(
     page,
-    (n) => n.state !== 'levelUp' || (n.player as { level: number }).level !== lv,
+    (s) => s.state !== 'levelUp' || (s.player as { level: number }).level !== lv,
     3_000,
   );
-  return shown[pick]?.name;
 }
 
 async function levelUntil(
   page: Page,
-  done: (s: GameSnapshot) => boolean,
-  want: string[],
-  avoid: string[],
+  stage: 'candelabrador' | 'garlic',
+  targetLevel: number,
+  policy: Policy,
+  attempt: Attempt,
 ) {
-  const taken: unknown[] = [];
   for (let i = 0; i < 150; i++) {
     let s = await snapshot(page);
-    if (done(s)) return taken;
+    if (s.state === 'playing' && level(s, stage) === targetLevel) return;
     if (s.state === 'playing') {
-      await page.keyboard.press('l'); // precondition only
+      await page.keyboard.press('KeyL'); // precondition only
       s = await waitForSnapshot(page, (n) => n.state !== 'playing', 3_000);
     }
-    if (s.state === 'levelUp') taken.push(await answer(page, want, avoid));
+    if (s.state !== 'levelUp') throw new Error(`Unexpected state during build: ${s.state}`);
+    await answer(page, policy, stage, attempt);
   }
-  const last = await snapshot(page);
-  throw new Error(
-    `precondition not reached: ${JSON.stringify({ state: last.state, weapons: last.weapons, passives: last.passives, taken: taken.slice(-5) })}`,
-  );
+  throw new Error(`Build did not reach ${stage} level ${String(targetLevel)} within 150 choices`);
 }
 
 /** Samples snapshots back to back inside the page for `ms` (or until a level-up), as compact rows. */
@@ -976,13 +1044,19 @@ function ticks(rows: Row[], hitRadius: number, dmg: number) {
   return out;
 }
 
-async function phase(page: Page, hitRadius: number, dmg: number, avoid: string[], seconds: number) {
-  const rows: Row[] = [];
+async function phase(
+  page: Page,
+  hitRadius: number,
+  dmg: number,
+  attempt: Attempt,
+  seconds: number,
+) {
+  const rows = attempt.rows;
   const endAt = Date.now() + seconds * 1000;
   while (Date.now() < endAt) {
     const s = await snapshot(page);
     if (s.state === 'results') break; // died: analyse what was sampled
-    if (s.state === 'levelUp') await answer(page, [], avoid);
+    if (s.state === 'levelUp') await answer(page, fixedBuild, 'measurement', attempt);
     rows.push(...(await sample(page, 2_000)));
   }
   const found = ticks(rows, hitRadius, dmg);
@@ -1006,48 +1080,102 @@ async function phase(page: Page, hitRadius: number, dmg: number, avoid: string[]
 
 for (const target of [1, 1.5]) {
   for (const run of [1, 2]) {
-    test(`weapons 15: garlic ring, area ${String(target)} run ${String(run)}`, async ({ page }) => {
+    test(`weapons 15: garlic ring, area ${String(target)} run ${String(run)}`, async ({
+      page,
+    }, testInfo) => {
       test.setTimeout(180_000);
       const name = `area${String(target).replace('.', '')}-run${String(run)}`;
-      const ev = startEvidence(page, `garlic-ring/${name}`);
+      const repetition = testInfo.repeatEachIndex;
+      const ev = startEvidence(page, `garlic-ring/repeat-${String(repetition + 1)}/${name}`);
+      const seeds = target === 1 ? fixtureSeeds.small : fixtureSeeds.large;
+      const rejected: string[] = [];
       try {
-        await startRun(page);
-        const taken: unknown[] = [];
-        // Precondition (`L` and real card picks): Candelabrador to 5 first for area 1.5, then Garlic.
-        if (target > 1)
-          taken.push(
-            ...(await levelUntil(
+        await installFixtureSeed(page);
+        for (let number = 1; number <= 3; number++) {
+          const expectedSeed = seeds[repetition * 6 + (run - 1) * 3 + (number - 1)];
+          if (expectedSeed === undefined) throw new Error('Garlic fixture seed is missing');
+          const attempt: Attempt = {
+            expectedSeed,
+            startedAt: Date.now(),
+            outcome: 'failed',
+            hands: [],
+            rows: [],
+          };
+          try {
+            const firstLog = ev.workerLog.length;
+            attempt.initial = await startRun(page, `/?garlicFixtureSeed=${String(expectedSeed)}`);
+            const readSeed = () =>
+              ev.workerLog
+                .slice(firstLog)
+                .map((line) => /\[worker\] run started, seed (\d+)/.exec(line)?.[1])
+                .find((seed) => seed !== undefined);
+            await expect.poll(readSeed, { timeout: 2_000 }).toBe(String(expectedSeed));
+            attempt.observedSeed = Number(readSeed());
+            expect(attempt.initial.characterId).toBe('warden');
+            await page.keyboard.press('KeyI'); // precondition only
+            await waitForSnapshot(page, (s) => s.debugInvulnerable === true, 2_000);
+            if (target > 1)
+              await levelUntil(
+                page,
+                'candelabrador',
+                5,
+                { wantedNames: ['Candelabrador'], blockedNames: ['Garlic', 'Whip'] },
+                attempt,
+              );
+            await levelUntil(
               page,
-              (n) => n.state === 'playing' && level(n, 'candelabrador') === 5,
-              ['Candelabrador'],
-              ['Spinach', 'Garlic'],
-            )),
-          );
-        taken.push(
-          ...(await levelUntil(
-            page,
-            (n) => n.state === 'playing' && level(n, 'garlic') === 1,
-            ['Garlic'],
-            ['Candelabrador', 'Spinach'],
-          )),
-        );
-        const s = await snapshot(page);
-        const stats = s.stats as { area: number; might: number };
-        ev.json('state', { taken, weapons: s.weapons, passives: s.passives, stats });
-        const avoid = ['Candelabrador', 'Spinach', 'Garlic'];
-        await page.waitForTimeout(1_000);
-        while ((await snapshot(page)).state === 'levelUp') await answer(page, [], avoid);
-        for (let f = 0; f < 4; f++) {
-          await ev.shot(`ring-${String(f)}`);
-          await page.waitForTimeout(150);
+              'garlic',
+              1,
+              { wantedNames: ['Garlic'], blockedNames: ['Candelabrador', 'Whip'] },
+              attempt,
+            );
+            await page.waitForTimeout(1_000);
+            while ((await snapshot(page)).state === 'levelUp')
+              await answer(page, fixedBuild, 'settling', attempt);
+            for (let f = 0; f < 4; f++) {
+              await ev.shot(`attempt-${String(number)}-ring-${String(f)}`);
+              await page.waitForTimeout(150);
+            }
+            while ((await snapshot(page)).state === 'levelUp')
+              await answer(page, fixedBuild, 'settling', attempt);
+            const s = await snapshot(page);
+            attempt.beforeSampling = s;
+            const stats = s.stats as { area: number; might: number };
+            expect(s.state).toBe('playing');
+            expect(s.weapons).toEqual(isolatedWeapons);
+            expect(stats.might).toBe(1);
+            expect(stats.area).toBeCloseTo(target, 5);
+            ev.json('state', {
+              taken: attempt.hands.map((hand) => hand.selected?.name),
+              weapons: s.weapons,
+              passives: s.passives,
+              stats,
+            });
+
+            const r = await phase(page, 50 * stats.area, 5 * stats.might, attempt, 30);
+            attempt.afterSampling = await snapshot(page);
+            ev.json('ticks', { area: stats.area, ...r });
+            expect(stats.area).toBeCloseTo(target, 5);
+            expect(r.ticks.length).toBeGreaterThan(3);
+            expect(r.outside.hit).toBe(0);
+            expect(r.inside.hit).toBe(r.inside.n);
+            expect(attempt.afterSampling.weapons).toEqual(isolatedWeapons);
+            expect(attempt.afterSampling.stats).toMatchObject({ area: stats.area, might: 1 });
+            expect(pageErrors(ev)).toEqual([]);
+            attempt.outcome = 'passed';
+            return;
+          } catch (error) {
+            if (!(error instanceof NoSafeCard)) throw error;
+            attempt.outcome = 'unsafe-hand';
+            rejected.push(error.message);
+          } finally {
+            const { rows, ...record } = attempt;
+            const label = `attempt-${String(number)}`;
+            ev.json(label, { ...record, elapsedMs: Date.now() - attempt.startedAt });
+            if (rows.length > 0) ev.json(`${label}-rows`, rows);
+          }
         }
-        const r = await phase(page, 50 * stats.area, 5 * stats.might, avoid, 30);
-        ev.json('ticks', { area: stats.area, ...r });
-        expect(stats.area).toBeCloseTo(target, 5);
-        expect(r.ticks.length).toBeGreaterThan(3);
-        expect(r.outside.hit).toBe(0);
-        expect(r.inside.hit).toBe(r.inside.n);
-        expect(pageErrors(ev)).toEqual([]);
+        throw new Error(`No safe Garlic setup in three attempts: ${rejected.join('; ')}`);
       } finally {
         ev.flush();
       }
@@ -1068,7 +1196,7 @@ for (const target of [1, 1.5]) {
 - Fire Wand and Garlic are last in `WEAPON_LIST`, so `G` never reaches them with the Whip and four others owned; the journeys take their cards through `L`, keeping new passives out so the passive slots stay free for journeys 11 and 12. Journeys that answer level-ups for a while also take other weapons when a hand offers nothing else, so frames often show more than the weapon under test (2026-11-08, #13).
 - At minute 0 bats die to almost anything, so kills per second are limited by spawns and barely change with Spinach; journeys 11 and 12 record them, but the area change is shown by the garlic ring's radius in the frames (its visible edge at 50 px at area 1, 75 px at area 1.5 since #91) and the damage change by `stats` and the unit tests (2026-11-08, #13).
 - The garlic art's visible ring edge sits at 0.78 of its 50-unit half-size (alpha profile of `assets/weapons/garlic.png`: 50% of peak at r = 156 of 200 px), so before #91 enemies just outside the drawn ring were still hit (2026-11-08, #13). Since #91 the art is drawn at `area / GARLIC_ART_RING_RATIO`, so the ring's edge is the hit radius; new garlic art must keep that ratio or update the constant in `patterns/garlic.ts` (2026-11-08, #91).
-- Journey 15 compares positions from the step right before a garlic tick (at most 1.7 units old for a bat): with snapshots up to three steps old, bats 3–4 units outside the radius were wrongly counted as hit. Back-to-back snapshots still skip most steps, so a 30 s window catches only 4–15 ticks, and near-ring enemies are few at minute 0; repeat the runs when a window has none (2026-11-08, #91).
+- Journey 15 compares positions from the step right before a garlic tick (at most 1.7 units old for a bat): with snapshots up to three steps old, bats 3–4 units outside the radius were wrongly counted as hit. Back-to-back snapshots can skip steps, and near-ring enemies are few at minute 0 (2026-11-08, #91). Keep a completed window with too few isolated ticks as a failure. The bounded retries in #112 apply only when no safe card is available.
 - Fast-forwarding to minute 14 (`]`) stops at each level-up until it is answered; journey 13 alternates `]` and answers. The first fps samples after the jump are low (20–49) because the one-second fps window still holds the fast-forward frame; the median over 30 s is 60 on an Apple M4 Pro (headed Chrome) (2026-11-08, #13).
 - `debug.paintsCreated` grows while a journey presses `L` dozens of times within seconds (`fx.levelUp` is prewarmed to 2, so overlapping rings grow it), and would grow if more than 200 blue gems lay on the ground (`gem.blue`'s prewarm); neither is a weapon pool. So journey 14 measures the count right before and after 8 s of six level-8 weapons firing (flat in both runs: 1577 → 1577 with the G weapons, and with Fire Wand and Garlic), and checks that a run ends on the paints the next one starts with; `all-weapons.test.ts` checks every projectile pool stays at its prewarm with six weapons at level 8 for 60 s (2026-11-08, #13).
 - Weapon numbers of #13 are the issue's initial values, untuned against footage (`docs/reference/gameplay.md` § Weapons) (2026-11-08, #13).
@@ -1077,4 +1205,4 @@ for (const target of [1, 1.5]) {
 
 - 2026-11-09 (#84): Journey13 died at7:57 before its unchanged14:00 precondition. It now confirms the real I invulnerability flag and closes natural chest overlays with Enter during fast-forward and the unchanged30s sampler. All six base slots are still maxed through real L/card choices first; the recorded minute14 inventory may naturally contain an evolved weapon at its own max level1, so the title no longer describes every later slot as level8. No physics, time, count or cap assertion was relaxed.
 
-- 2026-11-09 (#84, follow-up #112): Two area1.5 journey15 runs produced only3/0isolated Garlic ticks. Inventory-matched actual-world controls match main and native branches for both recorded builds across five seeds;9/10main controls fail the unchanged minimum count. Competing ranged weapons remove enemies before they enter the75-unit ring. This is a state-only sample/precondition failure, separate from native opacity or pixel detection. Keep `ticks.length > 3`, area and inside/outside assertions unchanged; #112 isolates the real-card build policy after #84. Original failures and control limits are recorded, not counted as passes.
+- 2026-11-09 (#84, follow-up #112): Two area1.5 journey15 runs produced only3/0isolated Garlic ticks. Inventory-matched actual-world controls match main and native branches for both recorded builds across five seeds;9/10main controls fail the unchanged minimum count. Competing ranged weapons remove enemies before they enter the75-unit ring. This is a state-only sample/precondition failure, separate from native opacity or pixel detection. Journey 15 isolates Whip 1 / Garlic 1 with the strict real-card policy and predeclared start seeds selected by card availability (#112). A hand without a safe choice ends that attempt, with no more than three attempts per case. The original `ticks.length > 3`, area and inside/outside assertions still gate each completed measurement.
