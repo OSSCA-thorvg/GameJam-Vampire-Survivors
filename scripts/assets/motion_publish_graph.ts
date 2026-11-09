@@ -3,7 +3,10 @@ import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { format, resolveConfig } from 'prettier';
 import { validateManifest } from '../../packages/shared/src/assets';
-import { collectAssetGraph } from './motion_graph';
+import { collectAssetGraph, receiptGraph } from './motion_graph';
+
+const SPLASH_ID = 'ui.splash';
+const SPLASH_FILE = 'ui/splash.json';
 
 const directory = resolve(process.argv[2] ?? '');
 const recipe = JSON.parse(
@@ -24,16 +27,17 @@ if (process.argv.includes('--format')) {
       .filter((asset) => ['fx.levelUp', 'fx.chestOpen'].includes(asset.id))
       .map((asset) => asset.master.file),
     recipe.diagnosticMaster.file,
+    `assets/${SPLASH_FILE}`,
   ];
   if (
-    preserved.length !== 3 ||
+    preserved.length !== 4 ||
     preserved.some((file) => !file.startsWith('assets/') || !file.endsWith('.json'))
   )
-    throw new Error('Formatting requires all three preserved Lottie primaries');
+    throw new Error('Formatting requires all four preserved Lottie primaries');
   const preservedJson = new Set(
     preserved.map((file) => resolve(directory, file.slice('assets/'.length))),
   );
-  if (preservedJson.size !== 3) throw new Error('Preserved Lottie primaries must be distinct');
+  if (preservedJson.size !== 4) throw new Error('Preserved Lottie primaries must be distinct');
   const config = await resolveConfig('assets/manifest.json');
   const evidenceIndex = process.argv.indexOf('--evidence-root');
   const evidence =
@@ -58,8 +62,14 @@ if (parsed.errors.length || parsed.missing.length) throw new Error(JSON.stringif
 const graph = collectAssetGraph({ directory, manifest: parsed.manifest });
 const same = (a: string[], b: string[]): boolean =>
   JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+if (!same(graph.splashIds, [SPLASH_ID]))
+  throw new Error('Publication requires exactly the ui.splash graph role');
+const splashFiles = graph.files.filter((file) => file.role === 'splash').map((file) => file.file);
+if (!same(splashFiles, [SPLASH_FILE, 'ui/splash/logo.png']))
+  throw new Error('Publication requires the pinned splash file paths');
+const receipt = receiptGraph(graph, directory);
 if (
-  !same(graph.logicalIds, recipe.logicalIds) ||
+  !same(receipt.logicalIds, recipe.logicalIds) ||
   !same(graph.motionIds, recipe.motionIds) ||
   !same(graph.diagnosticIds, [recipe.diagnosticMaster.id])
 )
@@ -71,7 +81,7 @@ const counts = Object.values(parsed.manifest.assets).reduce<Record<string, numbe
   },
   {},
 );
-if (counts.lottie !== 37 || counts.png !== 47 || counts.ttf !== 1)
+if (counts.lottie !== 37 + graph.splashIds.length || counts.png !== 47 || counts.ttf !== 1)
   throw new Error('Publication format partition changed');
 for (const id of graph.motionIds) {
   const entry = parsed.manifest.assets[id];
@@ -80,4 +90,4 @@ for (const id of graph.motionIds) {
   if (/DIAGNOSTIC|EXPERIMENT|REUSED STILL/i.test(json.nm ?? ''))
     throw new Error('Diagnostic or experimental wrappers cannot be published');
 }
-process.stdout.write(JSON.stringify(graph, null, 2) + '\n');
+process.stdout.write(JSON.stringify(receipt, null, 2) + '\n');

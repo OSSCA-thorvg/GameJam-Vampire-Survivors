@@ -14,6 +14,7 @@ from motion_publish_receipt import publication_receipt, archive_source
 from motion_publish_rotation import fitted_document
 from motion_publish_baseline import restore_baseline, restore_diagnostic
 from motion_publish_metadata import overlay_catalog_metadata
+from motion_publish_splash import SPLASH_FILES, install_splash, insert_splash_catalog_row
 from rebuild_common import ROOT, checked_tool, read_json, write_json, digest, portable
 
 
@@ -62,8 +63,9 @@ def asset_diff(before, after, recipe):
         raise ValueError('Publication modifies files outside its exact34-primary/support allowlist')
     allowed_prefixes = [Path(asset['outputFile']).with_suffix('').as_posix() + '/' for asset in recipe['assets'] if asset['id'] not in {'fx.levelUp', 'fx.chestOpen'}]
     primaries = {asset['outputFile'] for asset in recipe['assets'] if asset['id'] not in {'fx.levelUp', 'fx.chestOpen'}}
-    primaries.add(Path(recipe['diagnosticMaster']['file']).relative_to('assets').as_posix())
-    if any(file not in primaries and not any(file.startswith(prefix) for prefix in allowed_prefixes) for file in added):
+    allowed_files = primaries | set(SPLASH_FILES)
+    allowed_files.add(Path(recipe['diagnosticMaster']['file']).relative_to('assets').as_posix())
+    if any(file not in allowed_files and not any(file.startswith(prefix) for prefix in allowed_prefixes) for file in added):
         raise ValueError('Publication adds an unexpected resource path')
     return {'removed': removed, 'added': added, 'changed': changed, 'rootReviewRequiredBeforeInstall': True}
 
@@ -82,6 +84,7 @@ def build_pack(recipe, mapping, output, tool, node='node'):
     write_json(output / 'baseline-restoration.json', restoration)
     manifest = read_json(assets / 'manifest.json')
     restore_diagnostic(recipe, assets, manifest)
+    install_splash(assets, manifest)
     for asset in recipe['assets']:
         id = asset['id']; entry = manifest['assets'][id]
         if entry['size'] != asset['logicalSize'] or entry['anchor'] != asset['anchor']: raise ValueError('Logical geometry changed')
@@ -101,6 +104,7 @@ def build_pack(recipe, mapping, output, tool, node='node'):
             write_json(assets / asset['outputFile'], fitted_document(flat_document(asset), derived[asset['id']]))
     update_catalog(assets / 'CATALOG.md', MOTION_IDS)
     overlay_catalog_metadata(assets / 'CATALOG.md', ROOT / 'assets/CATALOG.md', recipe)
+    insert_splash_catalog_row(assets / 'CATALOG.md', ROOT / 'assets/CATALOG.md')
     write_json(assets / 'manifest.json', manifest)
     graph = json.loads(subprocess.check_output([node, '--import', 'tsx', str(ROOT / 'scripts/assets/motion_publish_graph.ts'),
         str(assets), str(actual_recipe), '--format', '--evidence-root', str(output / 'source-archive')], cwd=ROOT, text=True))
