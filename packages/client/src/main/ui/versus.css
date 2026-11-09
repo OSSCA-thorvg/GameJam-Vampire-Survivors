@@ -1,4 +1,5 @@
 /* The versus match (#20, ADR 0009): the opponent panel, the in-match banner and the result screen. */
+/* #115: with two panes the panel is the opponent pane's label strip; see the split rules at the end. */
 .opponent-panel {
   position: absolute;
   top: 3.2rem;
@@ -157,4 +158,28 @@
   100% {
     opacity: 0;
   }
+}
+
+/*
+ * #115, ADR 0018: the split view. `main/index.ts` sets `data-layout` and the pane rects (window CSS pixels) on
+ * `#screens`: `--self-x/y/w/h` and `--opp-x/y/w/h`. The panel labels the opponent pane at its top left; the in-match
+ * banner and the incoming-interference banners sit on the own pane. Single player keeps the rules above.
+ */
+#screens:not([data-layout='single']) .opponent-panel {
+  top: calc(var(--opp-y) + 0.5rem);
+  right: auto;
+  left: calc(var(--opp-x) + 0.5rem);
+  width: min(15rem, calc(var(--opp-w) / 3));
+}
+
+#screens:not([data-layout='single']) .versus-banner {
+  top: calc(var(--self-y) + var(--self-h) - 1rem);
+  bottom: auto;
+  left: calc(var(--self-x) + var(--self-w) / 2);
+  transform: translate(-50%, -100%);
+}
+
+#screens:not([data-layout='single']) .interference-banners {
+  top: calc(var(--self-y) + 4.5rem);
+  left: calc(var(--self-x) + var(--self-w) / 2);
 }

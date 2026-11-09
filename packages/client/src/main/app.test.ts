@@ -656,6 +656,7 @@ describe('createApp versus flow (happy-dom, fake socket and worker port)', () =>
     };
     const posted: MainToWorker[] = [];
     let versusCreated = 0;
+    const panes: number[] = [];
     const app = createApp(
       root,
       (m) => posted.push(m),
@@ -666,6 +667,7 @@ describe('createApp versus flow (happy-dom, fake socket and worker port)', () =>
         versusCreated++;
         return createVersusController(opts);
       },
+      (n) => panes.push(n),
     );
     const socket = () => {
       const s = sockets.at(-1);
@@ -691,7 +693,7 @@ describe('createApp versus flow (happy-dom, fake socket and worker port)', () =>
     serverSays(both);
     serverSays({ ...match, startAt: Date.now() });
     serverSays({ ...both, phase: 'countdown' });
-    return { root, app, posted, sent, serverSays, both, versus: () => versusCreated };
+    return { root, app, posted, sent, serverSays, both, versus: () => versusCreated, panes };
   }
 
   it('the countdown starts a versus run (once); status is relayed; a death sends died; matchResult shows Lose; Rematch returns to the lobby', async () => {
@@ -699,6 +701,8 @@ describe('createApp versus flow (happy-dom, fake socket and worker port)', () =>
     const t = await inLobby();
     expect(t.app.state.name).toBe('versusPlaying');
     expect(t.versus()).toBe(1);
+    // #115: two panes for the match.
+    expect(t.panes).toEqual([2]);
     expect(t.posted).toEqual([
       { type: 'setBackgroundPolicy', policy: 'simulate' },
       { type: 'startRun', mode: 'versus', seed: 9, characterId: 'warden', finale: 'end' },
@@ -734,6 +738,8 @@ describe('createApp versus flow (happy-dom, fake socket and worker port)', () =>
       ],
     });
     expect(t.app.state.name).toBe('versusResult');
+    // The result keeps the last split frame underneath.
+    expect(t.panes).toEqual([2]);
     expect(t.root.querySelector('h2')?.textContent).toBe('Lose');
     expect(t.root.querySelector('.opponent-panel')).toBeNull();
     expect(t.posted.slice(2)).toEqual([
@@ -743,6 +749,7 @@ describe('createApp versus flow (happy-dom, fake socket and worker port)', () =>
     t.serverSays({ ...t.both, phase: 'finished' });
     button('Rematch')?.click();
     expect(t.app.state.name).toBe('lobby');
+    expect(t.panes).toEqual([2, 1]);
     expect(t.posted.at(-1)).toEqual({ type: 'endRun' });
     expect(t.root.querySelector('.lobby .status')?.textContent).toBe(
       'Waiting for the room to reset',
@@ -773,6 +780,7 @@ describe('createApp versus flow (happy-dom, fake socket and worker port)', () =>
     expect(t.sent().at(-1)).toEqual({ type: 'leaveRoom' });
     expect(t.app.state).toEqual(title);
     expect(t.posted.at(-1)).toEqual({ type: 'endRun' });
+    expect(t.panes).toEqual([2, 1]);
   });
 
   it('safety fact: a single-player run creates no versusController, relays no status and opens no WebSocket', () => {

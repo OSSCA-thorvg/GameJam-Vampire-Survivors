@@ -446,3 +446,35 @@ describe('view stream (#114, ADR 0018)', () => {
     expect(t.posted).toEqual([]);
   });
 });
+
+describe('opponent pane state (#115)', () => {
+  const states = (posted: MainToWorker[]) =>
+    posted.flatMap((m) => (m.type === 'opponentState' ? [m.state] : []));
+
+  it('posts away while the opponent is hidden or disconnected, live when both clear, and out once eliminated', () => {
+    const t = setup();
+    expect(states(t.posted)).toEqual([]);
+    t.emit({ type: 'peerAway', playerId: 'b', away: true });
+    t.emit({
+      type: 'roomState',
+      code: 'ABCDEF',
+      maxPlayers: 2,
+      phase: 'playing',
+      players: players.map((p) => (p.id === 'b' ? { ...p, connected: false } : p)),
+    });
+    t.emit({ type: 'peerAway', playerId: 'b', away: false });
+    expect(states(t.posted)).toEqual(['away']);
+    t.emit({ type: 'roomState', code: 'ABCDEF', maxPlayers: 2, phase: 'playing', players });
+    expect(states(t.posted)).toEqual(['away', 'live']);
+    t.emit({ type: 'playerEliminated', playerId: 'b', reason: 'disconnected' });
+    t.emit({ type: 'peerAway', playerId: 'b', away: true });
+    expect(states(t.posted)).toEqual(['away', 'live', 'out']);
+  });
+
+  it('ignores this player and players other than the first opponent', () => {
+    const t = setup();
+    t.emit({ type: 'peerAway', playerId: 'c', away: true });
+    t.emit({ type: 'playerEliminated', playerId: 'a', reason: 'afk' });
+    expect(states(t.posted)).toEqual([]);
+  });
+});

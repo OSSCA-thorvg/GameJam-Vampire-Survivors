@@ -14,7 +14,10 @@ export interface OpponentPanelProps {
   cancelRaf?: (id: number) => void;
 }
 
-/** The live view of the opponents (#20, ADR 0005): the only thing a player sees of another world. */
+/**
+ * The live numbers of the opponents (#20, ADR 0005). Since #115 (ADR 0018) it is also the opponent pane's label strip:
+ * the opponent's nickname over their world, which the worker draws from the relayed view stream.
+ */
 export interface OpponentPanel {
   /** Rows follow the room: new players get a row, `connected: false` shows "disconnected". */
   setPlayers(players: readonly PlayerInfo[]): void;
@@ -53,8 +56,8 @@ interface Row {
 }
 
 /**
- * The opponent panel (#20, ADR 0009): a DOM overlay at the top right of the canvas, one row per opponent with the
- * nickname, an HP bar, `Lv`, kills and a badge ("dead", "disconnected", "away", "forfeited"). Nicknames and numbers
+ * The opponent panel (#20, ADR 0009): a DOM overlay at the top right of the canvas (the opponent pane's top left in a
+ * split view, #115), one row per opponent with the nickname, an HP bar, `Lv`, kills and a badge ("dead", "disconnected", "away", "forfeited"). Nicknames and numbers
  * are set with `textContent` only (ADR 0011), and every number is clamped.
  */
 export function mount(root: HTMLElement, props: OpponentPanelProps): OpponentPanel {

@@ -10,10 +10,8 @@ import { checkSupport } from './support';
 import { loadAssetUrls, type AssetUrl } from './ui/asset-url';
 import { showStressResult } from './stress-results';
 import { installTestBridge, registerMainSnapshotField, type MainTestBridge } from './test-bridge';
+import { createResizer } from './resize';
 import { computeViewport, type Viewport } from './viewport';
-
-/** Resize events are debounced by this long before the worker is told. */
-const RESIZE_DEBOUNCE_MS = 100;
 
 function appRoot(): HTMLElement {
   const app = document.getElementById('app');
@@ -53,10 +51,6 @@ async function boot(): Promise<void> {
   }
 
   const canvas = document.createElement('canvas');
-  let viewport = computeViewport(innerWidth, innerHeight, devicePixelRatio);
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
-  applyCssSize(canvas, viewport);
   const loading = document.createElement('p');
   loading.id = 'loading';
   loading.textContent = 'Loading 0/0';
@@ -67,6 +61,25 @@ async function boot(): Promise<void> {
     worker.postMessage(message, transfer);
   };
 
+  /**
+   * The canvas size and pane layout (#115): one view, or two panes during a versus match (ADR 0018). A layout change
+   * relayouts at once; size changes within a layout are debounced (`main/resize.ts`).
+   */
+  const resizer = createResizer({
+    measure: (panes) => computeViewport(innerWidth, innerHeight, devicePixelRatio, panes),
+    apply: (v) => {
+      applyCssSize(canvas, v);
+      markPanes();
+    },
+    post,
+  });
+  const setPanes = (panes: 1 | 2): void => {
+    resizer.setPanes(panes);
+  };
+  canvas.width = resizer.viewport.width;
+  canvas.height = resizer.viewport.height;
+  applyCssSize(canvas, resizer.viewport);
+
   const assetBaseUrl = new URL(import.meta.env.BASE_URL, location.href).href;
   /** Icons for the DOM screens (#11), resolved through the same manifest as the worker; `null` until it loads. */
   let iconUrl: AssetUrl = () => null;
@@ -76,6 +89,27 @@ async function boot(): Promise<void> {
 
   /** The screens (#9), started on the title once the worker is ready; none in the `?gallery` and `?stress` scenes. */
   let app: App | null = null;
+  /** The screen root, once the app started; carries the layout and the pane rects for the versus CSS (#115). */
+  let screensEl: HTMLElement | null = null;
+  /** Writes `data-layout` and the pane rects (window CSS pixels) on `#screens`, read by `versus.css`. */
+  const markPanes = (): void => {
+    if (!screensEl) return;
+    const viewport = resizer.viewport;
+    const left = (innerWidth - viewport.cssWidth) / 2;
+    const top = (innerHeight - viewport.cssHeight) / 2;
+    screensEl.dataset.layout = viewport.layout;
+    const [self, opponent] = viewport.panes;
+    for (const [prefix, pane] of [
+      ['self', self],
+      ['opp', opponent ?? self],
+    ] as const) {
+      if (!pane) continue;
+      screensEl.style.setProperty(`--${prefix}-x`, `${String(left + pane.x)}px`);
+      screensEl.style.setProperty(`--${prefix}-y`, `${String(top + pane.y)}px`);
+      screensEl.style.setProperty(`--${prefix}-w`, `${String(pane.width)}px`);
+      screensEl.style.setProperty(`--${prefix}-h`, `${String(pane.height)}px`);
+    }
+  };
   /** Set inside the dev/e2e/perf guard below, so production bundles do not name the debug scenes. */
   let debugScene = false;
   const startApp = (): void => {
@@ -83,10 +117,25 @@ async function boot(): Promise<void> {
     const screens = document.createElement('div');
     screens.id = 'screens';
     appRoot().append(screens);
-    const started = createApp(screens, post, undefined, (id) => iconUrl(id));
+    screensEl = screens;
+    markPanes();
+    const started = createApp(
+      screens,
+      post,
+      undefined,
+      (id) => iconUrl(id),
+      undefined,
+      undefined,
+      setPanes,
+    );
     app = started;
     if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
       registerMainSnapshotField('state', () => started.state.name);
+      // #115: the canvas layout and how many panes it was asked for.
+      registerMainSnapshotField('layout', () => ({
+        layout: resizer.viewport.layout,
+        panes: resizer.panes,
+      }));
       // #20: the dialog over a running versus world, and whether its socket was lost.
       // #21: the incoming-interference banners shown now.
       registerMainSnapshotField('banners', () => started.banners());
@@ -187,9 +236,10 @@ async function boot(): Promise<void> {
     {
       type: 'init',
       canvas: offscreen,
-      width: viewport.width,
-      height: viewport.height,
-      scale: viewport.scale,
+      width: resizer.viewport.width,
+      height: resizer.viewport.height,
+      scale: resizer.viewport.scale,
+      layout: resizer.viewport.layout,
       assetBaseUrl,
       perf,
       ...(debug ? { debug } : {}),
@@ -201,19 +251,8 @@ async function boot(): Promise<void> {
     post({ type: 'input', dx, dy });
   });
 
-  let resizeTimer = 0;
   window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = window.setTimeout(() => {
-      viewport = computeViewport(innerWidth, innerHeight, devicePixelRatio);
-      applyCssSize(canvas, viewport);
-      post({
-        type: 'resize',
-        width: viewport.width,
-        height: viewport.height,
-        scale: viewport.scale,
-      });
-    }, RESIZE_DEBOUNCE_MS);
+    resizer.onResize();
   });
 
   document.addEventListener('visibilitychange', () => {

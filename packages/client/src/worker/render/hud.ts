@@ -13,7 +13,7 @@ const FILL_W = BAR_W - 2;
 const FILL_H = BAR_H - 2;
 /** Gap between the player's feet and the top of the HP bar, in world units. */
 const BAR_GAP = 6;
-const TIMER_SIZE = 28;
+export const TIMER_SIZE = 28;
 const KILLS_SIZE = 24;
 /** Top margin of the HUD texts, in view units. */
 const MARGIN = 14;
@@ -25,7 +25,7 @@ const XP_FILL_W = VIEW_WIDTH - 2 * XP_INSET;
 const XP_FILL_H = XP_BAR_H - 2 * XP_INSET;
 const LEVEL_SIZE = 13;
 /** The timer sits below the XP bar (#11 moved it down by 14). */
-const TIMER_Y = MARGIN + 14;
+export const TIMER_Y = MARGIN + 14;
 /** The kill counter's skull centre and the left edge of its number, which grows to the right (room for 5 digits). */
 const SKULL_X = VIEW_WIDTH - 120;
 const KILLS_X = VIEW_WIDTH - 100;
