@@ -268,6 +268,8 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
         kills: world.stats.kills,
         xp: p.xp,
         level: p.level,
+        weapons: world.weapons,
+        passives: world.passives,
       });
     },
   };

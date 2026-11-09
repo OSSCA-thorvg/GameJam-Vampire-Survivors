@@ -17,7 +17,7 @@ Survive 15 minutes against ever larger hordes while your weapons fire on their o
 - **Single player:** pick a character, survive the 15-minute stage, and see your result with each weapon's damage.
 - **4 characters:** Warden, Ember, Swift and Aurelia, each with a starting weapon and stats of their own.
 - **8 weapons and 8 passives:** the Whip, Magic Wand, Knife, Axe, Cross, King Bible, Fire Wand and Garlic each go to level 8, and from 5:00 a treasure chest evolves a maxed weapon with its paired passive into one of 8 evolved weapons.
-- **One 15-minute stage:** 15 waves over six enemies, elites and swarms, bosses at 5:00 and 10:00, and Death at 15:00.
+- **One 15-minute stage:** 15 waves over six enemies, a chest carrier each minute before the finale, bosses at 5:00 and 10:00, and Death at 15:00.
 - **2-player versus:** meet by a 6-character room code; each player plays their own world from a shared seed, sends Swarm, Gem Thief and Elite Call interference into the other's, and watches both worlds side by side in a split view.
 - **ThorVG rendering:** `@thorvg/webcanvas` (WebGL) draws the world and the HUD in a Web Worker on an `OffscreenCanvas`, so the page stays responsive.
 - **Performance overlay:** open any build with `?perf` for a live frame-timing overlay.
@@ -38,8 +38,8 @@ Survive 15 minutes against ever larger hordes while your weapons fire on their o
 ## Current state
 
 - A 7-second "Powered by ThorVG" splash plays first while the assets load; the title follows once both are done.
-- The full single-player loop: title, character select, the run with its HUD, pause, level-ups, chests and results with Retry.
-- The complete stage: 15 waves, elites, two bosses and Death at 15:00.
+- The full single-player loop: title, character select, the run with its HUD listing weapon and passive levels, pause, level-ups, chests and results with Retry.
+- The complete stage: 15 waves, a chest carrier from 1:00 through 14:00, and Death at 15:00.
 - All 8 weapons with their 8 evolutions, and all 8 passives.
 - Animated pixel art for every actor and effect (native Lottie playback).
 - 17 sound effects and 2 original chiptune music loops, synthesized with ZzFX and ZzFXM as MP3 assets, played after the first key or click: title and stage music that ducks under the pause and dialogs, weapon hits, kills, gems and menu clicks; `M` or the corner button mutes, and the pause screen sets the music and effects volume (#128, #129).

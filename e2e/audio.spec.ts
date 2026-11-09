@@ -189,12 +189,16 @@ test('audio: unlock, music per screen, cues, ducking, voice caps, mute and persi
       20_000,
     );
     log.worldCues = audioOf(cues);
-    await stop();
     await waitForSnapshot(page, (s) => s.state === 'playing', 5_000);
     await ev.shot('run-cues');
 
-    // 4. The pause ducks the music to 30 %.
-    await page.keyboard.press('Escape');
+    // 4. Keep answering natural level-ups until the pause opens. Escape is ignored on a level-up.
+    const pause = page.getByRole('dialog', { name: 'Paused' });
+    await expect(async () => {
+      if (!(await pause.isVisible())) await page.keyboard.press('Escape');
+      await expect(pause).toBeVisible({ timeout: 500 });
+    }).toPass({ timeout: 5_000 });
+    await stop();
     const pausedS = await waitAudio(
       page,
       (a, s) => s.state === 'playing' && s.paused && a.duck === 0.3,

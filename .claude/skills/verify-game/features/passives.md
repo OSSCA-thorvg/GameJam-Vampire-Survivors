@@ -16,6 +16,8 @@ The 8 passive items and the player stat block (#12, ADRs 0004, 0008, 0009): leve
 - **Debug key `P` (dev builds):** adds the first passive of `PASSIVES` not owned, or with 6 owned a level of the first owned one below 5 (`debug-tools.md`). Only for preconditions.
 - Snapshot fields: `passives`, `stats`, `damageDealt` (all `worker/index.ts`), plus `player` (`hp`, `maxHp`), `weapons`, `state`, `timeS`.
 
+The top-left Passives group in the local HUD lists owned names and levels (#156, `inventory-hud.md`).
+
 ## How to get to it (user POV)
 
 Open the game URL, press Enter on "Start" and play until the XP bar fills (about 7–8 s at minute 0); the level-up dialog offers passives next to weapons. To get a given passive quickly, press the dev key `L` (one level-up) and choose it when offered; `P` grants passives in a fixed order. No server is needed.

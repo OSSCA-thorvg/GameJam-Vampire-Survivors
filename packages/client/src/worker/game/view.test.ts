@@ -3,12 +3,14 @@ import { expect, it } from 'vitest';
 import { cleanupSystem, damageEnemy } from './combat';
 import { addChest } from './chests';
 import { spawnEnemy } from './enemies';
+import { addPassive, levelUpPassive } from './passives';
 import { addLight, hitLightsInCircle } from './light-sources';
 import { PICKUP_FAMILY_INTERFERENCE, PICKUP_FAMILY_LIGHT, spawnPickup } from './pickups';
 import { freezeEnemies } from './systems/freeze';
 import { spawnElite } from './systems/elites';
 import { createGameView, ELITE_MARKERS } from './view';
 import { fakeGameView } from './view-test-helpers';
+import { addWeapon, evolveWeapon, levelUpWeapon } from './weapons/owned';
 import { createBaseWorld } from './base-world';
 
 /** The HUD's HP fill: the second-to-last Shape (the 16 elite markers of #15 come first, the XP fill last). */
@@ -71,19 +73,25 @@ it('creates every paint once: ground, garlic, gem, chest, elite marker, enemy, p
   expect(byId('fx.freeze')).toHaveLength(1);
   expect(byId('ui.hpBar')).toHaveLength(1);
   expect(byId('ui.skull')).toHaveLength(1);
-  // The 16 elite markers (#15), the HP fill and the XP fill; the level, the timer, the kill counter and the three
-  // "Sent <label>" toasts (#21).
-  expect(byId('Shape')).toHaveLength(18);
-  expect(byId('Text').map((t) => t.text)).toEqual([
+  // The 16 elite markers (#15), the inventory backing, HP fill and XP fill; the level, the timer, the kill counter and the three
+  // "Sent <label>" toasts (#21), plus two inventory headings and 12 slots (#156).
+  expect(byId('Shape')).toHaveLength(19);
+  expect(
+    byId('Text')
+      .filter((t) => t.text !== null)
+      .map((t) => t.text),
+  ).toEqual([
     'Lv 1',
     '00:00',
     '0',
+    'Weapons',
+    'Passives',
     'Sent Swarm',
     'Sent Gem Thief',
     'Sent Elite Call',
   ]);
   expect(view.countPaints()).toBe(2965);
-  expect(paints).toHaveLength(2989);
+  expect(paints).toHaveLength(3004);
 });
 
 it('follows the camera, snapped to device pixels', () => {
@@ -170,12 +178,53 @@ it('hides everything on clear and shows the HUD again on begin', () => {
   expect(shown('player.warden')).toBe(1);
   expect(shown('ui.xpBar')).toBe(1);
   expect(shown('Shape')).toBe(2);
-  expect(shown('Text')).toBe(3);
+  expect(shown('Text')).toBe(5);
   expect(
     byId('Text')
       .filter((t) => t.visible)
       .map((t) => t.text),
-  ).toEqual(['Lv 1', '00:00', '0']);
+  ).toEqual(['Lv 1', '00:00', '0', 'Weapons', 'Passives']);
+});
+
+it('keeps the local inventory HUD in sync with rewards and resets it for the next run', () => {
+  const { view, world, byId } = setup();
+  const visibleInventory = () =>
+    byId('Text')
+      .filter((text) => text.visible && text.translate && text.translate[0] < 300)
+      .map((text) => text.text);
+
+  view.render(world);
+  expect(visibleInventory()).toEqual(['Weapons', 'Whip Lv 1', 'Passives', '-']);
+
+  addWeapon(world, 'magicWand');
+  addPassive(world, 'hollowHeart');
+  levelUpWeapon(world, 'whip');
+  view.render(world);
+  expect(visibleInventory()).toEqual([
+    'Weapons',
+    'Whip Lv 2',
+    'Magic Wand Lv 1',
+    'Passives',
+    'Hollow Heart Lv 1',
+  ]);
+  const textWrites = byId('Text').map((text) => text.textWrites);
+  view.render(world);
+  expect(byId('Text').map((text) => text.textWrites)).toEqual(textWrites);
+
+  evolveWeapon(world, 'whip', 'bloodyTear');
+  levelUpPassive(world, 'hollowHeart');
+  view.render(world);
+  expect(visibleInventory()).toEqual([
+    'Weapons',
+    'Bloody Tear Lv 1',
+    'Magic Wand Lv 1',
+    'Passives',
+    'Hollow Heart Lv 2',
+  ]);
+
+  view.begin('ember');
+  view.render(createBaseWorld({ seed: 2, characterId: 'ember' }));
+  expect(visibleInventory()).toEqual(['Weapons', 'Fire Wand Lv 1', 'Passives', '-']);
 });
 
 it("shows only the chosen character's sprite on begin (#14)", () => {

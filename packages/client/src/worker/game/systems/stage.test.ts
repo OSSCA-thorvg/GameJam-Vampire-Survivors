@@ -1,6 +1,8 @@
 import { ENEMIES, ENEMY_CAP, ENEMY_LIST, STAGE, type EnemyId } from '@vs/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { createBaseWorld } from '../base-world';
+import { chestDropSystem } from '../chests';
+import { cleanupSystem, damageEnemy } from '../combat';
 import { ENEMY_FLAG_BOSS, ENEMY_FLAG_ELITE, spawnEnemy } from '../enemies';
 import { readBosses } from '../snapshot';
 import type { createWorld } from '../world';
@@ -55,31 +57,76 @@ describe('the wave table', () => {
 });
 
 describe('stage events', () => {
+  it('has one chest-carrier event at each full minute before the finale', () => {
+    const fullMinuteEvents = STAGE.events.filter(
+      (event) => event.at % 60 === 0 && event.kind !== 'swarm',
+    );
+    expect(fullMinuteEvents.map((event) => event.at)).toEqual(
+      Array.from({ length: STAGE.durationSec / 60 - 1 }, (_, i) => (i + 1) * 60),
+    );
+  });
+
+  it.each(['single', 'versus'] as const)(
+    'drops a chest from the scheduled 1:00 elite at the enemy cap in %s',
+    (mode) => {
+      const world = stageWorld({ seed: 3, mode });
+      for (let i = 0; i < ENEMY_CAP; i++) spawnEnemy(world, 'bat', 100 + i, 0);
+      world.time = 60 - DT;
+      stageEventSystem(world);
+      expect(countFlag(world, ENEMY_FLAG_ELITE)).toBe(0);
+
+      world.time = 60;
+      stageEventSystem(world);
+      stageEventSystem(world);
+      expect(world.enemies.count).toBe(ENEMY_CAP);
+      expect(countFlag(world, ENEMY_FLAG_ELITE)).toBe(1);
+
+      const { cols, count } = world.enemies;
+      const elite = cols.flags
+        .subarray(0, count)
+        .findIndex((flag) => (flag & ENEMY_FLAG_ELITE) !== 0);
+      const at = [cols.x[elite], cols.y[elite]];
+      damageEnemy(world, elite, cols.hp[elite] ?? 0, 1, 0, 0, -1);
+      cleanupSystem(world, DT);
+      chestDropSystem(world);
+      expect(world.chests.count).toBe(1);
+      expect([world.chests.cols.x[0], world.chests.cols.y[0]]).toEqual(at);
+    },
+  );
+
   it('fires each event exactly once, at its time and not before', () => {
     const world = stageWorld();
     world.spawnTimer = 1e9;
-    for (const [index, event] of STAGE.events.entries()) {
+    let fired = 0;
+    for (const at of new Set(STAGE.events.map((event) => event.at))) {
       world.enemies.clear();
-      world.time = event.at - DT / 2;
+      world.time = at - DT / 2;
       stageEventSystem(world);
-      expect(world.nextEventIndex, `before ${String(event.at)}`).toBe(index);
+      expect(world.nextEventIndex, `before ${String(at)}`).toBe(fired);
       expect(world.enemies.count).toBe(0);
-      world.time = event.at;
+      world.time = at;
       stageEventSystem(world);
       stageEventSystem(world);
-      expect(world.nextEventIndex, `at ${String(event.at)}`).toBe(index + 1);
-      switch (event.kind) {
-        case 'boss':
-          expect(readBosses(world).map((b) => b.id)).toEqual([event.enemyId]);
-          break;
-        case 'elite':
-          expect(countFlag(world, ENEMY_FLAG_ELITE)).toBe(event.count);
-          expect(countType(world, event.enemyId)).toBe(event.count);
-          break;
-        case 'swarm':
-          expect(countType(world, event.enemyId)).toBe(event.count);
-          expect(world.enemies.count).toBe(event.count);
-          break;
+
+      const due = STAGE.events.filter((event) => event.at === at);
+      fired += due.length;
+      expect(world.nextEventIndex, `at ${String(at)}`).toBe(fired);
+      expect(world.enemies.count).toBe(
+        due.reduce((total, event) => total + (event.kind === 'boss' ? 1 : event.count), 0),
+      );
+      for (const event of due) {
+        switch (event.kind) {
+          case 'boss':
+            expect(readBosses(world).map((b) => b.id)).toEqual([event.enemyId]);
+            break;
+          case 'elite':
+            expect(countFlag(world, ENEMY_FLAG_ELITE)).toBe(event.count);
+            expect(countType(world, event.enemyId)).toBe(event.count);
+            break;
+          case 'swarm':
+            expect(countType(world, event.enemyId)).toBe(event.count);
+            break;
+        }
       }
     }
     world.time = STAGE.durationSec - DT;
@@ -109,6 +156,7 @@ describe('stage events', () => {
     stageEventSystem(world);
     const view = world.camera.viewRect(0);
     for (let i = 0; i < world.enemies.count; i++) {
+      if (((world.enemies.cols.flags[i] ?? 0) & ENEMY_FLAG_ELITE) !== 0) continue;
       expect(x[i]).toBeCloseTo(view.left - 64, 3);
       expect(y[i]).toBeGreaterThan(view.top - 64);
       expect(y[i]).toBeLessThan(view.bottom + 64);

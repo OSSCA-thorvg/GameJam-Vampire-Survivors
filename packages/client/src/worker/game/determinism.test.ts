@@ -110,7 +110,7 @@ it('gives the same spawns, events and finale over 15 minutes for the same seed a
   const byMinute = (m: number): MinuteRecord | undefined => a.find((r) => r.minute === m);
   expect(byMinute(14)?.count ?? 0).toBeGreaterThan(byMinute(1)?.count ?? Infinity);
   for (const r of a) expect(r.count).toBeLessThanOrEqual(400);
-  expect(byMinute(6)?.eventsFired).toBe(2);
+  expect(byMinute(6)?.eventsFired).toBe(STAGE.events.filter((event) => event.at < 360).length);
   expect(byMinute(6)?.bosses).toContain('reaper5');
   expect(byMinute(11)?.bosses).toContain('reaper10');
   const last = a.at(-1);

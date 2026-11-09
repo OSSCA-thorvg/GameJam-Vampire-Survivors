@@ -64,9 +64,14 @@ describe('STAGE events and finale (#17)', () => {
       { at: 300, kind: 'boss', enemyId: 'reaper5' },
       { at: 600, kind: 'boss', enemyId: 'reaper10' },
     ]);
-    expect(STAGE.events.filter((e) => e.kind === 'elite').map((e) => e.at)).toEqual([
-      180, 480, 810,
-    ]);
+    expect(STAGE.events.filter((e) => e.kind === 'elite')).toEqual(
+      expect.arrayContaining([
+        { at: 60, kind: 'elite', enemyId: 'bat', count: 1 },
+        { at: 180, kind: 'elite', enemyId: 'ghoul', count: 1 },
+        { at: 480, kind: 'elite', enemyId: 'brute', count: 1 },
+        { at: 810, kind: 'elite', enemyId: 'wraith', count: 2 },
+      ]),
+    );
     expect(STAGE.events.filter((e) => e.kind === 'swarm').map((e) => e.at)).toEqual([390, 720]);
   });
 
