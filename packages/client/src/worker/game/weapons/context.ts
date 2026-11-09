@@ -4,7 +4,7 @@ import { damageEnemy, isDead } from '../combat';
 import type { EnemyStore } from '../enemies';
 import { hitLightsInBox, hitLightsInCircle } from '../light-sources';
 import { spawnFx, type FxAssetId } from '../fx';
-import type { PlayerState } from '../player';
+import { playerAttackY, type PlayerState } from '../player';
 import { spawnProjectile, type ProjectileAssetId, type ProjectileOptions } from '../projectiles';
 import type { World } from '../world';
 import type { OwnedWeapon } from './owned';
@@ -14,6 +14,8 @@ import type { WeaponVisuals } from './visuals';
 export interface WeaponContext {
   /** Position, `facingX` and `lastDirX`/`lastDirY`. */
   readonly player: PlayerState;
+  /** Torso y in world units. The player position remains at the feet. */
+  readonly attackY: number;
   readonly enemies: EnemyStore;
   /** `world.enemyHitTimes`: per weapon slot, the `time` each enemy was last hit (#13). */
   readonly enemyHitTimes: readonly Float32Array[];
@@ -83,6 +85,9 @@ export function createWeaponContext(world: World): WeaponContext {
   return {
     get player() {
       return world.player;
+    },
+    get attackY() {
+      return playerAttackY(world.player);
     },
     get enemies() {
       return world.enemies;

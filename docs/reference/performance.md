@@ -92,7 +92,7 @@ Projectile scenarios (Chrome and Firefox `projectiles-max`; Chrome `projectiles-
 `projectiles-1800` in Chrome, from two earlier headless runs and one headed run of the same build (the pass was restarted to change the wait cap and go headless): 1812 projectiles in all three, frame median 16.5–16.7 ms, p95 17.6–23.5 ms. Firefox `projectiles-1800` was not run (time-boxed, see the PR).
 
 - The emitter keeps 611 live projectiles in `projectiles-max` and 1812 in `projectiles-1800` (the emitter's floor plus the weapons' own shots) in every run, at the display rate in every browser. In Chrome sim time per step rises from 0.175 ms (`projectiles-frozen`, 61 projectiles) to 0.65 ms at 611; WebKit's `render()` mean doubles from 0.64 to 1.14 ms between 611 and 1812 projectiles. `PROJECTILE_CAP` (600) stays well inside the frame on this machine.
-- The projectile pools grow from 3013 to 3301 Paints (4319 for 1800) during the warm-up and the first seconds of measuring (about 6 Paints after the 5 s warm-up, none after 10 s in the unit test); nothing is created per frame after that.
+- The projectile pools grow from 3013 to 3301 Paints (4319 for 1800) during the warm-up and the first seconds of measuring (about 6 Paints after the 5 s warm-up, none after 10 s in the unit test at the time of that measurement); nothing is created per frame after that.
 
 WebKit, every scenario, 3 runs each (headless; no timeout, no retry and no `browser.newContext` failure: every attempt had its own browser process):
 

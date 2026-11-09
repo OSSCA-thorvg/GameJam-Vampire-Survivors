@@ -118,7 +118,10 @@ function observe(seed: number, build: Build) {
       if (accepted !== garlicHit) result.unmatchedSteps++;
     }
 
-    const { x, y } = world.player;
+    const {
+      player: { x },
+      attackY: y,
+    } = world.weaponContext;
     const { cols, count } = world.enemies;
     for (let i = 0; i < count; i++) {
       if (Math.hypot((cols.x[i] ?? 0) - x, (cols.y[i] ?? 0) - y) - enemyRadius(cols, i) <= ring) {

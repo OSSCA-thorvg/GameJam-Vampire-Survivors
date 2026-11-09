@@ -56,6 +56,8 @@ Things to measure from footage and write down here: player move speed (screen wi
 
 ## Weapons
 
+- **Visual reference (#157):** in poncle's Gameplay Refreshed Trailer preview at 0:01–0:01.5, blue wand effects are visible beside the purple character and above its red health bar. [Vampire Survivors on Steam](https://store.steampowered.com/app/1794680/Vampire_Survivors/)
+- **Attack origin (#157):** player sprites are 48 units tall with their feet anchored at 90% of the sprite height (`assets/manifest.json`). Slashes, projectiles, orbiting books and auras use the midpoint of the sprite, 19.2 world units above the feet. Movement, contact, the camera and pickup reach use the feet.
 - **Not yet checked against footage.** The issue (#10) asks for the Whip's alternating sides and the Magic Wand's targeting from footage with a source and timestamp. The session that implemented #10 could not watch video, and the project owner decided not to tune against footage for now, so both are **[unverified]**: in a long unedited run (Video references), step through the first minute with Antonio (Whip) and Imelda (Magic Wand), and record source, timestamp and what you see here; adjust `packages/shared/src/content/weapons.ts` if it differs.
   - Whip: whether the first strike goes to the facing side and the second (from level 2, about 0.1 s later) to the other side, whether it strikes behind when the character turns, and the strike's length and height relative to the screen. **[unverified]**
   - Magic Wand: whether each bolt flies at the nearest enemy (and what it does when none is on screen), how many bolts per volley at each level, and the bolt speed in screen widths per second. **[unverified]**

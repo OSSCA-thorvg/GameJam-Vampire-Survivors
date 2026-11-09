@@ -24,7 +24,10 @@ const opts: ProjectileOptions = {
  */
 export const knife: WeaponPatternModule = {
   fire(ctx, w, lv, shot) {
-    const { x, y, lastDirX: dirX, lastDirY: dirY } = ctx.player;
+    const {
+      player: { x, lastDirX: dirX, lastDirY: dirY },
+      attackY: y,
+    } = ctx;
     const offset = KNIFE_SPREAD * Math.ceil(shot / 2) * (shot % 2 === 1 ? 1 : -1);
     opts.damage = lv.damage;
     opts.weaponSlot = w.slot;

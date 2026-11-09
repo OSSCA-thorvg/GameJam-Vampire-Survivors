@@ -4,17 +4,18 @@ The weapon system (#10, #13, ADR 0008): owned weapons fire on their own cooldown
 
 ## Sub-features
 
-- **Starting Whip:** at run start `snapshot().weapons` is `[{ id: 'whip', level: 1 }]`. Standing still, the Whip strikes every 1.35 s of run time (first at 1.35 s): a white-and-yellow arc (`weapon.whip`, 160×40 at area 1) from the player toward the facing side, shown for 0.15 s. The player starts facing right (`player.facingX: 1`).
+- **Attack origin (#157):** attacks launch from or center on the player's torso, 19.2 world units above `player.y` (the feet). Whip strikes and projectiles begin there. King Bible and Garlic follow the moving torso. This also applies to evolutions.
+- **Starting Whip:** at run start `snapshot().weapons` is `[{ id: 'whip', level: 1 }]`. Standing still, the Whip strikes every 1.35 s of run time (first at 1.35 s): a white-and-yellow arc (`weapon.whip`, 160×40 at area 1) from the torso toward the facing side, shown for 0.15 s. The player starts facing right (`player.facingX: 1`).
 - **Facing side:** after a tap of ArrowLeft (`player.facingX: -1`) the next arc is on the left, mirrored. Whip L2+ adds a second strike on the opposite side 0.1 s later (reach it only through #11's level-ups; unit-tested in `whip.test.ts`).
 - **Hits and kills:** every enemy whose circle overlaps the strike box loses the strike's damage once per strike. Bats (5 HP) die from one L1 strike (10 damage): they disappear with a grey puff (`fx.enemyDeath`) and `snapshot().kills` rises; the HUD skull counter shows the same number.
-- **Flash and knockback:** a hit enemy shows a star spark (`fx.hit`) and is dimmed (opacity 140) for 0.1 s, then back to full; it is pushed away from the player at 200 units/s × `1 - knockbackResist` for 0.12 s (about 24 units for a bat). Observable on enemies that survive, so drive it with journey 5 (Whip L1 damage 1).
-- **Magic Wand (`G`):** `G` adds `{ id: 'magicWand', level: 1 }` to `weapons` (worker log `[debug] grantWeapon: magicWand`). Each further `G` grants the next weapon of `WEAPON_LIST` (Knife, Axe, Cross, King Bible) until the six slots are full; Fire Wand and Garlic, last in the list, come only from level-up cards then. Every 1.2 s a small cyan bolt (`weapon.magicWand`) leaves the player toward the nearest enemy within 900 units (or along the last movement direction), at 400 units/s, rotated along its flight, and the enemy nearest at launch dies (10 damage) shortly after.
+- **Flash and knockback:** a hit enemy shows a star spark (`fx.hit`) and is dimmed (opacity 140) for 0.1 s, then back to full; it is pushed away from the attack origin at 200 units/s × `1 - knockbackResist` for 0.12 s (about 24 units for a bat). Observable on enemies that survive, so drive it with journey 5 (Whip L1 damage 1).
+- **Magic Wand (`G`):** `G` adds `{ id: 'magicWand', level: 1 }` to `weapons` (worker log `[debug] grantWeapon: magicWand`). Each further `G` grants the next weapon of `WEAPON_LIST` (Knife, Axe, Cross, King Bible) until the six slots are full; Fire Wand and Garlic, last in the list, come only from level-up cards then. Every 1.2 s a small cyan bolt (`weapon.magicWand`) leaves the torso toward the nearest enemy within 900 units (or along the last movement direction), at 400 units/s, rotated along its flight, and the enemy nearest at launch dies (10 damage) shortly after.
 - **Knife (#13, `G` twice):** every 1.0 s a burst of thin knives (`weapon.knife`, 20×6) flies along the last movement direction at 500 units/s, 0.05 s apart, shot k offset 6 × ceil(k/2) units sideways on alternating sides, so a burst reads as parallel lines; 1 knife at L1, 6 at L8 (pierce 1 → 3, damage 6.5 → 16.5).
-- **Axe (`G` three times):** every 4 s an axe (`weapon.axe`, spinning) is thrown upward at 600 units/s with a random sideways drift up to 120 units/s, peaks about 200 units above the player and falls off the bottom of the view (removed 100 units below it, about 1.8 s); 1 → 3 axes, pierce 3 → 7, damage 20 → 80.
+- **Axe (`G` three times):** every 4 s an axe (`weapon.axe`, spinning) is thrown upward at 600 units/s with a random sideways drift up to 120 units/s, peaks about 200 units above its launch point and falls off the bottom of the view (removed 100 units below it, about 1.8 s); 1 → 3 axes, pierce 3 → 7, damage 20 → 80.
 - **Cross (`G` four times):** every 2 s a spinning cross (`weapon.cross`) flies at the nearest enemy within 900 units (else along the last movement direction), slows, turns about 120 units out after 0.6 s and flies back past the player, accelerating, until it leaves the view; it hits an enemy once on the way out and once on the way back. 1 → 2 crosses, area 1 → 1.2 (bigger art), speed 400 → 600, damage 50 → 70.
-- **King Bible (`G` five times):** after its 3 s cooldown, books (`weapon.kingBible`) orbit the player at 75 units × area, 180°/s, evenly spaced, for 3 s, then vanish for the 3 s cooldown (the visible gap); an enemy touching a book loses 10 HP at most once per 0.5 s and is pushed out. 1 → 4 books, area 1 → 1.5, 180 → 270°/s, out 3 → 4 s, damage 10 → 30.
+- **King Bible (`G` five times):** after its 3 s cooldown, books (`weapon.kingBible`) orbit the torso at 75 units × area, 180°/s, evenly spaced, for 3 s, then vanish for the 3 s cooldown (the visible gap); an enemy touching a book loses 10 HP at most once per 0.5 s and is pushed out. 1 → 4 books, area 1 → 1.5, 180 → 270°/s, out 3 → 4 s, damage 10 → 30.
 - **Fire Wand (card):** every 3 s three fireballs (`weapon.fireWand`) fly at random enemies inside the view (each shot draws its own), or along the last movement direction with none on screen, at 375 → 600 units/s; damage 20 → 90.
-- **Garlic (card):** a translucent ring (`weapon.garlic`, drawn under the enemies) is always centred on the player while owned; every 1.3 s (1.1 s at L8) every enemy overlapping the 50 × area unit circle loses 5 → 9 HP and is pushed out. The art is drawn at `area / 0.78` (#91), so the ring's visible outer edge is that hit circle: 50 px from the player at area 1, 75 px at area 1.5. An enemy is hit exactly when it touches the drawn ring. Area 1 → 1.8 at L8, so the ring grows by 1.8×.
+- **Garlic (card):** a translucent ring (`weapon.garlic`, drawn under the enemies) is always centred on the torso while owned; every 1.3 s (1.1 s at L8) every enemy overlapping the 50 × area unit circle loses 5 → 9 HP and is pushed out. The art is drawn at `area / 0.78` (#91), so the ring's visible outer edge is that hit circle: 50 units from the torso at area 1, 75 units at area 1.5. An enemy is hit exactly when it touches the drawn ring. Area 1 → 1.8 at L8, so the ring grows by 1.8×.
 - **Stats (#12):** every new weapon reads the level after the player's stats: Spinach raises damage, Candelabrador the projectile radius, the drawn size of crosses, axes, knives, fireballs and books, the book orbit and the garlic ring; Empty Tome shortens cooldowns (and the King Bible's gap), Bracer speeds projectiles and the book orbit, Spellbinder lengthens lifetimes and the books' time out.
 - **Cap and expiry:** `snapshot().projectiles` (live bolts) never exceeds `PROJECTILE_CAP` 600; a bolt is removed after its hit (pierce 1) or after 2 s.
 - **Results:** at death the results screen's Kills equal the last `kills` and the HUD counter (`run-flow.md`, `player-health.md`).
@@ -33,12 +34,13 @@ Open the game URL, press Enter on "Start" and Enter on the character select (the
 2. `navigate` to `http://localhost:5180/`; `javascript_tool` `await window.__vsTest.waitFor((s) => s.state === 'title', 30000)`; `computer` `key` `Enter` twice (Start, then Warden on the character select, #14); `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).weapons)` → `[{"id":"whip","level":1}]`.
 3. Wait about 6 s; take `screenshot`s in quick succession until one shows the arc to the right of the player (it shows for 0.15 s of every 1.35 s); `javascript_tool` `(await window.__vsTest.snapshot()).kills` → above 0 and equal to the HUD's skull counter on the screenshot (`zoom` the top right).
 4. `computer` `key` `ArrowLeft`; `javascript_tool` `(await window.__vsTest.snapshot()).player.facingX` → `-1`; `screenshot`s until one shows the arc on the left.
-5. `computer` `key` `g`; `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).weapons)` → whip and magicWand at level 1; `screenshot`s → a cyan bolt leaving the player toward the nearest bat, which disappears with a puff; read `projectiles` a few times → at most 600.
+5. `computer` `key` `g`; `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).weapons)` → whip and magicWand at level 1; `screenshot`s → a cyan bolt leaving the torso toward the nearest bat, which disappears with a puff; read `projectiles` a few times → at most 600.
 6. `javascript_tool` `JSON.stringify(await window.__vsTest.waitFor((s) => s.state === 'results', 90000))`; `get_page_text` → Kills equal to that snapshot's `kills`; `screenshot` (the HUD counter shows the same number behind the dialog).
 7. `gif_creator` `stop_recording`, `export` `{ download: true, filename: "issue-<N>-weapons.gif" }`; `tabs_close_mcp` on the tab.
 8. The six weapons of #13, one fresh run each (new tab, `navigate`, Enter twice): press `g` the weapon's number of times (Knife 2, Axe 3, Cross 4, King Bible 5) or, for Fire Wand and Garlic, press `l` and the number of their card whenever offered (another passive card otherwise) until `JSON.stringify((await window.__vsTest.snapshot()).weapons)` lists it; `gif_creator` `start_recording`, wait 10 s answering each level-up with a passive card, take `screenshot`s about every 100 ms for 2 s → its motion as described above; then press `l` and its upgrade card until it shows `level: 8` → more knives, axes, crosses or books, faster fireballs, a larger ring; `gif_creator` `stop_recording`, `export`.
 9. Garlic and Cross with Candelabrador and Spinach: in each weapon's run at level 8, take Candelabrador and Spinach to 5 through `l` and their cards; `javascript_tool` `(await window.__vsTest.snapshot()).stats` → `area` and `might` 1.5; `screenshot` → the garlic ring (or the crosses) 1.5 times as large as before.
-10. Garlic ring = hit radius (#91): in a fresh run take Garlic at level 1 (no Candelabrador); `screenshot`s every 150 ms and `zoom` the player → the ring's outer edge 50 px from the player's centre; bats crossing the ring vanish on the next tick (every 1.3 s), bats still outside it keep flying in. With Candelabrador at 5 (`area` 1.5) the edge is 75 px. The exact inside/outside split needs journey 15.
+10. Garlic ring = hit radius (#91): in a fresh run take Garlic at level 1 (no Candelabrador); `screenshot`s every 150 ms and `zoom` the player → the ring's outer edge 50 world units from the torso; bats crossing the ring vanish on the next tick (every 1.3 s), bats still outside it keep flying in. With Candelabrador at 5 (`area` 1.5) the edge is 75 world units from the torso. The exact inside/outside split needs journey 15.
+11. Start four fresh runs with Warden, Ember, Swift and Aurelia. Capture the first Whip slash, fireball, knife and cross respectively and compare their launch height with the sprite torso.
 
 The timed strike capture, the knockback measurement, journey 5, the fps measurement and the paint count need the Playwright journeys below.
 
@@ -69,6 +71,7 @@ interface PlayerSnap {
   hp: number;
 }
 const player = (s: GameSnapshot) => s.player as PlayerSnap;
+const torsoY = (p: PlayerSnap) => p.y - 19.2;
 const rows = (s: GameSnapshot) => s.enemyPositions as EnemyRow[];
 const weapons = (s: GameSnapshot) => s.weapons as { id: string; level: number }[];
 
@@ -112,24 +115,25 @@ async function shootStrike(page: Page, minTimeS: number, shot: () => Promise<voi
   throw new Error('no screenshot inside a strike in 8 attempts');
 }
 
-/** Enemies in the L1 strike box on `side` before the strike, and how far each moved from the player by the pause. */
+/** Enemies in the L1 strike box on `side` before the strike, and how far each moved from the torso by the pause. */
 function boxMoves(before: GameSnapshot, paused: GameSnapshot, side: -1 | 1) {
   const p = player(before);
   const after = new Map(rows(paused).map((r) => [r[0], r]));
   return rows(before)
     .filter(
-      ([, , x, y]) => (x - p.x) * side >= -12 && (x - p.x) * side <= 172 && Math.abs(y - p.y) <= 32,
+      ([, , x, y]) =>
+        (x - p.x) * side >= -12 && (x - p.x) * side <= 172 && Math.abs(y - torsoY(p)) <= 32,
     )
     .map(([uid, , x, y]) => {
       const now = after.get(uid);
       return {
         uid,
         dx: x - p.x,
-        dy: y - p.y,
+        dy: y - torsoY(p),
         /** The centre is inside the box itself, so the strike certainly hit it. */
-        core: (x - p.x) * side >= 0 && (x - p.x) * side <= 160 && Math.abs(y - p.y) <= 20,
-        before: Math.hypot(x - p.x, y - p.y),
-        after: now ? Math.hypot(now[2] - player(paused).x, now[3] - player(paused).y) : null,
+        core: (x - p.x) * side >= 0 && (x - p.x) * side <= 160 && Math.abs(y - torsoY(p)) <= 20,
+        before: Math.hypot(x - p.x, y - torsoY(p)),
+        after: now ? Math.hypot(now[2] - player(paused).x, now[3] - torsoY(player(paused))) : null,
       };
     });
 }
@@ -271,12 +275,12 @@ test('weapons 3: G grants the Magic Wand, which fires bolts at the nearest enemy
       const s = await unpausedSample();
       counts.push(s.projectiles as number);
       if ((s.projectiles as number) > 0 && shots < 3) {
-        // The bolt starts under the player sprite: a burst of screenshots shows it leaving toward the nearest enemy.
+        // The bolt starts at the torso. A burst of screenshots shows it leaving toward the nearest enemy.
         shots++;
         for (let f = 1; f <= 4; f++) await ev.shot(`bolt-${String(shots)}-frame-${String(f)}`);
         const p = player(s);
         const nearest = rows(s)
-          .map(([uid, , x, y]) => ({ uid, x, y, d: Math.hypot(x - p.x, y - p.y) }))
+          .map(([uid, , x, y]) => ({ uid, x, y, d: Math.hypot(x - p.x, y - torsoY(p)) }))
           .sort((a, b) => a.d - b.d)[0];
         await page.waitForTimeout(400);
         const later = await snapshot(page);
@@ -343,7 +347,7 @@ test('weapons 4: the results kills equal the last snapshot kills and the HUD cou
 
 #### The six weapons of #13 (journeys 5–14)
 
-Save the spec as `verification/issue-<N>/journeys/weapons-13.spec.ts` and run it like the one above with `-g "weapons (5|6|7|8|9|10|11|12|14):"`; run journey 13, the performance measurement, headed on the real GPU: `VERIFY_HEADED=1 VERIFY_JOURNEYS=… pnpm exec playwright test -c e2e/playwright.config.ts --project chromium -g "weapons 13:"`. Evidence: `weapons-<5..10>-<id>/` (`journey.json` with the grant, the cards taken and the run time, live projectiles and kills per frame; frames `l1-*` and `l8-*` 100 ms apart at level 1 and level 8), `weapons-11-garlic-stats/` and `weapons-12-cross-stats/` (`journey.json` with `stats`, kills and damage per hit before and after Candelabrador and Spinach at 5; frames `base-*` and `boosted-*`), `weapons-13-performance/` (`performance.json`: the fast-forward to minute 14, `fps`, enemies and projectiles every 0.5 s for 30 s, `medianFps`, the user agent; `dense-*` screenshots), `weapons-14-paints/` (`paints.json`: `debug.paintsCreated` at each run's start, right before and after 8 s of firing at level 8, and on the title, for a control run and two weapon runs; `windows` holds the firing measurements and the most gems on the ground). The garlic ring radius in the frames can be measured with a short script over the lavender pixels from the player (the issue's run used `verification/issue-13/ring.py`).
+Save the spec as `verification/issue-<N>/journeys/weapons-13.spec.ts` and run it like the one above with `-g "weapons (5|6|7|8|9|10|11|12|14):"`; run journey 13, the performance measurement, headed on the real GPU: `VERIFY_HEADED=1 VERIFY_JOURNEYS=… pnpm exec playwright test -c e2e/playwright.config.ts --project chromium -g "weapons 13:"`. Evidence: `weapons-<5..10>-<id>/` (`journey.json` with the grant, the cards taken and the run time, live projectiles and kills per frame; frames `l1-*` and `l8-*` 100 ms apart at level 1 and level 8), `weapons-11-garlic-stats/` and `weapons-12-cross-stats/` (`journey.json` with `stats`, kills and damage per hit before and after Candelabrador and Spinach at 5; frames `base-*` and `boosted-*`), `weapons-13-performance/` (`performance.json`: the fast-forward to minute 14, `fps`, enemies and projectiles every 0.5 s for 30 s, `medianFps`, the user agent; `dense-*` screenshots), `weapons-14-paints/` (`paints.json`: `debug.paintsCreated` at each run's start, right before and after 8 s of firing at level 8, and on the title, for a control run and two weapon runs; `windows` holds the firing measurements and the most gems on the ground). The garlic ring radius in the frames can be measured with a short script over the lavender pixels from the torso (the issue's run used `verification/issue-13/ring.py`).
 
 ```ts
 // Feature-map journeys for the six weapons of #13 (.claude/skills/verify-game/features/weapons.md, journeys 5–12).
@@ -826,7 +830,7 @@ test('weapons 14: the paint count stays flat across runs with every new weapon f
 
 #### Garlic ring and hit radius (#91, journey 15)
 
-Save the spec as `verification/issue-<N>/journeys/garlic-ring.spec.ts` and run it like the ones above with `-g "weapons 15"`. Pass `--repeat-each 3` to run the four cases in three independent Playwright repetitions, twice each at area 1 and 1.5. The fixed start seeds were approved for this fixture and selected in ascending order from the first 18 seeds per area that reach the strict card build with the real level-up generator. Selection used card availability only, before observing any combat. Each browser attempt replaces the seed on the first real Warden single-player start message and checks the worker’s start log. Start Warden and use real `I` for survival, then real `L` and numbered cards to build Whip 1 / Garlic 1 with might 1. At area 1.5 take Candelabrador to 5 before Garlic. The isolated selector prefers the target, then safe passive upgrades, then safe new passives. Keep Whip, Garlic and the completed Candelabrador at their target levels during the measurement. If no safe card is offered, reload to the title and select Warden again. The level-up dialog ignores Escape and Quit. Cap each case at three total attempts, including unsafe hands during sampling. Report a failed measurement after a valid setup immediately. Each case samples snapshots back to back inside the page for 30 s while standing still, finds the garlic ticks (a step whose new damage is all 5 × might hits, compared with the step right before), and classifies every enemy whose circle edge was within 15 units of the hit radius: hit when it is gone (a bat dies to the L1 tick) or farther from the player 80 ms later, not hit when it kept coming closer. Evidence: `garlic-ring/repeat-<1|2|3>/area<1|15>-run<1|2>/` (`attempt-*.json` with expected and worker-observed seed, every offered hand, choice, snapshots, outcome and elapsed time, `attempt-*-rows.json` with sampled enemies and aggregate damage, `state.json` with the valid inventory and `stats`, `ticks.json` with every tick, each classified enemy's `edge` and `after`, and the `inside`, `outside` and `betweenOldAndNew` counts; `*-ring-*.png`). Measure the drawn ring in the frames with a radial lavender-pixel profile around the player (the issue's run used `verification/issue-91/ring-screenshot.py`): the outer edge where at least half the pixels on the circle are lavender is 49–50 px at area 1 and 74–75 px at area 1.5.
+Save the spec as `verification/issue-<N>/journeys/garlic-ring.spec.ts` and run it like the ones above with `-g "weapons 15"`. Pass `--repeat-each 3` to run the four cases in three independent Playwright repetitions, twice each at area 1 and 1.5. The fixed start seeds were approved for this fixture and selected in ascending order from the first 18 seeds per area that reach the strict card build with the real level-up generator. Selection used card availability only, before observing any combat. Each browser attempt replaces the seed on the first real Warden single-player start message and checks the worker’s start log. Start Warden and use real `I` for survival, then real `L` and numbered cards to build Whip 1 / Garlic 1 with might 1. At area 1.5 take Candelabrador to 5 before Garlic. The isolated selector prefers the target, then safe passive upgrades, then safe new passives. Keep Whip, Garlic and the completed Candelabrador at their target levels during the measurement. If no safe card is offered, reload to the title and select Warden again. The level-up dialog ignores Escape and Quit. Cap each case at three total attempts, including unsafe hands during sampling. Report a failed measurement after a valid setup immediately. Each case samples snapshots back to back inside the page for 30 s while standing still, finds the garlic ticks (a step whose new damage is all 5 × might hits, compared with the step right before), and classifies every enemy whose circle edge was within 15 units of the hit radius: hit when it is gone (a bat dies to the L1 tick) or farther from the player 80 ms later, not hit when it kept coming closer. Evidence: `garlic-ring/repeat-<1|2|3>/area<1|15>-run<1|2>/` (`attempt-*.json` with expected and worker-observed seed, every offered hand, choice, snapshots, outcome and elapsed time, `attempt-*-rows.json` with sampled enemies and aggregate damage, `state.json` with the valid inventory and `stats`, `ticks.json` with every tick, each classified enemy's `edge` and `after`, and the `inside`, `outside` and `betweenOldAndNew` counts; `*-ring-*.png`). Measure the drawn ring in the frames with a radial lavender-pixel profile around the player (the issue's run used `verification/issue-91/ring-screenshot.py`): the outer edge where at least half the pixels on the circle are lavender is 49–50 px at area 1 and 74–75 units at area 1.5.
 
 ```ts
 // Feature-map journey 15 for .claude/skills/verify-game/features/weapons.md (#91): the Garlic ring drawn on screen equals its hit radius. Enemies whose circle reaches inside the drawn ring at a
@@ -868,7 +872,7 @@ type Row = {
   t: number;
   state: string;
   px: number;
-  py: number;
+  py: number; // torso y
   e: [number, number, number, number][];
   hits: number;
   total: number;
@@ -998,7 +1002,7 @@ async function sample(page: Page, ms: number): Promise<Row[]> {
         t: s.timeS,
         state: s.state,
         px: p.x,
-        py: p.y,
+        py: p.y - 19.2,
         e: s.enemyPositions,
         hits: d.hits,
         total: d.total,
@@ -1027,7 +1031,7 @@ function ticks(rows: Row[], hitRadius: number, dmg: number) {
       const edge = d0 - (ENEMY_RADIUS[type] ?? 12);
       if (edge < hitRadius - 15 || edge > hitRadius + 15) return [];
       const next = later.e.find((r) => r[0] === uid);
-      // Hit: killed (gone) or pushed out (farther from the player 80+ ms later); a chasing enemy only comes closer.
+      // Hit: killed (gone) or pushed out (farther from the torso 80+ ms later).
       const d1 = next ? Math.hypot(next[2] - later.px, next[3] - later.py) : null;
       const hit = d1 === null || d1 > d0 + 2;
       return [
@@ -1188,7 +1192,7 @@ for (const target of [1, 1.5]) {
 
 - The arc shows for only 0.15 s, so journey 1 waits in the page for the step a strike happens (run time a multiple of 1.35 s), screenshots at once, then checks that the snapshot taken after the screenshot is still inside the 0.15 s; otherwise it retries the next strike. Pausing with Escape to freeze the arc does not help: the pause dialog covers the player (2026-11-08, #10).
 - Bats have 5 HP and the Whip L1 deals 10, so hit bats die in the same step: their flash and knockback are only observable on survivors, hence journey 5 (damage 1). The `moves` in `strikes.json` show bats in the box about 23 units farther from the player after the strike (200 units/s for 0.12 s) (2026-11-08, #10).
-- A bolt spawns at the player's feet under the sprite and reaches a bat about 100 units away in 0.25 s; single screenshots often miss it, so journey 3 takes a burst of four (2026-11-08, #10).
+- A bolt reaches a bat about 100 units away in 0.25 s; single screenshots often miss it, so journey 3 takes a burst of four (2026-11-08, #10).
 - The player still dies in about 15 s standing still at minute 0, since the Whip covers only one side: long journeys need #17's invulnerability (`KeyI`), as in `enemies.md` (2026-11-08, #10).
 - Weapon numbers are the issue's initial values, untuned against footage (`docs/reference/gameplay.md` § Weapons) (2026-11-08, #10).
 - Since #13 a second `G` grants the Knife, not nothing: journey 3 checks the third weapon instead (2026-11-08, #13).

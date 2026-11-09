@@ -25,7 +25,7 @@ Open the game URL, press Enter on "Start" and Enter again on the character selec
 ### Claude in Chrome
 
 1. `tabs_context_mcp` `{ createIfEmpty: true }`, use the group's new empty tab; `navigate` to `http://localhost:5180/`; `javascript_tool` `await window.__vsTest.waitFor((s) => s.state === 'title', 30000)`; `computer` `key` `Enter`; `javascript_tool` `await window.__vsTest.waitFor((s) => s.state === 'characterSelect', 5000)`; `computer` `key` `Enter` (Warden).
-2. `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).lights)` → 6 rows with `broken: false`. Pick the nearest; `computer` `key` `ArrowUp`/`ArrowDown` with `repeat` until `player.y` is within 8 units of its `y`, then `ArrowLeft`/`ArrowRight` toward it with `repeat`, re-reading the snapshot, until it is in view (`screenshot`) and its row shows `broken: true`; `pickups` has a row at the same `x`, `y` (`screenshot`, `zoom`: the broken brazier under the item). Press `1` on any level-up dialog.
+2. `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).lights)` → 6 rows with `broken: false`. Pick the nearest; `computer` `key` `ArrowUp`/`ArrowDown` with `repeat` until `player.y - 19.2` is within 8 units of its `y`, then `ArrowLeft`/`ArrowRight` toward it with `repeat`, re-reading the snapshot, until it is in view (`screenshot`) and its row shows `broken: true`; `pickups` has a row at the same `x`, `y` (`screenshot`, `zoom`: the broken brazier under the item). Press `1` on any level-up dialog.
 3. Wait until `player.hp` is at least 20 below `maxHp`. Then five times: `computer` `key` `k`; read `pickups` (the next ID in order, 48 units right of the player); `computer` `key` `ArrowRight` with `repeat` 3; read the snapshot again: Floor Chicken raised `player.hp`; Rosary left no enemy inside the view and raised `kills`; Orologion set `frozen: true` (`screenshot`: the frost overlay, enemies still) and `frozen` is false again 10 s later; Vacuum emptied `gemPositions` of the gems present when it was taken within a few seconds; Little Clover raised `stats.luck` by 0.1.
 4. `tabs_close_mcp` on the tab.
 
@@ -148,7 +148,7 @@ async function breakNearestLight(
         await call(light, s);
       }
       const dx = light.x - p.x;
-      const dy = light.y - p.y;
+      const dy = light.y - (p.y - 19.2);
       const want: string[] = [];
       const toward = dx > 0 ? 'ArrowRight' : 'ArrowLeft';
       // In the Whip's reach (160 units ahead, 20 above and below plus the light's radius 12) and facing the light:

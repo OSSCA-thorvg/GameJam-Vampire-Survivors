@@ -19,7 +19,10 @@ const found = new Int32Array(256);
 export const whip: WeaponPatternModule = {
   fire(ctx, w, lv, shot) {
     const side = shot % 2 === 0 ? w.burstFacingX : -w.burstFacingX;
-    const { x: px, y: py } = ctx.player;
+    const {
+      player: { x: px },
+      attackY: py,
+    } = ctx;
     const width = WHIP_WIDTH * lv.area;
     const halfHeight = (WHIP_HEIGHT * lv.area) / 2;
     const left = side > 0 ? px : px - width;

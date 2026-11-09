@@ -14,6 +14,7 @@ import { createFxPools } from './fx';
 import { createGemPools } from './gems';
 import { createLightPools } from './light-sources';
 import { createPickupPools } from './pickups';
+import { playerAttackY } from './player';
 import { isFrozen } from './systems/freeze';
 import { createProjectilePools } from './projectiles';
 import { MAX_BOOKS } from './weapons/visuals';
@@ -302,7 +303,13 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
       garlicHandle = -1;
     }
     if (garlicHandle >= 0)
-      setTransform(aura.get(garlicHandle), world.player.x, world.player.y, 0, garlic.scale);
+      setTransform(
+        aura.get(garlicHandle),
+        world.player.x,
+        playerAttackY(world.player),
+        0,
+        garlic.scale,
+      );
   }
   /** Puts one pooled red circle under each elite (#15), sized to its collision radius; hides the unused ones. */
   function syncEliteMarkers(world: World): void {

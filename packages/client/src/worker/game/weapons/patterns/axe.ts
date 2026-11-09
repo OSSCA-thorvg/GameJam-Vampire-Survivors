@@ -34,7 +34,10 @@ const DEG = Math.PI / 180;
  */
 export const axe: WeaponPatternModule = {
   fire(ctx, w, lv, shot) {
-    const { x, y } = ctx.player;
+    const {
+      player: { x },
+      attackY: y,
+    } = ctx;
     opts.damage = lv.damage;
     opts.weaponSlot = w.slot;
     opts.knockback = lv.knockback;

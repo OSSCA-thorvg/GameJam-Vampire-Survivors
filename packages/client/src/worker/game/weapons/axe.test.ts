@@ -11,7 +11,9 @@ describe('axe', () => {
     expect(Math.abs(p.vx[0] ?? NaN)).toBeLessThan(AXE_SPREAD_X);
     expect(p.radius[0]).toBe(AXE_RADIUS);
     const vys: number[] = [];
-    let top = 0;
+    expect(p.y[0]).toBeCloseTo(-19.2, 4);
+    const launchY = p.y[0] ?? 0;
+    let top = launchY;
     let removedAt = -1;
     flyProjectiles(world, 180, (step) => {
       if (world.projectiles.count === 0) {
@@ -23,9 +25,9 @@ describe('axe', () => {
     });
     expect(vys[0]).toBeLessThan(0);
     expect(vys.at(-1)).toBeGreaterThan(0);
-    // 600² / (2 × 900) = 200 units above the player at the top of the arc (less 5 for the discrete steps).
-    expect(top).toBeLessThan(-190);
-    expect(top).toBeGreaterThan(-205);
+    // 600² / (2 × 900) = 200 units above the launch point (less 5 for the discrete steps).
+    expect(launchY - top).toBeGreaterThan(190);
+    expect(launchY - top).toBeLessThan(205);
     // Removed once below the view's bottom (360 under the camera) plus 100, before its 3 s run out: about 1.8 s.
     expect(removedAt).toBeGreaterThan(100);
     expect(removedAt).toBeLessThan(120);

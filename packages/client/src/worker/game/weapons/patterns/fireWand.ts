@@ -22,7 +22,10 @@ const opts: ProjectileOptions = {
  */
 export const fireWand: WeaponPatternModule = {
   fire(ctx, w, lv) {
-    const { x, y } = ctx.player;
+    const {
+      player: { x },
+      attackY: y,
+    } = ctx;
     const { left, top, right, bottom } = ctx.camera.viewRect(0);
     const { x: ex, y: ey, flags } = ctx.enemies.cols;
     let target = -1;

@@ -288,7 +288,7 @@ it('shows the King Bible books and the garlic aura from the weapon visuals, on t
     ]),
   );
   const [aura] = shown('weapon.garlic');
-  expect([aura?.matrix?.e13, aura?.matrix?.e11]).toEqual([40, 1.8]);
+  expect([aura?.matrix?.e13, aura?.matrix?.e23, aura?.matrix?.e11]).toEqual([40, -19.2, 1.8]);
   books.count = 0;
   view.render(world);
   expect(shown('weapon.kingBible')).toHaveLength(0);
@@ -398,10 +398,13 @@ it('switches the books and the aura to the evolved art once evolved, from prewar
   expect(shown('weapon.garlic')).toHaveLength(1);
   books.evolved = true;
   garlic.evolved = true;
+  world.player.y = 80;
   view.render(world);
   expect(shown('weapon.kingBible')).toHaveLength(0);
   expect(shown('weapon.garlic')).toHaveLength(0);
   expect(shown('weapon.unholyVespers')).toHaveLength(2);
-  expect(shown('weapon.soulEater')).toHaveLength(1);
+  const soulEaters = shown('weapon.soulEater');
+  expect(soulEaters).toHaveLength(1);
+  expect(soulEaters[0]?.matrix?.e23).toBeCloseTo(60.8);
   expect(paints).toHaveLength(created);
 });

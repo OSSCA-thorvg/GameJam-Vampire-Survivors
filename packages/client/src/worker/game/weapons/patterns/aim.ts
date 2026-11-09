@@ -4,14 +4,17 @@ import type { WeaponContext } from '../context';
 const aim = { x: 1, y: 0 };
 
 /**
- * The unit direction from the player to the enemy in `target`, or the player's last movement direction when `target`
- * is -1 or sits on the player. Returns a shared object, valid until the next call.
+ * The unit direction from the player's torso to the enemy in `target`, or the player's last movement direction when `target`
+ * is -1 or sits at the attack origin. Returns a shared object, valid until the next call.
  */
 export function aimAt(
   ctx: WeaponContext,
   target: number,
 ): { readonly x: number; readonly y: number } {
-  const { x, y, lastDirX, lastDirY } = ctx.player;
+  const {
+    player: { x, lastDirX, lastDirY },
+    attackY: y,
+  } = ctx;
   aim.x = lastDirX;
   aim.y = lastDirY;
   if (target < 0) return aim;

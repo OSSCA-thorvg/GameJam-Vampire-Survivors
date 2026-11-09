@@ -6,11 +6,13 @@ import { cross, CROSS_RADIUS } from './patterns/cross';
 describe('cross', () => {
   it('flies at the nearest enemy, turns and comes back past the player, hitting it once each way', () => {
     const { world, w } = armed('cross');
-    const enemy = target(world, 'ghoul', 60, 0);
+    const enemy = target(world, 'ghoul', 60, -19.2);
     world.enemyGrid.rebuild(world.enemies.cols.x, world.enemies.cols.y, world.enemies.count);
     cross.fire(world.weaponContext, w, effectiveLevel(world, w), 0);
     const p = world.projectiles.cols;
-    expect([p.vx[0], p.vy[0]]).toEqual([400, 0]);
+    expect(p.vx[0]).toBeCloseTo(400, 4);
+    expect(p.vy[0]).toBeCloseTo(0, 4);
+    expect(p.y[0]).toBeCloseTo(-19.2, 4);
     const hits: number[] = [];
     let far = 0;
     let lastX = 0;
