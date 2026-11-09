@@ -44,7 +44,7 @@ Survive 15 minutes against ever larger hordes while your weapons fire on their o
 - Animated pixel art for every actor and effect (native Lottie playback).
 - 17 sound effects and 2 original chiptune music loops, synthesized with ZzFX and ZzFXM as MP3 assets, played after the first key or click: title and stage music that ducks under the pause and dialogs, weapon hits, kills, gems and menu clicks; `M` or the corner button mutes, and the pause screen sets the music and effects volume (#128, #129).
 - Versus matches against the WebSocket server: lobby, countdown, interference items, split view, Win/Lose/Draw and Rematch.
-- The client is published to GitHub Pages; the server image is on GHCR but has no public domain yet.
+- The client is published to GitHub Pages; the server is built and run on the owner's own host and has no public domain yet.
 
 Planned work: [`docs/roadmap.md`](docs/roadmap.md).
 
@@ -72,10 +72,10 @@ Full command list: [`CLAUDE.md`](CLAUDE.md) § Commands.
 
 ## Deploy
 
-[ADR 0017](docs/adr/0017-host-on-github-pages-and-a-self-hosted-server.md) records the hosting.
+[ADR 0017](docs/adr/0017-host-on-github-pages-and-a-self-hosted-server.md) records the hosting, and [ADR 0023](docs/adr/0023-build-the-server-image-on-the-owners-host.md) how the server image is built.
 
 - Every push to `main` builds the client and publishes it to GitHub Pages.
-- The same workflow pushes the server image to GHCR; the owner runs it on their own host with [`deploy/server/compose.yaml`](deploy/server/README.md).
+- No server image is published: the owner builds it from a clone on their own host and runs it with [`deploy/server/compose.yaml`](deploy/server/README.md).
 - Once the server has a domain and TLS, the repository variable `VITE_SERVER_URL` turns on versus in the Pages build.
 
 ## Contributing

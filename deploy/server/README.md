@@ -1,30 +1,31 @@
 # Running the game server in production
 
-The client is on GitHub Pages; the game server runs on the owner's own host from the image that `.github/workflows/deploy.yml` publishes to GHCR on every push to `main` ([ADR 0017](../../docs/adr/0017-host-on-github-pages-and-a-self-hosted-server.md)). Deploys are manual: nothing in the repository holds SSH keys or host credentials.
+The client is on GitHub Pages ([ADR 0017](../../docs/adr/0017-host-on-github-pages-and-a-self-hosted-server.md)); the game server runs on the owner's own host, which builds the `runtime` image from a clone of this repository ([ADR 0023](../../docs/adr/0023-build-the-server-image-on-the-owners-host.md)). No registry is involved: GitHub keeps only the code and the Pages client. Deploys are manual: nothing in the repository holds SSH keys or host credentials.
 
 ## Requirements
 
-- Docker with Compose v2 on a `linux/amd64` host (the published image is amd64 only).
+- Git, and Docker with Compose v2 and BuildKit (the default builder). The image is built for the host's own architecture.
 - Exactly **one** running instance: rooms live in memory (ADR 0006).
 - For the public site, a reverse proxy on the same host that terminates TLS: the Pages site is `https`, so the browser only opens `wss://` sockets.
 
 ## First run
 
-Copy only this folder (`compose.yaml` and `.env.example`) to the host, then:
+Clone the repository on the host; every command below runs from its root. The build context is the whole clone, so the folder alone is not enough.
 
 ```sh
-cp .env.example .env              # once; edit it (below). Never commit .env.
-docker compose pull               # the image is public once its GHCR package is public; otherwise `docker login ghcr.io` with a read:packages token
-docker compose up -d
-docker compose ps                 # STATUS shows (healthy) after a few seconds
-curl -fsS http://127.0.0.1:8787/healthz   # ok
+git clone https://github.com/OSSCA-thorvg/GameJam-Vampire-Survivors.git && cd GameJam-Vampire-Survivors
+cp deploy/server/.env.example deploy/server/.env      # then edit it (below). Never commit .env.
+NODE_VERSION=$(cat .nvmrc) docker compose -f deploy/server/compose.yaml up -d --build
+docker compose -f deploy/server/compose.yaml ps       # STATUS shows (healthy) after a few seconds
+curl -fsS http://127.0.0.1:8787/healthz               # ok
 ```
+
+The build produces `vs-server:local`, the same `runtime` target that CI's `server image` job checks on every pull request (non-root `node`, production dependencies only, `HEALTHCHECK` on `/healthz`); `NODE_VERSION` comes from `.nvmrc` and the base image is pinned by digest in `packages/server/Dockerfile`.
 
 ## Settings (`.env`)
 
 | Variable          | Production value                 | Why                                                                                         |
 | ----------------- | -------------------------------- | ------------------------------------------------------------------------------------------- |
-| `VS_IMAGE`        | `...-server:sha-<commit>`        | Pin the commit you deploy; `:main` follows the latest push to `main`.                       |
 | `VS_BIND`         | `127.0.0.1`                      | Only the reverse proxy on the same host reaches the container.                              |
 | `VS_HOST_PORT`    | `8787`                           | The host port the proxy forwards to.                                                        |
 | `ALLOWED_ORIGINS` | `https://ossca-thorvg.github.io` | The WebSocket accepts upgrades only from the Pages origin (ADR 0011). Never leave it empty. |
@@ -55,9 +56,14 @@ It checks `/healthz`, has two clients create and join a room, and confirms an up
 ## Update, logs, stop
 
 ```sh
-docker compose pull && docker compose up -d   # new image, same settings; the running room state is lost
-docker compose logs -f server
-docker compose down
+git pull --ff-only                                                          # the commit to deploy (or git checkout <commit>)
+NODE_VERSION=$(cat .nvmrc) docker compose -f deploy/server/compose.yaml up -d --build   # rebuild, same settings; the running room state is lost
+docker compose -f deploy/server/compose.yaml logs -f server
+docker compose -f deploy/server/compose.yaml down
 ```
 
 A deploy restarts the only instance, so players in a room are disconnected: deploy when no match is running.
+
+## Owner step, once
+
+Until #144 (ADR 0023), `deploy.yml` pushed the image to GitHub Container Registry. Nothing publishes or reads it any more. An organization owner deletes the old package once: github.com/orgs/OSSCA-thorvg/packages → `gamejam-vampire-survivors-server` → Package settings → Delete package.
