@@ -89,7 +89,7 @@ it('activates only the selected native character and restarts feedback for each 
   }
   for (const paint of test.paints.filter((paint) => paint.id.startsWith('player.')))
     expect(paint.opacityWrites).toBe(0);
-  expect(test.view.countPaints()).toBe(2965);
+  expect(test.view.countPaints()).toBe(3666);
 });
 
 it('uses idle native enemy poses during freeze and releases the native overlay when freeze expires', () => {

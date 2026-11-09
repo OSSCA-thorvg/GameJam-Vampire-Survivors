@@ -4,7 +4,7 @@ import type { Axis, WorkerToMain } from '../../protocol/worker-messages';
 import { createLoop } from '../loop';
 import { cleanupSystem, damageEnemy } from './combat';
 import { quietWorld, target } from './combat-test-helpers';
-import { dropGem, gemSystem } from './gems';
+import { dropGem, GEM_SWEEP_MARGIN, gemSystem } from './gems';
 import { clearSfx, cueSfx, drainSfx, SFX_BIT } from './sfx';
 import { contactDamageSystem } from './systems/contact-damage';
 import { createWorld, type World } from './world';
@@ -82,7 +82,15 @@ describe('world sound cues (#129)', () => {
 
   it('cues the gem pickup and the player hurt', () => {
     const world = quietWorld();
-    dropGem(world, 0, 0, 1);
+    dropGem(
+      world,
+      0,
+      0,
+      1,
+      world.player.x,
+      world.player.y,
+      world.camera.viewRect(GEM_SWEEP_MARGIN),
+    );
     world.player.x = 0;
     world.player.y = 0;
     gemSystem(world, 1 / 60);

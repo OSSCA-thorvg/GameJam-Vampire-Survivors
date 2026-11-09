@@ -12,7 +12,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import type { WorkerView } from '../../protocol/worker-messages';
 import { ENEMY_FLAG_ELITE, spawnEnemy } from './enemies';
-import { dropGem, GEM_FLYING } from './gems';
+import { dropGem, GEM_SWEEP_MARGIN, GEM_FLYING } from './gems';
 import { PICKUP_FAMILY_INTERFERENCE, PICKUP_FAMILY_LIGHT, spawnPickup } from './pickups';
 import {
   createViewEmitter,
@@ -107,8 +107,25 @@ describe('readView (#114, ADR 0018)', () => {
     spawnEnemy(world, 'bat', RANGE + 4, 0);
     spawnEnemy(world, 'bat', 0, -RANGE - 4);
     spawnEnemy(world, 'bat', RANGE, -RANGE); // the corner is in range
-    for (let i = 0; i < VIEW_GEM_MAX + 10; i++) dropGem(world, i, 8, 1);
-    dropGem(world, RANGE + 10, 0, 1);
+    for (let i = 0; i < VIEW_GEM_MAX + 10; i++)
+      dropGem(
+        world,
+        i,
+        8,
+        1,
+        world.player.x,
+        world.player.y,
+        world.camera.viewRect(GEM_SWEEP_MARGIN),
+      );
+    dropGem(
+      world,
+      RANGE + 10,
+      0,
+      1,
+      world.player.x,
+      world.player.y,
+      world.camera.viewRect(GEM_SWEEP_MARGIN),
+    );
     world.gems.cols.state[0] = GEM_FLYING;
     spawnPickup(world, PICKUP_FAMILY_LIGHT, 1, 0, 20);
     spawnPickup(world, PICKUP_FAMILY_INTERFERENCE, 2, -20, 0);
@@ -127,7 +144,16 @@ describe('readView (#114, ADR 0018)', () => {
     const world = emptyWorld(-999_999.4, 999_999.6);
     for (let i = 0; i < ENEMY_CAP; i++)
       spawnEnemy(world, 'brute', world.player.x - RANGE, world.player.y - RANGE);
-    for (let i = 0; i < 100; i++) dropGem(world, world.player.x - RANGE, world.player.y, 30);
+    for (let i = 0; i < 100; i++)
+      dropGem(
+        world,
+        world.player.x - RANGE,
+        world.player.y,
+        30,
+        world.player.x,
+        world.player.y,
+        world.camera.viewRect(GEM_SWEEP_MARGIN),
+      );
     world.time = 899.999;
     const view = readView(world, createViewScratch());
     const message = JSON.stringify({ type: 'view', view });

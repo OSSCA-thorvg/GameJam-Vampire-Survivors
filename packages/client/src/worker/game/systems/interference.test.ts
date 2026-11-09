@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { Axis, RunMode } from '../../../protocol/worker-messages';
 import { createBaseWorld } from '../base-world';
 import { ENEMY_FLAG_ELITE, spawnEnemy } from '../enemies';
-import { dropGem } from '../gems';
+import { dropGem, GEM_SWEEP_MARGIN } from '../gems';
 import { PICKUP_FAMILY_INTERFERENCE } from '../pickups';
 import { countElites } from '../snapshot';
 import type { SpawnLog } from '../spawn-log';
@@ -126,7 +126,16 @@ describe('effects (#21)', () => {
   it('Gem Thief removes every gem and keeps XP and level', () => {
     const world = quietWorld();
     world.player.xp = 3;
-    for (let i = 0; i < 50; i++) dropGem(world, 300 + i * 10, 300, 1);
+    for (let i = 0; i < 50; i++)
+      dropGem(
+        world,
+        300 + i * 10,
+        300,
+        1,
+        world.player.x,
+        world.player.y,
+        world.camera.viewRect(GEM_SWEEP_MARGIN),
+      );
     const { xp, level } = world.player;
     apply(world, 'gemThief');
     expect(world.gems.count).toBe(0);
