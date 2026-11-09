@@ -280,8 +280,8 @@
 /* #129: the corner mute button, above the screens and outside menu focus. */
 #sound-toggle {
   position: fixed;
-  bottom: 0.75rem;
-  left: 0.75rem;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  left: calc(0.75rem + env(safe-area-inset-left));
   z-index: 10;
   padding: 0.3rem 0.7rem;
   border: 1px solid rgb(255 255 255 / 25%);
@@ -301,4 +301,97 @@
   font-weight: bold;
   font-variant: small-caps;
   letter-spacing: 0.04em;
+}
+
+/* #149: touch mode (`body[data-input]`, `main/input-mode.ts`). Hints and controls for one input kind only. */
+.touch-only {
+  display: none;
+}
+
+[data-input='touch'] .touch-only {
+  display: revert;
+}
+
+[data-input='touch'] .keys-only {
+  display: none;
+}
+
+[data-input='touch'] button {
+  min-height: 44px;
+}
+
+/* On a short landscape phone a screen may be taller than the window: it scrolls vertically, the page never does. */
+[data-input='touch'] .screen {
+  justify-content: safe center;
+  overflow-y: auto;
+  touch-action: pan-y;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  box-sizing: border-box;
+}
+
+.screen .menu.row {
+  flex-direction: row;
+  justify-content: center;
+}
+
+#pause-button {
+  position: fixed;
+  top: calc(0.75rem + env(safe-area-inset-top));
+  right: calc(0.75rem + env(safe-area-inset-right));
+  z-index: 10;
+  display: none;
+  min-width: 64px;
+  padding: 0.3rem 0.9rem;
+  border: 1px solid rgb(255 255 255 / 35%);
+  border-radius: 6px;
+  color: var(--screen-fg);
+  background: rgb(8 8 16 / 70%);
+  font:
+    15px/1.4 system-ui,
+    sans-serif;
+}
+
+[data-input='touch'] #pause-button:not([hidden]) {
+  display: block;
+}
+
+#rotate-hint {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: var(--screen-fg);
+  background: #080810;
+  font:
+    1.25rem/1.4 system-ui,
+    sans-serif;
+  text-align: center;
+}
+
+#rotate-hint[hidden] {
+  display: none;
+}
+
+#fullscreen {
+  font-size: 0.95rem;
+}
+
+/* Short landscape phones: smaller headings and tighter gaps so each screen fits without scrolling where it can. */
+@media (max-height: 540px) {
+  [data-input='touch'] {
+    --gap: 0.6rem;
+  }
+
+  [data-input='touch'] .screen h1 {
+    font-size: 2rem;
+  }
+
+  [data-input='touch'] .screen button {
+    padding: 0.4rem 1.1rem;
+    font-size: 1rem;
+  }
 }

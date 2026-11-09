@@ -12,12 +12,13 @@ The screens around a single-player run (#9, ADR 0009): the title screen, the cha
 - **Quit to title:** ArrowDown to "Quit to title", Enter: `state: 'title'`, `player: null`, the worker cleared the run (`endRun`) and draws an empty frame.
 - **Results:** at 0 HP (`player-health.md`) the run stops and `state: 'results'`; the screen shows "Game over", Survived (`mm:ss` of `timeS` at death, rounded down), Kills (`kills` at death, rising since #10's weapons) and Level (`player.level` at death, from #11), with "Retry" focused and "Title". Since #17 it also shows the Character and the weapons with their level and damage (most first) and the passives, and its heading is "Stage cleared" for a run that reached 15:00 (`stage-and-finale.md`). Since #143 each item the run broke in the personal records carries a "New best!" badge after its value (`.new-best`, `data-best`; `[data-stat]` still holds only the value) and a first clear shows "First clear!" (`records.md`). A run quit from the pause screen is not recorded.
 - **Retry keeps the paint count flat:** Retry starts a fresh run as the same character (`timeS` back near 0, full HP, same `characterId`, #14); `debug.paintsCreated` (the sum of `created` over every worker paint pool) is the same at boot, at the start of each of five runs and back on the title.
+- **Touch (#149):** on a touch device every step above works by taps: Start, a character card then the select's Start button (Back goes to the title), the Pause button (`#pause-button`, top right) instead of Escape, Resume, Quit to title, Retry and Title; a portrait window pauses like a hidden tab. The keyboard paths are unchanged (`touch-controls.md`).
 - **Keyboard only:** arrows and WASD move focus between buttons (wrapping), Tab moves natively, Enter activates the focused button (or the first one when focus is elsewhere). Escape does nothing on the title and results screens; on the character select it goes back to the title.
 - Snapshot fields: `state` (main thread, `main/app.ts`: `'booting'`, `'title'`, `'characterSelect'` (#14), `'playing'`, `'levelUp'` (#11), `'results'`), `characterId` (#14, `null` outside a run), `paused`, `timeS` and `player` (`null` outside a run), `enemyPositions`, `debug` (`{ paintsCreated }`, `worker/index.ts`).
 
 ## How to get to it (user POV)
 
-Open the game URL: the title screen appears once loading finishes. Press Enter, then Enter again on the character select to play, Escape to pause. A run ends when the player dies (stand still for 15–30 s). No server and no debug key are needed.
+Open the game URL: the title screen appears once loading finishes. Press Enter, then Enter again on the character select to play, Escape to pause. On a touch device, tap Start, a character and Start, and tap Pause (`touch-controls.md`). A run ends when the player dies (stand still for 15–30 s). No server and no debug key are needed.
 
 ## Driving it
 

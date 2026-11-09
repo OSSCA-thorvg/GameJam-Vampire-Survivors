@@ -154,7 +154,7 @@ export function mount(
     joinRow,
     h('div', { class: 'menu' }, [back]),
     h('p', {
-      class: 'hint',
+      class: 'hint keys-only',
       text: 'Enter creates a room, or joins once a code is entered. Escape goes back.',
     }),
   ]);

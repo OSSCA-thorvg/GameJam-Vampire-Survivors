@@ -1,0 +1,43 @@
+/* #149: the floating joystick. The layer covers the window above the canvas and under the screens; it takes touches
+   only in touch mode while a run is played (`data-active`), and draws its ring and knob only while a finger is down. */
+#touch-layer {
+  position: fixed;
+  inset: 0;
+  display: none;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+[data-input='touch'] #touch-layer[data-active='true'] {
+  display: block;
+}
+
+#touch-layer .touch-stick-ring,
+#touch-layer .touch-stick-knob {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+#touch-layer[data-dragging='true'] .touch-stick-ring,
+#touch-layer[data-dragging='true'] .touch-stick-knob {
+  display: block;
+}
+
+#touch-layer .touch-stick-ring {
+  width: 96px;
+  height: 96px;
+  border: 2px solid rgb(255 255 255 / 45%);
+  background: rgb(8 8 16 / 25%);
+}
+
+#touch-layer .touch-stick-knob {
+  width: 40px;
+  height: 40px;
+  background: rgb(255 255 255 / 60%);
+}

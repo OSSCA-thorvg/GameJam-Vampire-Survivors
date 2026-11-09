@@ -15,18 +15,26 @@ const KEY_DIRECTIONS: Readonly<Record<string, Direction>> = {
 
 const ARROW_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
 
+export interface Input {
+  /** #149: the touch joystick's direction, used while no movement key is held. */
+  setTouchAxis(dx: Axis, dy: Axis): void;
+}
+
 /**
- * Keyboard → direction (ADR 0004). Tracks the pressed movement keys and calls `send` only when the resulting
- * direction changes. Blur and hiding the tab release every key. The worker normalizes diagonals.
+ * Keyboard and touch → direction (ADR 0004). Tracks the pressed movement keys and calls `send` only when the resulting
+ * direction changes. While any movement key is held the keys decide; otherwise the touch axis (#149) does. Blur and
+ * hiding the tab release every key and the touch axis. The worker normalizes diagonals.
  */
 export function createInput(
   target: Pick<Document, 'addEventListener'>,
   win: Pick<Window, 'addEventListener'>,
   send: (dx: Axis, dy: Axis) => void,
-): void {
+): Input {
   const pressed = new Set<string>();
   let lastDx: Axis = 0;
   let lastDy: Axis = 0;
+  let touchDx: Axis = 0;
+  let touchDy: Axis = 0;
 
   const held = (direction: Direction): number => {
     for (const code of pressed) if (KEY_DIRECTIONS[code] === direction) return 1;
@@ -34,8 +42,9 @@ export function createInput(
   };
 
   const update = (): void => {
-    const dx = (held('right') - held('left')) as Axis;
-    const dy = (held('down') - held('up')) as Axis;
+    const keys = pressed.size > 0;
+    const dx = keys ? ((held('right') - held('left')) as Axis) : touchDx;
+    const dy = keys ? ((held('down') - held('up')) as Axis) : touchDy;
     if (dx === lastDx && dy === lastDy) return;
     lastDx = dx;
     lastDy = dy;
@@ -44,6 +53,8 @@ export function createInput(
 
   const releaseAll = (): void => {
     pressed.clear();
+    touchDx = 0;
+    touchDy = 0;
     update();
   };
 
@@ -62,4 +73,11 @@ export function createInput(
   target.addEventListener('visibilitychange', () => {
     if ((target as Partial<Pick<Document, 'hidden'>>).hidden === true) releaseAll();
   });
+  return {
+    setTouchAxis(dx, dy) {
+      touchDx = dx;
+      touchDy = dy;
+      update();
+    },
+  };
 }

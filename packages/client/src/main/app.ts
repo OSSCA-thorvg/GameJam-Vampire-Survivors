@@ -387,6 +387,11 @@ export interface App {
   banners(): string[];
   /** #143: the personal records, what the last recorded run broke, and whether storage works (the test bridge). */
   recordsSnapshot(): { data: Records; lastBreaks: RecordBreaks | null; persisted: boolean };
+  /**
+   * #149: calls `listener` with the new state after every transition, once its screen is shown (the touch joystick,
+   * the pause button and the portrait hint follow it). Returns the unsubscribe.
+   */
+  onStateChange(listener: (state: AppState) => void): () => void;
 }
 
 /**
@@ -473,6 +478,8 @@ export function createApp(
   let recordsScreen: Screen<RecordsProps> | null = null;
   /** The mounted pause screen (#129), updated in place when the sound settings change (the `M` key, the toggle). */
   let pause: Screen<PauseProps> | null = null;
+  /** #149: told after every transition. */
+  const stateListeners = new Set<(state: AppState) => void>();
 
   const openNet = (): NetClient | null => {
     if (net) return net;
@@ -793,6 +800,7 @@ export function createApp(
       if (next.name === 'title') closeNet();
       show();
       sound.screen(state);
+      for (const listener of stateListeners) listener(state);
       if (next.name === 'multiplayerEntry' && from.name !== 'multiplayerEntry') connect();
       for (const message of messages) post(message);
     },
@@ -830,6 +838,12 @@ export function createApp(
     },
     recordsSnapshot() {
       return { data: records.read(), lastBreaks, persisted: records.persisted };
+    },
+    onStateChange(listener) {
+      stateListeners.add(listener);
+      return () => {
+        stateListeners.delete(listener);
+      };
     },
   };
 
