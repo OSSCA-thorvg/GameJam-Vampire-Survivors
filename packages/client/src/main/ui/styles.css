@@ -203,3 +203,48 @@
   margin: 0;
   opacity: 0.6;
 }
+
+/* #123: a runtime worker error after `ready`. Appended to <body>, outside #app and the canvas; it leaves the canvas
+   centre clear and takes no focus, so menu and gameplay keys keep working. */
+#runtime-error {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: 640px;
+  padding: 0.5rem 0.75rem;
+  color: var(--screen-fg);
+  background: var(--screen-bg);
+  border-left: 4px solid var(--accent);
+  font:
+    14px/1.4 system-ui,
+    sans-serif;
+}
+
+#runtime-error p {
+  margin: 0 0 0.25rem;
+}
+
+#runtime-error .runtime-error-detail {
+  opacity: 0.8;
+  overflow-wrap: anywhere;
+}
+
+#runtime-error .runtime-error-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+#runtime-error button {
+  padding: 0.25rem 0.75rem;
+  color: var(--screen-fg);
+  background: var(--button-bg);
+  border: 1px solid transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+#runtime-error button:focus-visible {
+  outline: 2px solid var(--focus);
+}
