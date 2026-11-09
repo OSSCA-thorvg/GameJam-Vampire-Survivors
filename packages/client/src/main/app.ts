@@ -26,6 +26,9 @@ import {
 import { browserSocket } from './net/browser-socket';
 import { NetClient, type NetState } from './net/client';
 import { SERVER_URL } from './net/config';
+import type { RecordBreaks } from './records/apply';
+import type { Records } from './records/format';
+import { createMemoryRecords, type RecordsStore } from './records/store';
 import { loadNickname, saveNickname } from './storage';
 import type { AssetUrl } from './ui/asset-url';
 import { mount as mountCharacterSelect, type CharacterSelectProps } from './ui/character-select';
@@ -40,6 +43,7 @@ import {
   type ServerError,
 } from './ui/multiplayer-entry';
 import { mount as mountPause, type PauseProps } from './ui/pause';
+import { mount as mountRecords, type RecordsProps } from './ui/records';
 import { mount as mountResults } from './ui/results';
 import { mount as mountTitle } from './ui/title';
 import { mount as mountVersusResult, type VersusResult } from './ui/versus-result';
@@ -80,6 +84,8 @@ export type AppState =
   /** #15: the worker paused the run while the chest overlay shows its rewards. */
   | { name: 'chest'; rewards: ChestReward[] }
   | { name: 'results'; stats: RunSummary }
+  /** #143: the personal records; `confirming` while the in-page reset confirm step shows. */
+  | { name: 'records'; confirming: boolean }
   /** #20: the versus match runs; Escape and a hidden tab do nothing (the world keeps simulating). */
   | ({ name: 'versusPlaying'; overlay: VersusOverlay } & VersusRoom)
   /** #20: the match is over: the server's result, or the local one when offline. */
@@ -89,6 +95,11 @@ export type AppEvent =
   | { type: 'start' }
   /** #19: the title's Multiplayer button. */
   | { type: 'multiplayer' }
+  /** #143: the title's Records button; then the reset request, its cancel and its confirm on the Records screen. */
+  | { type: 'records' }
+  | { type: 'resetRequest' }
+  | { type: 'resetCancel' }
+  | { type: 'resetConfirm' }
   /** #19: a `roomState` from the server; `selfId` is this client's `playerId`. */
   | { type: 'roomState'; room: RoomState; selfId: string }
   /** #19: a `matchStart` from the server. */
@@ -144,7 +155,20 @@ export function reduce(
         return { name: 'characterSelect', selectedId: lastCharacter, purpose: 'single' };
       if (event.type === 'multiplayer')
         return { name: 'characterSelect', selectedId: lastCharacter, purpose: 'versus' };
+      if (event.type === 'records') return { name: 'records', confirming: false };
       return state;
+    case 'records':
+      switch (event.type) {
+        case 'back':
+          return { name: 'title' };
+        case 'resetRequest':
+          return state.confirming ? state : { name: 'records', confirming: true };
+        case 'resetCancel':
+        case 'resetConfirm':
+          return state.confirming ? { name: 'records', confirming: false } : state;
+        default:
+          return state;
+      }
     case 'characterSelect':
       switch (event.type) {
         case 'select':
@@ -361,6 +385,8 @@ export interface App {
   interferenceCollected(kind: InterferenceKind): void;
   /** The interference banners shown now (#21); empty outside a versus match. */
   banners(): string[];
+  /** #143: the personal records, what the last recorded run broke, and whether storage works (the test bridge). */
+  recordsSnapshot(): { data: Records; lastBreaks: RecordBreaks | null; persisted: boolean };
 }
 
 /**
@@ -405,6 +431,8 @@ const randomSeed = (): number => crypto.getRandomValues(new Uint32Array(1))[0] ?
  * stays until the player resumes). The level-up screen (#11) and the chest overlay (#15) ignore both; `iconUrl`
  * resolves their icons and the character select's portraits (#14). `setPanes` (#115, ADR 0018) switches the canvas to two
  * panes on entering `versusPlaying` and back to one on leaving `versusResult`, whose screen keeps the last split frame.
+ * `records` (#143, ADR 0022) keeps the personal records: a single-player run is recorded only on `playing` →
+ * `results`, so a versus match (which never enters `results`) and a quit run (no `gameOver`) never are.
  */
 export function createApp(
   root: HTMLElement,
@@ -415,11 +443,12 @@ export function createApp(
   createVersus: CreateVersus = createVersusController,
   setPanes: (panes: 1 | 2) => void = () => undefined,
   sound: AppSound = SILENT_SOUND,
+  records: RecordsStore = createMemoryRecords(),
 ): App {
   const doc = root.ownerDocument;
   let state: AppState = { name: 'title' };
   let screen: Screen<never> | null = null;
-  /** Kept only in memory for this session (#14); nothing is persisted between runs. */
+  /** Kept only in memory for this session (#14); the last choice is not persisted. */
   let lastCharacter = DEFAULT_CHARACTER_ID;
   /** The mounted select screen, updated in place while the selection moves. */
   let select: Screen<CharacterSelectProps> | null = null;
@@ -438,6 +467,10 @@ export function createApp(
   let lobby: Screen<LobbyProps> | null = null;
   /** The running versus match (#20); `null` outside `versusPlaying`, so single player never creates one. */
   let versus: VersusController | null = null;
+  /** What the last recorded run broke (#143); `null` before any and after a reset. */
+  let lastBreaks: RecordBreaks | null = null;
+  /** The mounted Records screen (#143), updated in place while the state stays `records`. */
+  let recordsScreen: Screen<RecordsProps> | null = null;
   /** The mounted pause screen (#129), updated in place when the sound settings change (the `M` key, the toggle). */
   let pause: Screen<PauseProps> | null = null;
 
@@ -558,9 +591,27 @@ export function createApp(
     pause?.update(pauseProps());
   });
 
+  const recordsProps = (s: Extract<AppState, { name: 'records' }>): RecordsProps => ({
+    records: records.read(),
+    confirming: s.confirming,
+    onBack: () => {
+      app.dispatch({ type: 'back' });
+    },
+    onResetRequest: () => {
+      app.dispatch({ type: 'resetRequest' });
+    },
+    onResetCancel: () => {
+      app.dispatch({ type: 'resetCancel' });
+    },
+    onResetConfirm: () => {
+      app.dispatch({ type: 'resetConfirm' });
+    },
+  });
+
   const selectProps = (selectedId: CharacterId): CharacterSelectProps => ({
     characters: CHARACTERS,
     selectedId,
+    bests: records.read().characters,
     assetUrl: iconUrl,
     onSelect: (id) => {
       app.dispatch({ type: 'select', id });
@@ -586,11 +637,16 @@ export function createApp(
       lobby.update(lobbyProps(state));
       return;
     }
+    if (recordsScreen && state.name === 'records') {
+      recordsScreen.update(recordsProps(state));
+      return;
+    }
     screen?.unmount();
     screen = null;
     select = null;
     entry = null;
     lobby = null;
+    recordsScreen = null;
     pause = null;
     switch (state.name) {
       case 'characterSelect':
@@ -615,7 +671,14 @@ export function createApp(
           onMultiplayer: () => {
             app.dispatch({ type: 'multiplayer' });
           },
+          onRecords: () => {
+            app.dispatch({ type: 'records' });
+          },
         });
+        break;
+      case 'records':
+        recordsScreen = mountRecords(root, recordsProps(state));
+        screen = recordsScreen;
         break;
       case 'playing':
         if (state.paused) {
@@ -677,6 +740,7 @@ export function createApp(
       case 'results':
         screen = mountResults(root, {
           stats: state.stats,
+          breaks: lastBreaks,
           onRetry: () => {
             app.dispatch({ type: 'retry' });
           },
@@ -708,6 +772,13 @@ export function createApp(
         lastCharacter = state.selectedId;
       const from = state;
       state = next;
+      // #143: the only call that records a run. A versus `gameOver` keeps `versusPlaying` (#20), so it never gets here.
+      if (from.name === 'playing' && next.name === 'results' && event.type === 'gameOver')
+        lastBreaks = records.record(event.stats, Date.now());
+      if (event.type === 'resetConfirm' && from.name === 'records' && from.confirming) {
+        records.reset();
+        lastBreaks = null;
+      }
       if (from.name === 'versusPlaying' && next.name !== 'versusPlaying') {
         versus?.dispose();
         versus = null;
@@ -756,6 +827,9 @@ export function createApp(
     },
     banners() {
       return versus?.banners() ?? [];
+    },
+    recordsSnapshot() {
+      return { data: records.read(), lastBreaks, persisted: records.persisted };
     },
   };
 

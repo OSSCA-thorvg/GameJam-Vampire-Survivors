@@ -1835,6 +1835,7 @@ test('versus 10b: single player at 1600 x 900 keeps one full view with no YOU la
 
 ## Gotchas
 
+- Versus runs never change the personal records: the `records` snapshot field (`totals.runs`, `recent`) is the same before and after a match on both pages (`records.md` journey 6, 2026-11-09, #143).
 - A Warden standing still dies in about 15–40 s; journeys that measure anything first press `I` in both pages, and journey 1 turns it off in A only for the death (2026-11-09, #20).
 - Two pages that do the same thing (no movement, `1` on every dialog) play identical worlds, so their kills tie and the 15:00 result is a Draw; journey 3 walks B for 3 s first so the kills differ (2026-11-09, #20).
 - The panel shows "forfeited" or "dead" only for the 100 ms between `playerEliminated` and `matchResult` when that ends the match; the result's ranking keeps the reason, so check it there (2026-11-09, #20).

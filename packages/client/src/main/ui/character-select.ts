@@ -1,4 +1,11 @@
-import { formatModifier, WEAPONS, type CharacterDef, type CharacterId } from '@vs/shared';
+import {
+  formatClock,
+  formatModifier,
+  WEAPONS,
+  type CharacterDef,
+  type CharacterId,
+} from '@vs/shared';
+import type { BestSet } from '../records/format';
 import type { AssetUrl } from './asset-url';
 import { h, type Screen } from './dom';
 import './character-select.css';
@@ -8,6 +15,8 @@ export interface CharacterSelectProps {
   selectedId: CharacterId;
   /** Portrait and weapon icon URLs (`loadAssetUrls`); `null` draws a magenta box. */
   assetUrl: AssetUrl;
+  /** #143: personal bests by character ID (`records.read().characters`); a character without one shows `--:--`. */
+  bests: Readonly<Record<string, BestSet>>;
   onSelect: (id: CharacterId) => void;
   onConfirm: (id: CharacterId) => void;
   onBack: () => void;
@@ -23,7 +32,23 @@ function image(url: string | null, cls: string, alt: string): HTMLElement {
     : h('span', { class: `${cls} missing`, 'aria-hidden': 'true' });
 }
 
-function card(c: CharacterDef, assetUrl: AssetUrl, events: Record<string, () => void>) {
+const bestOf = (bests: Readonly<Record<string, BestSet>>, id: string): BestSet | undefined =>
+  Object.hasOwn(bests, id) ? bests[id] : undefined;
+
+/** Writes a card's best time and cleared mark (#143), text only. */
+function showBest(time: HTMLElement, cleared: HTMLElement, best: BestSet | undefined): void {
+  time.textContent = best ? `Best ${formatClock(best.timeSec)}` : 'Best --:--';
+  // The mark is in the card only while the character has a clear.
+  if (best?.cleared === true) time.after(cleared);
+  else cleared.remove();
+}
+
+function card(
+  c: CharacterDef,
+  assetUrl: AssetUrl,
+  events: Record<string, () => void>,
+  best: { time: HTMLElement; cleared: HTMLElement },
+) {
   const weapon = WEAPONS[c.startingWeaponId];
   return h(
     'button',
@@ -49,6 +74,7 @@ function card(c: CharacterDef, assetUrl: AssetUrl, events: Record<string, () => 
         { class: 'character-mods' },
         c.modifiers.map((m) => h('li', { text: formatModifier(m) })),
       ),
+      h('span', { class: 'character-record' }, [best.time]),
     ],
   );
 }
@@ -57,7 +83,8 @@ function card(c: CharacterDef, assetUrl: AssetUrl, events: Record<string, () => 
  * The character select (#14, ADR 0009): one card per character in a `role="listbox"`, each with its portrait, name,
  * description, starting weapon and formatted modifiers, all from content data and set with `textContent` (ADR 0011).
  * Left/Right or A/D move the selection (wrapping), Enter confirms, Escape goes back; a click selects a card and a
- * double-click confirms it. The selected card is focused and has `aria-selected="true"`.
+ * double-click confirms it. The selected card is focused and has `aria-selected="true"`. Each card also shows the
+ * character's personal best time and a `Cleared` mark once it cleared 15:00 (#143), for both purposes.
  */
 export function mount(
   root: HTMLElement,
@@ -76,18 +103,27 @@ export function mount(
     done = true;
     current.onConfirm(id);
   };
-  const cards = props.characters.map((c) =>
-    card(c, props.assetUrl, {
-      'on:click': () => {
-        current.onSelect(c.id);
+  const bestEls = props.characters.map((c) => ({
+    time: h('span', { class: 'character-best', 'data-best-time': c.id }),
+    cleared: h('span', { class: 'character-cleared', text: 'Cleared' }),
+  }));
+  const cards = props.characters.map((c, i) =>
+    card(
+      c,
+      props.assetUrl,
+      {
+        'on:click': () => {
+          current.onSelect(c.id);
+        },
+        'on:dblclick': () => {
+          confirm(c.id);
+        },
+        'on:focus': () => {
+          current.onSelect(c.id);
+        },
       },
-      'on:dblclick': () => {
-        confirm(c.id);
-      },
-      'on:focus': () => {
-        current.onSelect(c.id);
-      },
-    }),
+      bestEls[i] ?? { time: h('span'), cleared: h('span') },
+    ),
   );
   const el = h('section', { class: 'screen character-select', 'aria-labelledby': 'cs-heading' }, [
     h('h2', { id: 'cs-heading', text: 'Choose your character' }),
@@ -95,6 +131,10 @@ export function mount(
     h('p', { class: 'hint', text: 'Left and Right choose, Enter starts, Escape goes back.' }),
   ]);
   const show = (): void => {
+    props.characters.forEach((c, i) => {
+      const els = bestEls[i];
+      if (els) showBest(els.time, els.cleared, bestOf(current.bests, c.id));
+    });
     const selected = index();
     cards.forEach((c, i) => {
       c.setAttribute('aria-selected', String(i === selected));

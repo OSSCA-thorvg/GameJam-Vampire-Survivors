@@ -1,6 +1,6 @@
 # 0008. Data-driven game content and the content scope
 
-- Status: Accepted; art roster scope extended by [0016](0016-generate-raster-art-with-cached-image-lottie.md); the character roster amended to 4 by #14
+- Status: Accepted; art roster scope extended by [0016](0016-generate-raster-art-with-cached-image-lottie.md); the character roster amended to 4 by #14; partly superseded by [0022](0022-keep-personal-records-in-local-storage.md) (the "persistent save" exclusion now covers run progress and unlocks, not read-only personal records)
 - Date: 2026-11-07
 
 ## Context

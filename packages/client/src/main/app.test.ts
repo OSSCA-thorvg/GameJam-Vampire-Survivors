@@ -14,6 +14,8 @@ import {
 } from './app';
 import { createVersusController } from './match/versusController';
 import { NetClient, type OpenSocket, type SocketHandlers } from './net/client';
+import type { RecordBreaks } from './records/apply';
+import { createMemoryRecords, type RecordsStore } from './records/store';
 
 const stats: RunSummary = {
   timeSec: 75.4,
@@ -698,7 +700,7 @@ describe('createApp versus flow (happy-dom, fake socket and worker port)', () =>
   const button = (name: string) =>
     [...document.querySelectorAll('button')].find((b) => b.textContent === name);
 
-  async function inLobby(sound: AppSound = SILENT_SOUND) {
+  async function inLobby(sound: AppSound = SILENT_SOUND, records?: RecordsStore) {
     document.body.replaceChildren();
     const root = document.createElement('div');
     document.body.append(root);
@@ -723,6 +725,7 @@ describe('createApp versus flow (happy-dom, fake socket and worker port)', () =>
       },
       (n) => panes.push(n),
       sound,
+      records,
     );
     const socket = () => {
       const s = sockets.at(-1);
@@ -864,6 +867,21 @@ describe('createApp versus flow (happy-dom, fake socket and worker port)', () =>
     expect(t.panes).toEqual([2, 1]);
   });
 
+  it('#143 safety fact: a versus gameOver (died and survived) and its result record nothing', async () => {
+    const { store, calls } = countingRecords();
+    const t = await inLobby(SILENT_SOUND, store);
+    expect(t.app.state.name).toBe('versusPlaying');
+    t.app.dispatch({ type: 'gameOver', stats });
+    t.app.dispatch({ type: 'gameOver', stats: { ...stats, cleared: true } });
+    t.serverSays({ type: 'matchResult', outcome: 'draw', winnerId: null, ranking: [] });
+    expect(t.app.state.name).toBe('versusResult');
+    button('Leave')?.click();
+    expect(t.app.state).toEqual(title);
+    expect(calls.record).toEqual([]);
+    expect(t.app.recordsSnapshot().data.totals.runs).toBe(0);
+    expect(t.app.recordsSnapshot().lastBreaks).toBeNull();
+  });
+
   it('safety fact: a single-player run creates no versusController, relays no status and opens no WebSocket', () => {
     document.body.replaceChildren();
     const root = document.createElement('div');
@@ -914,5 +932,159 @@ describe('createApp versus flow (happy-dom, fake socket and worker port)', () =>
     expect(nets).toBe(0);
     expect(versus).toBe(0);
     expect(posted).toEqual([{ type: 'startRun', seed: 5, characterId: 'warden', mode: 'single' }]);
+  });
+});
+
+/** A `RecordsStore` that counts calls over the real in-memory store (#143). */
+function countingRecords() {
+  const inner = createMemoryRecords();
+  const calls = { record: [] as RunSummary[], reset: 0 };
+  const store: RecordsStore = {
+    read: () => inner.read(),
+    record(summary, at): RecordBreaks {
+      calls.record.push(summary);
+      return inner.record(summary, at);
+    },
+    reset() {
+      calls.reset++;
+      inner.reset();
+    },
+    get persisted() {
+      return inner.persisted;
+    },
+  };
+  return { store, calls };
+}
+
+describe('records (#143)', () => {
+  const recordsState: AppState = { name: 'records', confirming: false };
+  const confirming: AppState = { name: 'records', confirming: true };
+
+  it.each<[AppState, AppEvent, AppState]>([
+    [title, { type: 'records' }, recordsState],
+    [recordsState, { type: 'back' }, title],
+    [recordsState, { type: 'resetRequest' }, confirming],
+    [confirming, { type: 'resetCancel' }, recordsState],
+    [confirming, { type: 'resetConfirm' }, recordsState],
+  ])('reduce %j + %j', (from, event, to) => {
+    expect(reduce(from, event)).toEqual(to);
+  });
+
+  it.each<[AppState, AppEvent]>([
+    [recordsState, { type: 'resetCancel' }],
+    [recordsState, { type: 'resetConfirm' }],
+    [confirming, { type: 'resetRequest' }],
+    [recordsState, { type: 'start' }],
+    [recordsState, { type: 'gameOver', stats }],
+    [playing, { type: 'records' }],
+  ])('keeps %j on %j', (from, event) => {
+    expect(reduce(from, event)).toBe(from);
+  });
+
+  it('sends no worker message for the records transitions', () => {
+    for (const [from, to] of [
+      [title, recordsState],
+      [recordsState, confirming],
+      [confirming, recordsState],
+      [recordsState, title],
+    ] as const)
+      expect(effects(from, to, () => 1)).toEqual([]);
+  });
+
+  function setup(store: RecordsStore) {
+    document.body.replaceChildren();
+    const root = document.createElement('div');
+    document.body.append(root);
+    const app = createApp(
+      root,
+      () => undefined,
+      () => 1,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      store,
+    );
+    return { root, app };
+  }
+  const key = (code: string) =>
+    document.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }));
+  const button = (name: string) =>
+    [...document.querySelectorAll('button')].find((b) => b.textContent === name);
+
+  it('records a single-player run once on playing → results, and again after Retry', () => {
+    const { store, calls } = countingRecords();
+    const { app, root } = setup(store);
+    app.dispatch({ type: 'start' });
+    app.dispatch({ type: 'confirm' });
+    app.dispatch({ type: 'gameOver', stats });
+    expect(calls.record).toEqual([stats]);
+    expect(app.recordsSnapshot().data.totals.runs).toBe(1);
+    expect(app.recordsSnapshot().lastBreaks?.timeSec).toBe('overall');
+    expect(root.querySelector('[data-best="time"]')?.getAttribute('data-scope')).toBe('overall');
+    // A second gameOver while on results is no transition.
+    app.dispatch({ type: 'gameOver', stats });
+    expect(calls.record).toHaveLength(1);
+    app.dispatch({ type: 'retry' });
+    app.dispatch({ type: 'gameOver', stats });
+    expect(calls.record).toHaveLength(2);
+    // Equal values: no badge this time.
+    expect(root.querySelector('[data-best="time"]')).toBeNull();
+  });
+
+  it('does not record a run quit from the pause screen', () => {
+    const { store, calls } = countingRecords();
+    const { app } = setup(store);
+    app.dispatch({ type: 'start' });
+    app.dispatch({ type: 'confirm' });
+    app.dispatch({ type: 'pauseToggle' });
+    app.dispatch({ type: 'quitToTitle' });
+    expect(app.state).toEqual(title);
+    expect(calls.record).toEqual([]);
+  });
+
+  it('shows the bests on the character select', () => {
+    const { store } = countingRecords();
+    store.record({ ...stats, characterId: 'swift', timeSec: 754.6, cleared: true }, 1);
+    const { app, root } = setup(store);
+    app.dispatch({ type: 'start' });
+    expect(root.querySelector('[data-best-time="swift"]')?.textContent).toBe('Best 12:34');
+    expect(root.querySelector('[data-character="swift"] .character-cleared')?.textContent).toBe(
+      'Cleared',
+    );
+    expect(root.querySelector('[data-best-time="warden"]')?.textContent).toBe('Best --:--');
+  });
+
+  it('title → Records → reset request → confirm resets once; cancel keeps the data; Escape goes back', () => {
+    const { store, calls } = countingRecords();
+    store.record(stats, 1);
+    const { app, root } = setup(store);
+    key('ArrowDown');
+    key('ArrowDown');
+    expect(document.activeElement).toBe(button('Records'));
+    button('Records')?.click();
+    expect(app.state).toEqual(recordsState);
+    expect(root.querySelectorAll('[data-run-index]')).toHaveLength(1);
+    // resetConfirm without a request does nothing.
+    app.dispatch({ type: 'resetConfirm' });
+    expect(calls.reset).toBe(0);
+    button('Reset records')?.click();
+    expect(app.state).toEqual(confirming);
+    button('Cancel')?.click();
+    expect(app.state).toEqual(recordsState);
+    expect(calls.reset).toBe(0);
+    expect(store.read().totals.runs).toBe(1);
+    button('Reset records')?.click();
+    button('Delete records')?.click();
+    expect(calls.reset).toBe(1);
+    expect(app.recordsSnapshot()).toEqual({
+      data: createMemoryRecords().read(),
+      lastBreaks: null,
+      persisted: false,
+    });
+    expect(root.querySelector('p.hint')?.textContent).toBe('No runs yet.');
+    key('Escape');
+    expect(app.state).toEqual(title);
   });
 });

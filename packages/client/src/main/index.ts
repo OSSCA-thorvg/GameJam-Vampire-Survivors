@@ -4,6 +4,7 @@ import './style.css';
 import type { GameWorkerToMain, MainToWorker, WorkerToMain } from '../protocol/worker-messages';
 import { assertNever } from '../protocol/assert-never';
 import { createApp, type App } from './app';
+import { createRecordsStore } from './records/store';
 import { installDebugTools, recordStats, registerDebugKey } from './debug';
 import { createInput } from './input';
 import { checkSupport } from './support';
@@ -170,6 +171,7 @@ async function boot(): Promise<void> {
       undefined,
       setPanes,
       director,
+      createRecordsStore(),
     );
     soundToggle = mountSoundToggle(document.body, {
       muted: director.settings().muted,
@@ -181,6 +183,8 @@ async function boot(): Promise<void> {
     app = started;
     if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
       registerMainSnapshotField('state', () => started.state.name);
+      // #143: the personal records, what the last run broke, and whether storage works.
+      registerMainSnapshotField('records', () => started.recordsSnapshot());
       // #115: the canvas layout and how many panes it was asked for.
       registerMainSnapshotField('layout', () => ({
         layout: resizer.viewport.layout,
