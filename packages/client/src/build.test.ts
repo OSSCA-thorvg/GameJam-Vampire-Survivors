@@ -35,3 +35,39 @@ it('excludes the stress scene and its counters from normal production JavaScript
     expect(source).not.toContain('unsupported scenario');
   }
 });
+
+/**
+ * #22's safety fact: the normal production bundle ships the perf overlay behind `?perf` but no debug keys, cheats or
+ * stress scenarios. Only string literals are checked: minification renames functions such as `registerDebugKey`, so
+ * their absence would prove nothing.
+ */
+it('ships the ?perf overlay but no debug tool or stress scenario strings', () => {
+  const dist = fileURLToPath(new URL('../dist/', import.meta.url));
+  const sources = readdirSync(dist, { recursive: true, encoding: 'utf8' })
+    .filter((file) => file.endsWith('.js'))
+    .map((file) => readFileSync(join(dist, file), 'utf8'));
+  const all = sources.join('\n');
+  // The main thread reads `?perf`; the worker's overlay draws these labels.
+  expect(all).toMatch(/\.has\(["'`]perf["'`]\)/);
+  expect(all).toContain('ms/step');
+  expect(all).toContain(' p95 ');
+  for (const forbidden of [
+    '__vsTest',
+    '__vsDebug',
+    'testSnapshot',
+    'togglePerfOverlay',
+    // Debug command kinds (`fastForward` is also the loop's own method name, so it is not listed).
+    'grantWeapon',
+    'spawnBoss',
+    'forceEvolution',
+    'toggleInvulnerable',
+    'enemies-400',
+    'enemies-800',
+    'enemies-1200',
+    'projectiles-max',
+    'gems-flood',
+    'lottie-enemy',
+    '[stress]',
+  ])
+    expect(all, forbidden).not.toContain(forbidden);
+});

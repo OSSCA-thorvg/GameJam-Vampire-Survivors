@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { expect, it, vi } from 'vitest';
 import { fakePaintLibrary } from '../render/pool-test-helpers';
-import { createStressScene, parseStressCount } from './stress';
+import { createStressScene, parseStress, parseStressCount, STRESS_SCENARIO_NAMES } from './stress';
 
 it('keeps all 3000 paints reused through 600 fixed steps and five churn cycles', () => {
   const library = fakePaintLibrary(false);
@@ -39,4 +41,34 @@ it('supports zero/small scenes, caps numeric counts and refuses reserved named s
       churnCycles: 2,
     });
   }
+});
+
+it('parses the named #22 scenarios before numeric counts', () => {
+  expect(parseStress('enemies-800')).toEqual({ scenario: 'enemies-800' });
+  expect(parseStress('lottie-enemy-shared')).toEqual({ scenario: 'lottie-enemy-shared' });
+  expect(parseStress('300')).toEqual({ count: 300 });
+  expect(parseStress('')).toBeNull();
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  expect(parseStress('toString')).toBeNull();
+  expect(warn).toHaveBeenCalledTimes(1);
+  warn.mockRestore();
+});
+
+it('lists every scenario name in the production bundle guard', () => {
+  const guard = readFileSync(
+    fileURLToPath(new URL('../../../../../scripts/verify/check-prod-bundle.mjs', import.meta.url)),
+    'utf8',
+  );
+  for (const name of STRESS_SCENARIO_NAMES) expect(guard).toContain(`'${name}'`);
+});
+
+it('draws a pooled lottie scene without churn when asked', () => {
+  const library = fakePaintLibrary(false);
+  const scene = createStressScene(library, library.layer, 400, () => 0, {
+    assetId: 'enemy.lottieTest',
+    churn: false,
+  });
+  for (let step = 0; step < 240; step++) scene.step(1 / 60);
+  expect(scene.snapshot()).toMatchObject({ entities: 400, paintsCreated: 400, churnCycles: 0 });
+  expect(library.create).toHaveBeenCalledWith('enemy.lottieTest');
 });

@@ -1,5 +1,5 @@
 import type { Scene } from '@thorvg/webcanvas';
-import { createRng } from '@vs/shared';
+import { createRng, type DrawableAssetId } from '@vs/shared';
 import type { AssetLibrary } from '../assets/library';
 import { createStore } from '../ecs/store';
 import { createSpatialGrid } from '../ecs/spatial-grid';
@@ -22,7 +22,54 @@ export interface StressScene {
   readonly paintsCreated: number;
 }
 
-/** Empty means normal boot. Invalid named scenarios are reserved for #22. */
+/**
+ * The named `?stress=<name>` scenarios (#22), as data: each runs for `STRESS_MEASURE_MS` after `STRESS_WARMUP_MS` and
+ * posts a `stressResult`. `world` scenarios run the real game world and view, with the player invulnerable and the
+ * stores sized to `enemies`/`projectiles`/`gems` past the caps; `lottie` scenarios draw `count` `enemy.lottieTest`
+ * instances, either one `LottieAnimation` each (`perEnemy`) or duplicated from one shared animation every frame.
+ * `scripts/verify/check-prod-bundle.mjs` rejects every name in the normal production bundle.
+ */
+export const STRESS_SCENARIOS = {
+  'enemies-400': { kind: 'world', enemies: 400 },
+  'enemies-800': { kind: 'world', enemies: 800 },
+  'enemies-1200': { kind: 'world', enemies: 1200 },
+  'projectiles-max': { kind: 'world', enemies: 300, maxWeapons: true },
+  'gems-flood': { kind: 'world', enemies: 0, gems: 1000 },
+  'lottie-enemy': { kind: 'lottie', count: 400, mode: 'perEnemy' },
+  'lottie-enemy-shared': { kind: 'lottie', count: 400, mode: 'shared' },
+} as const satisfies Record<string, StressScenario>;
+
+export type StressScenario =
+  | {
+      kind: 'world';
+      /** Live enemies kept by respawning, ignoring `ENEMY_CAP`; 0 leaves the normal spawner alone. */
+      enemies: number;
+      /** Fill every weapon slot with the projectile weapons and King Bible at max level, and max every passive. */
+      maxWeapons?: boolean;
+      /** Blue gems dropped at the start without merging; later drops merge as usual. */
+      gems?: number;
+    }
+  | { kind: 'lottie'; count: number; mode: 'perEnemy' | 'shared' };
+export type StressScenarioName = keyof typeof STRESS_SCENARIOS;
+export const STRESS_SCENARIO_NAMES = Object.keys(STRESS_SCENARIOS) as StressScenarioName[];
+
+/** Warm-up before measuring (pool growth, first Lottie loads), then the measured window. */
+export const STRESS_WARMUP_MS = 5000;
+export const STRESS_MEASURE_MS = 60_000;
+
+const isScenarioName = (value: string): value is StressScenarioName =>
+  Object.hasOwn(STRESS_SCENARIOS, value);
+
+/** A named scenario, #6's numeric count, or `null` (normal boot; an unsupported value warns once). */
+export function parseStress(
+  value: string,
+): { scenario: StressScenarioName } | { count: number } | null {
+  if (isScenarioName(value)) return { scenario: value };
+  const count = parseStressCount(value);
+  return count === null ? null : { count };
+}
+
+/** Empty means normal boot. An unsupported value (not a number, not a scenario name) warns and returns `null`. */
 export function parseStressCount(value: string): number | null {
   if (value === '') return null;
   const count = Number(value);
@@ -39,6 +86,8 @@ export function createStressScene(
   layer: Pick<Scene, 'add'>,
   count: number,
   now: () => number = () => performance.now(),
+  /** #22's `lottie-enemy` draws `enemy.lottieTest` without churn; #6's numeric scene churns `enemy.bat`. */
+  { assetId = 'enemy.bat', churn = true }: { assetId?: DrawableAssetId; churn?: boolean } = {},
 ): StressScene {
   if (!Number.isInteger(count) || count < 0 || count > 4096)
     throw new RangeError('Stress count must be an integer from 0 to 4096');
@@ -47,7 +96,7 @@ export function createStressScene(
     Math.max(1, count),
   );
   const { x, y, vx, vy } = store.cols;
-  const pool = new PaintPool(library, 'enemy.bat', layer, count);
+  const pool = new PaintPool(library, assetId, layer, count);
   const binding = new RenderBinding(store, [pool]);
   const grid = createSpatialGrid({ cellSize: 64, buckets: 4096, maxItems: count });
   const neighbours = new Int32Array(count);
@@ -111,7 +160,7 @@ export function createStressScene(
       const started = now();
       move(dt);
       separate(dt);
-      churnTime += dt;
+      if (churn) churnTime += dt;
       if (churnTime >= 2 - 1e-9) {
         churnTime -= 2;
         const removed = Math.min(1000, store.count);

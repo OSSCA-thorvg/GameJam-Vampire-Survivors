@@ -38,7 +38,7 @@ it('creates every paint once: ground, garlic, gem, chest, elite marker, enemy, p
   expect(byId('weapon.garlic')).toHaveLength(1);
   for (const id of ['weapon.whip', 'fx.hit', 'fx.enemyDeath'])
     expect(byId(id), id).toHaveLength(64);
-  expect(byId('fx.levelUp')).toHaveLength(2);
+  expect(byId('fx.levelUp')).toHaveLength(4);
   // #15: the bosses, the chests and the evolved art.
   expect(byId('boss.reaper5')).toHaveLength(2);
   expect(byId('boss.reaper10')).toHaveLength(2);
@@ -54,7 +54,7 @@ it('creates every paint once: ground, garlic, gem, chest, elite marker, enemy, p
   expect(byId('weapon.soulEater')).toHaveLength(1);
   expect(byId('weapon.bloodyTear')).toHaveLength(4);
   expect(byId('fx.chestOpen')).toHaveLength(2);
-  expect(byId('gem.blue')).toHaveLength(200);
+  expect(byId('gem.blue')).toHaveLength(400);
   expect(byId('gem.green')).toHaveLength(50);
   expect(byId('gem.red')).toHaveLength(50);
   expect(byId('ui.xpBar')).toHaveLength(1);
@@ -82,8 +82,8 @@ it('creates every paint once: ground, garlic, gem, chest, elite marker, enemy, p
     'Sent Gem Thief',
     'Sent Elite Call',
   ]);
-  expect(view.countPaints()).toBe(2763);
-  expect(paints).toHaveLength(2787);
+  expect(view.countPaints()).toBe(2965);
+  expect(paints).toHaveLength(2989);
 });
 
 it('follows the camera, snapped to device pixels', () => {

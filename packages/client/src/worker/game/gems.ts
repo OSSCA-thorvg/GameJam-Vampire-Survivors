@@ -41,8 +41,11 @@ export const GEM_ASSETS = [
 const TIER_INDEX = { blue: 0, green: 1, red: 2 } as const;
 const RED = TIER_INDEX.red;
 
-/** Paints prewarmed per gem pool, in `GEM_ASSETS` order (initial values). */
-export const GEM_POOL_PREWARM = [200, 50, 50] as const;
+/**
+ * Paints prewarmed per gem pool, in `GEM_ASSETS` order. Blue covers `GEM_CAP` (#22: a screen full of the commonest gem
+ * never grows the pool mid-run); green and red stay rare.
+ */
+export const GEM_POOL_PREWARM = [GEM_CAP, 50, 50] as const;
 
 /** Store slots: `GEM_CAP` normal gems plus the one reserved for the merge gem. */
 export const GEM_STORE_CAPACITY = GEM_CAP + 1;
@@ -68,18 +71,23 @@ export function createGemPools(
   return GEM_ASSETS.map((id, i) => new PaintPool(library, id, layer, GEM_POOL_PREWARM[i] ?? 0));
 }
 
-export function createGemState(pools?: readonly PaintPool[]): GemState {
-  const gems = createStore(GEM_SCHEMA, GEM_STORE_CAPACITY);
+/**
+ * `capacity` normal gems plus the merge gem's slot. `capacity` is `GEM_CAP` except in #22's `gems-flood` stress
+ * scenario, which floods the store past the cap with `addGem`; `dropGem` still merges beyond `GEM_CAP`.
+ */
+export function createGemState(pools?: readonly PaintPool[], capacity: number = GEM_CAP): GemState {
+  const gems = createStore(GEM_SCHEMA, capacity + 1);
   return {
     gems,
     // Cells of 64 units cover the 60-unit magnet query in at most 9 cells.
-    gemGrid: createSpatialGrid({ cellSize: 64, buckets: 1024, maxItems: GEM_STORE_CAPACITY }),
+    gemGrid: createSpatialGrid({ cellSize: 64, buckets: 1024, maxItems: capacity + 1 }),
     gemBinding: pools ? new RenderBinding(gems, pools) : null,
     mergeGemUid: NO_GEM,
   };
 }
 
-function addGem(world: GemState, x: number, y: number, value: number, tier: number): number {
+/** Adds a gem of `tier` (an index into `GEM_ASSETS`) without the merge rule; `dropGem` and #22's `gems-flood` use it. */
+export function addGem(world: GemState, x: number, y: number, value: number, tier: number): number {
   const slot = world.gems.add();
   if (slot < 0) return -1;
   const { cols } = world.gems;

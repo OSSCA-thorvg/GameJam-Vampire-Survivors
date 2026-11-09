@@ -106,15 +106,21 @@ export function createEnemyPools(
   );
 }
 
-/** A run's enemy store and grid; with `pools` (from `createEnemyPools`), a binding that draws through them. */
-export function createEnemyState(pools?: readonly PaintPool[]): EnemyState {
-  const enemies = createStore(ENEMY_SCHEMA, ENEMY_CAP);
+/**
+ * A run's enemy store and grid; with `pools` (from `createEnemyPools`), a binding that draws through them. `capacity`
+ * is `ENEMY_CAP` except in #22's stress scenarios, which size the store past the cap to measure it.
+ */
+export function createEnemyState(
+  pools?: readonly PaintPool[],
+  capacity: number = ENEMY_CAP,
+): EnemyState {
+  const enemies = createStore(ENEMY_SCHEMA, capacity);
   const { hitT0, hitT1, hitT2, hitT3, hitT4, hitT5 } = enemies.cols;
   return {
     enemies,
     enemyHitTimes: [hitT0, hitT1, hitT2, hitT3, hitT4, hitT5],
     // Cells of 64 units cover the largest separation query (2 × radius 16) in at most 4 cells.
-    enemyGrid: createSpatialGrid({ cellSize: 64, buckets: 1024, maxItems: ENEMY_CAP }),
+    enemyGrid: createSpatialGrid({ cellSize: 64, buckets: 1024, maxItems: capacity }),
     enemyBinding: pools ? new RenderBinding(enemies, pools) : null,
   };
 }

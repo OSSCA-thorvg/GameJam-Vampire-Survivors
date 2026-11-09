@@ -92,6 +92,8 @@ export type MainToWorker =
       scale: number;
       assetBaseUrl: string;
       debug?: { gallery: boolean; stress: string };
+      /** #22: the page was opened with `?perf`, so the perf overlay is shown from boot, in every build. */
+      perf: boolean;
     }
   | { type: 'resize'; width: number; height: number; scale: number }
   | { type: 'input'; dx: Axis; dy: Axis }
@@ -138,7 +140,32 @@ export type WorkerToMain =
   /** #21: the player walked into an interference pickup; the main thread sends it to the server. */
   | { type: 'interferenceCollected'; kind: InterferenceKind }
   | WorkerStatus
+  /** #22: a named `?stress` scenario finished its measured window (dev and `perf` builds only). */
+  | { type: 'stressResult'; result: StressResult }
   | TestSnapshotReply;
+
+/**
+ * The worker's half of a stress scenario's summary (#22). All timings are milliseconds over the measured window,
+ * after the warm-up: `medianMs`/`p95Ms`/`maxMs` of the frame interval, the median sim time per step and the median
+ * transform, `canvas.update()` and `canvas.render()` time per frame. The main thread adds `ua`, `gpu` and `loadMs`.
+ */
+export interface StressResult {
+  scenario: string;
+  medianMs: number;
+  p95Ms: number;
+  maxMs: number;
+  simMs: number;
+  transformMs: number;
+  updateMs: number;
+  renderMs: number;
+  /** Means of the same phases: worker clocks are often coarsened to 0.1 ms, so medians of sub-ms phases are coarse. */
+  meanMs: { sim: number; transform: number; update: number; render: number };
+  frames: number;
+  steps: number;
+  durationS: number;
+  /** The largest live count of each kind seen while measuring (`enemies`, `projectiles`, `gems`, `pickups`, `paints`). */
+  maxCounts: Record<string, number>;
+}
 
 /**
  * Test bridge messages, dev and e2e builds only (main/test-bridge.ts, worker/test-bridge.ts). Each receiver filters

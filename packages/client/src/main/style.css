@@ -27,6 +27,22 @@ body {
   padding: 1.5rem;
 }
 
+/* #22: a finished stress scenario's summary (dev and perf builds only). */
+#stress-result {
+  position: fixed;
+  inset: auto 1rem 1rem auto;
+  max-height: 60vh;
+  overflow: auto;
+  padding: 0.5rem 0.75rem;
+  color: #fff;
+  background: rgb(24 28 40 / 90%);
+  font-size: 12px;
+}
+
+#stress-result pre {
+  margin: 0.5rem 0 0;
+}
+
 #loading {
   position: fixed;
   inset: 1rem auto auto 1rem;

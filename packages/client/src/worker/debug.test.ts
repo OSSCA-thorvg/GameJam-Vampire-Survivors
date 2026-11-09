@@ -2,36 +2,12 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { installWorkerDebugTools } from './debug';
 import { takeSnapshot } from './test-bridge';
 
-/** Minimal third-party renderer fixture: the counter under test never calls into WASM. */
-class Overlay {
-  font() {
-    return this;
-  }
-  fontSize() {
-    return this;
-  }
-  fill() {
-    return this;
-  }
-  translate() {
-    return this;
-  }
-  text() {
-    return this;
-  }
-  visible(show?: boolean) {
-    return show === undefined ? false : this;
-  }
-}
-
 afterEach(() => vi.useRealTimers());
 
 it('reports cumulative renders independently of simulation steps', () => {
   vi.useFakeTimers();
-  // Only the external ThorVG drawing API is stubbed; use real debug hooks and the real snapshot registry.
+  // Use real debug hooks and the real snapshot registry; the overlay lives in perf/overlay.ts (#22).
   const options = {
-    TVG: { Text: Overlay },
-    root: { add: vi.fn() },
     loop: {},
     post: vi.fn(),
     describe: () => 'test',

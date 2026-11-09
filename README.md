@@ -8,6 +8,8 @@ The toolchain is in place: a pnpm workspace with the `@vs/client`, `@vs/server` 
 
 The asset manifest loader caches drawable masters and registers the HUD font by ID. `pnpm assets:sync` generates the catalog IDs; `/?gallery` in development shows labelled assets and magenta missing-art placeholders. The final84-ID pack (#76) includes81 generated pixel PNGs, two native image-backed Lottie effects and the preserved licensed HUD font; `V` in the gallery previews mass art drifting at game speed.
 
+Performance (#22): open any build with `?perf` for a live frame-timing overlay; `docs/reference/performance.md` holds the stress-scenario measurements behind the entity caps.
+
 ## Development
 
 Prerequisites: Git, nvm (or fnm or volta), Corepack, which ships with Node 24, and Docker (Docker Desktop, OrbStack or Colima, running) for the server. Then, once per clone:

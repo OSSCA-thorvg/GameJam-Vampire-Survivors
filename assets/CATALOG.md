@@ -47,6 +47,7 @@ Elites reuse their base enemy's art at 1.5× scale with a tint applied in code, 
 | `enemy.wisp` | 32×32 | png, **mass** | Fast flier (ghosts) | G6 | final |
 | `enemy.brute` | 56×56 | png, **mass** | Tanky mid-game (werewolves, mudmen) | G6 | final |
 | `enemy.wraith` | 64×64 | png, **mass** | Late-game heavy (giant mummies) | G6 | final |
+| `enemy.lottieTest` | 32×32 | lottie | Not in the game: an original shape-layer test enemy for the #22 Lottie-per-enemy measurement (`?stress=lottie-enemy`) | #22 | placeholder |
 
 ## Bosses — `assets/bosses/`
 

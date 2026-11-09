@@ -6,7 +6,27 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const DIST = join(ROOT, 'packages/client/dist');
-const FORBIDDEN = ['__vsTest', '__vsDebug', 'testSnapshot', 'togglePerfOverlay'];
+/**
+ * Dev-only tool names, then #22's stress scenario names (`STRESS_SCENARIO_NAMES` in
+ * packages/client/src/worker/debug/stress.ts; `stress.test.ts` checks every name is listed here). The perf overlay
+ * itself ships in production behind `?perf`, so its labels are not listed.
+ */
+const STRESS_SCENARIO_NAMES = [
+  'enemies-400',
+  'enemies-800',
+  'enemies-1200',
+  'projectiles-max',
+  'gems-flood',
+  'lottie-enemy',
+  'lottie-enemy-shared',
+];
+const FORBIDDEN = [
+  '__vsTest',
+  '__vsDebug',
+  'testSnapshot',
+  'togglePerfOverlay',
+  ...STRESS_SCENARIO_NAMES,
+];
 /** Only text files can contain the names; thorvg.wasm and images are skipped. */
 const TEXT = /\.(js|mjs|cjs|html|css|map|json|txt|svg)$/;
 

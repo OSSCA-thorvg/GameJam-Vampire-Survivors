@@ -88,6 +88,8 @@ export function spawnerSystem(world: World, dt: number): void {
   }
   // Excess beyond the cap is dropped, not kept for later.
   if (enemies.count >= ENEMY_CAP) world.spawnQueue = 0;
-  if (import.meta.env.DEV && enemies.count > ENEMY_CAP)
+  // Only when this call spawned: #22's stress scenarios hold more enemies than the cap on purpose, and then this
+  // spawner adds none.
+  if (import.meta.env.DEV && spawned > 0 && enemies.count > ENEMY_CAP)
     throw new Error(`Live enemies ${String(enemies.count)} exceed ENEMY_CAP ${String(ENEMY_CAP)}`);
 }

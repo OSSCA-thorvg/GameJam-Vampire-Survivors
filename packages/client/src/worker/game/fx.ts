@@ -41,9 +41,9 @@ export interface FxState {
 
 /**
  * Paints prewarmed for `fx.levelUp` (#11): a Lottie instance, ticked every step, shown about once per level, so it
- * gets a small pool instead of `FX_CAP`.
+ * gets a small pool instead of `FX_CAP`; 4 covers back-to-back level-ups from one big gem (#22).
  */
-export const LEVEL_UP_FX_PREWARM = 2;
+export const LEVEL_UP_FX_PREWARM = 4;
 /** The same for the effects of #15: the Bloody Tear arc (two strikes at most live) and the `fx.chestOpen` Lottie. */
 export const BLOODY_TEAR_FX_PREWARM = 4;
 export const CHEST_OPEN_FX_PREWARM = 2;
