@@ -68,7 +68,16 @@ const EVENTS: StageEvent[] = [
   { at: 810, kind: 'elite', enemyId: 'wraith', count: 2 },
 ];
 
-/** The one stage (ADR 0008): 15 minutes (ADR 0005), one wave per minute, seven timed events, then Death. */
+// Every playable minute gets a chest carrier (#156). Keep existing bosses and elites at their scheduled times.
+for (const [minute, [, , , enemies]] of WAVES.entries()) {
+  const at = minute * 60;
+  if (minute === 0 || EVENTS.some((event) => event.at === at && event.kind !== 'swarm')) continue;
+  const { enemyId } = enemies.reduce((best, enemy) => (enemy.weight > best.weight ? enemy : best));
+  EVENTS.push({ at, kind: 'elite', enemyId, count: 1 });
+}
+EVENTS.sort((a, b) => a.at - b.at);
+
+/** The one stage (ADR 0008): 15 minutes (ADR 0005), one wave and chest carrier per minute, then Death. */
 export const STAGE: StageDef = {
   id: 'forest',
   durationSec: 900,

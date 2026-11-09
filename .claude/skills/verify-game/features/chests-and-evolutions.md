@@ -18,7 +18,7 @@ Treasure chests and weapon evolutions (#15, ADRs 0004, 0008, 0009): bosses and e
 
 ## How to get to it (user POV)
 
-Open the game URL, press Enter on "Start", then press `E` (dev precondition): the elite appears in front of the player, the maxed weapon kills it, and its chest usually opens at once because the player stands where it died; otherwise walk into the chest. Press Enter (or wait 3 s) to close the overlay. For the next pair, quit to the title (Escape, "Quit to title") or Retry after death, start a new run and press `E` again. In normal play chests come from the bosses and elites of #17. No server is needed.
+Open the game URL, press Enter on "Start", then press `E` (dev precondition): the elite appears in front of the player, the maxed weapon kills it, and its chest usually opens at once because the player stands where it died; otherwise walk into the chest. Press Enter (or wait 3 s) to close the overlay. For the next pair, quit to the title (Escape, "Quit to title") or Retry after death, start a new run and press `E` again. In normal play a chest carrier spawns every full minute from 1:00 to 14:00 (#156), starting with an elite bat. After the overlay closes, confirm the upgraded name and level in the upper-left inventory HUD (`inventory-hud.md`). No server is needed.
 
 ## Driving it
 
@@ -269,7 +269,7 @@ test('chests 2: all 8 evolutions, one run each, each in its base weapon’s slot
 
 ## Gotchas
 
-- Since #17 `E`'s jump to 5:00 brings minute 5's denser mix and fires the 3:00 and 5:00 stage events (an elite ghoul, `reaper5`), and the player died before the elite's chest in 3 of 3 runs; each pair now presses `I` (invulnerability) first, and `nextRun` waits for a playing run before Escape, since the invulnerable run keeps opening level-ups and chests. With it HP stays full, so the Bloody Tear HP samples in `elite.json` no longer show the heal; the heal stays proven at level 4 (`weapons/evolved.test.ts`) (2026-11-08, #17).
+- Since #17 `E`'s jump to 5:00 brings minute 5's denser mix and fires the earlier stage events through `reaper5`, and the player died before the elite's chest in 3 of 3 runs; each pair now presses `I` (invulnerability) first, and `nextRun` waits for a playing run before Escape, since the invulnerable run keeps opening level-ups and chests. With it HP stays full, so the Bloody Tear HP samples in `elite.json` no longer show the heal; the heal stays proven at level 4 (`weapons/evolved.test.ts`) (2026-11-08, #17).
 - The `E` key jumps the run clock to 5:00 instead of fast-forwarding to it, as the issue plan proposed: `fastForward` stops at the first level-up, and 5 minutes of steps would bury a standing player. The jump makes the spawner top up to the minute-5 wave at once, so a journey has about 5 s before the crowd arrives, and it spawns the elite 120 units in front of the player (not on the spawn ring) so the maxed weapon kills it within those seconds (2026-11-08, #15).
 - The elite usually dies next to the player, so its chest opens in the same step it drops and `chests` never shows 1; wait for `chests > 0 || state === 'chest'` (2026-11-08, #15).
 - The crowd at 5:00 often kills the player a few seconds after the overlay closes; the next pair then starts from the results screen's "Title" button instead of the pause menu. The `E` index lives in the worker, so a page reload restarts at Bloody Tear (2026-11-08, #15).

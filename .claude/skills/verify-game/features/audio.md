@@ -47,6 +47,7 @@ Run with `pnpm verify:e2e --project chromium` (and `--with-server` for the versu
 - Headless Chromium never blocks autoplay and has no speakers: the journeys prove what started (`played`, `music`, `duck`), not what was heard. Listen in a headed run or with Claude in Chrome (2026-11-09, #129).
 - Headless Chromium cannot hide a page natively (probed 2026-11-09), so hidden-tab silence is proven at level 4 by `main/audio/director.test.ts`, `main/audio/engine.test.ts` and `worker/game/sfx.test.ts`; the headed `hidden-tab` project could drive it (#129).
 - `MAX_WEAPON_SLOTS` is 6, so "all 8 weapons" is two loadouts in one journey; `answerLevelUps(page, { avoidNewWeapons: true })` keeps level-up cards from filling the slots first. Hit counts in software rendering are low (a few frames per second), so the journey waits up to 30 s for each loadout's hit sounds (2026-11-09, #129).
+- The cue journey keeps answering natural level-ups until the Pause dialog opens. If a level-up catches the first Escape, the journey retries the pause before asserting its music volume (#156).
 - `sfx.levelUp` has one voice and lasts 0.9 s: a second level-up inside that window is dropped by design, so the `L` step waits for `voicesById['sfx.levelUp'] === 0` first.
 - The fast-forward key (`]`) drops the cues of its 60 s on purpose (no burst afterwards).
 - The verify launcher's fixed port 5180 is in `ALLOWED_ORIGINS`; a client on another port needs its origin added to the server's `.env` for the versus journey.

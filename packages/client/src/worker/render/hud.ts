@@ -1,5 +1,5 @@
 import type { Matrix, Scene, Shape, Text, ThorVGNamespace } from '@thorvg/webcanvas';
-import { formatClock, xpToNext } from '@vs/shared';
+import { formatClock, MAX_PASSIVE_SLOTS, MAX_WEAPON_SLOTS, xpToNext } from '@vs/shared';
 import type { AssetLibrary } from '../assets/library';
 import { VIEW_WIDTH } from '../constants';
 import { PaintPool } from './pool';
@@ -30,6 +30,74 @@ export const TIMER_Y = MARGIN + 14;
 const SKULL_X = VIEW_WIDTH - 120;
 const KILLS_X = VIEW_WIDTH - 100;
 const SKULL_SCALE = 1.5;
+const INVENTORY_SIZE = 14;
+const INVENTORY_LINE_HEIGHT = 20;
+const INVENTORY_PAD = 8;
+const INVENTORY_COLUMN_WIDTH = 230;
+const PASSIVES_X = MARGIN + INVENTORY_COLUMN_WIDTH;
+
+interface InventoryItem {
+  readonly def: { readonly id: string; readonly name: string };
+  readonly level: number;
+}
+
+/** One fixed HUD column. Only changed labels and visibility are written to ThorVG. */
+function createInventoryGroup(
+  TVG: Pick<ThorVGNamespace, 'Text'>,
+  layer: Pick<Scene, 'add'>,
+  title: string,
+  x: number,
+  capacity: number,
+) {
+  const makeText = (y: number, red: number, green: number, blue: number): Text => {
+    const paint: Text = new TVG.Text();
+    paint.font(HUD_FONT).fontSize(INVENTORY_SIZE).fill(red, green, blue);
+    paint.align(0, 0).translate(x, y);
+    paint.visible(false);
+    layer.add(paint);
+    return paint;
+  };
+  const heading = makeText(TIMER_Y, 255, 214, 128);
+  heading.text(title);
+  const slots = Array.from({ length: capacity }, (_, index) => ({
+    index,
+    paint: makeText(TIMER_Y + (index + 1) * INVENTORY_LINE_HEIGHT, 255, 255, 255),
+    id: undefined as string | undefined,
+    level: -1,
+    visible: false,
+  }));
+
+  return {
+    setVisible(visible: boolean) {
+      heading.visible(visible);
+      if (!visible) {
+        for (const slot of slots) {
+          if (slot.visible) slot.paint.visible(false);
+          slot.visible = false;
+        }
+      }
+    },
+    sync(items: readonly InventoryItem[]) {
+      for (const slot of slots) {
+        const item = items[slot.index];
+        const visible = item !== undefined || slot.index === 0;
+        if (visible) {
+          const id = item?.def.id;
+          const level = item?.level ?? 0;
+          if (id !== slot.id || level !== slot.level) {
+            slot.paint.text(item ? `${item.def.name} Lv ${String(level)}` : '-');
+            slot.id = id;
+            slot.level = level;
+          }
+        }
+        if (visible !== slot.visible) {
+          slot.paint.visible(visible);
+          slot.visible = visible;
+        }
+      }
+    },
+  };
+}
 
 /** What the HUD reads each frame. */
 export interface HudInput {
@@ -43,6 +111,8 @@ export interface HudInput {
   /** XP toward the next level, and the level (#11). */
   xp: number;
   level: number;
+  weapons: readonly InventoryItem[];
+  passives: readonly InventoryItem[];
 }
 
 export interface Hud {
@@ -56,15 +126,17 @@ export interface Hud {
 
 /**
  * The in-game HUD (#9, ADR 0004): drawn by ThorVG, never the DOM. The HP bar lives in world space under the player
- * (in the `player` layer, above the sprite); the XP bar with its `Lv n` (#11), the `mm:ss` timer and the kill counter
- * are in the `hud` layer. Every
- * paint is created here once; per frame only transforms change, and text only when the shown value changes.
+ * (in the `player` layer, above the sprite); the XP bar, timer, kill counter and inventory are in the `hud` layer.
+ * Each paint is created here once; text updates only when the shown value changes.
  */
 export function createHud(
   TVG: Pick<ThorVGNamespace, 'Shape' | 'Text'>,
   library: Pick<AssetLibrary, 'create'>,
   layers: { player: Pick<Scene, 'add'>; hud: Pick<Scene, 'add'> },
 ): Hud {
+  const inventoryBacking: Shape = new TVG.Shape();
+  inventoryBacking.appendRect(0, 0, 2 * INVENTORY_COLUMN_WIDTH, 1).fill(16, 12, 18, 214);
+  layers.hud.add(inventoryBacking);
   const barPool = new PaintPool(library, 'ui.hpBar', layers.player, 1);
   const fill: Shape = new TVG.Shape();
   fill.appendRect(0, 0, FILL_W, FILL_H).fill(0xc0, 0x39, 0x2b, 255);
@@ -99,8 +171,23 @@ export function createHud(
     .text('0');
   layers.hud.add(kills);
 
+  const weaponGroup = createInventoryGroup(TVG, layers.hud, 'Weapons', MARGIN, MAX_WEAPON_SLOTS);
+  const passiveGroup = createInventoryGroup(
+    TVG,
+    layers.hud,
+    'Passives',
+    PASSIVES_X,
+    MAX_PASSIVE_SLOTS,
+  );
+
   const matrix: Matrix = { e11: 1, e12: 0, e13: 0, e21: 0, e22: 1, e23: 0, e31: 0, e32: 0, e33: 1 };
   const xpMatrix: Matrix = { ...matrix, e13: XP_INSET, e23: XP_INSET };
+  const inventoryMatrix: Matrix = {
+    ...matrix,
+    e13: MARGIN - INVENTORY_PAD,
+    e23: TIMER_Y - INVENTORY_PAD / 2,
+  };
+  let inventoryRows = 0;
   let bar = barPool.get(0);
   let shownSecond = 0;
   let shownKills = 0;
@@ -139,14 +226,27 @@ export function createHud(
     levelText.visible(next);
     timer.visible(next);
     kills.visible(next);
+    inventoryBacking.visible(next && inventoryRows > 0);
+    if (!next) inventoryRows = 0;
+    weaponGroup.setVisible(next);
+    passiveGroup.setVisible(next);
   };
   setVisible(false);
 
   return {
     pools: [barPool, skullPool, xpBarPool],
     setVisible,
-    sync({ x, y, hp, maxHp, timeSec, kills: killCount, xp, level }) {
+    sync({ x, y, hp, maxHp, timeSec, kills: killCount, xp, level, weapons, passives }) {
       if (!visible) return;
+      weaponGroup.sync(weapons);
+      passiveGroup.sync(passives);
+      const rows = Math.max(1, weapons.length, passives.length);
+      if (rows !== inventoryRows) {
+        inventoryRows = rows;
+        inventoryMatrix.e22 = (rows + 1) * INVENTORY_LINE_HEIGHT + INVENTORY_PAD;
+        inventoryBacking.transform(inventoryMatrix);
+        inventoryBacking.visible(true);
+      }
       const top = y + BAR_GAP;
       setTransform(bar, x, top + BAR_H / 2);
       matrix.e11 = maxHp > 0 ? Math.max(0, Math.min(1, hp / maxHp)) : 0;

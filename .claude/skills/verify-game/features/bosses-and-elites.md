@@ -1,6 +1,6 @@
 # Bosses and elites
 
-Bosses and elite enemies (#15, ADRs 0005, 0007, 0008): `reaper5` and `reaper10` are bosses that are never left behind (tethered to the player) and always drop a chest; any normal enemy can be an elite with 10× HP, 1.5× contact damage and 1.5× size over a red marker, and it drops a chest too. When they appear in the stage is #17 (`stage-and-finale.md`: `reaper5` at 5:00, `reaper10` at 10:00, elites at 3:00, 8:00 and 13:30); #21's Elite Call reuses `spawnElite`.
+Bosses and elite enemies (#15, ADRs 0005, 0007, 0008): `reaper5` and `reaper10` are bosses that are never left behind (tethered to the player) and always drop a chest; any normal enemy can be an elite with 10× HP, 1.5× contact damage and 1.5× size over a red marker, and it drops a chest too. An elite or boss spawns every full minute from 1:00 to 14:00 (#156, `stage-and-finale.md`), starting with an elite bat at 1:00; #21's Elite Call reuses `spawnElite`.
 
 ## Sub-features
 
@@ -14,7 +14,7 @@ Bosses and elite enemies (#15, ADRs 0005, 0007, 0008): `reaper5` and `reaper10` 
 
 ## How to get to it (user POV)
 
-Open the game URL and start a run (Enter on "Start", then on the character select once #14 is in). Press `B` for a boss and hold one arrow key: it keeps reappearing ahead. Press `E` for an elite in front of the player. In normal play bosses and elites come from #17's schedule. No server is needed.
+Open the game URL and start a run (Enter on "Start", then on the character select once #14 is in). Press `B` for a boss and hold one arrow key: it keeps reappearing ahead. Press `E` for an elite in front of the player. In normal play wait for the 1:00 bat and defeat it for its chest. See `inventory-hud.md` for the scheduled-carrier journey. No server is needed.
 
 ## Driving it
 
@@ -111,7 +111,7 @@ test('bosses 2: an elite is drawn 1.5× over a red marker and drops a chest (E a
   try {
     await startRun(page);
     const stop = answerLevelUps(page);
-    // Precondition only (#17): `E` jumps the clock to 5:00, whose waves and events (the elite at 3:00, reaper5 at 5:00)
+    // Precondition only (#17): `E` jumps the clock to 5:00, whose waves and events (the elapsed minute carriers through reaper5 at 5:00)
     // kill a fresh player within the 20 s wait, so `I` keeps him alive.
     await page.keyboard.press('i');
     await waitForSnapshot(page, (s) => s.debugInvulnerable === true, 2_000);
