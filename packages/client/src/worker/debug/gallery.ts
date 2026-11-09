@@ -99,7 +99,10 @@ export function buildGallery({ TVG, root }: ThorVGContext, library: AssetLibrary
     y += 40;
     for (let start = 0; start < groupIds.length; start += COLUMNS) {
       const row = groupIds.slice(start, start + COLUMNS);
-      const height = Math.max(...row.map((id) => ASSET_SIZES[id][1])) + 66;
+      // Wide art (`ui.splash`, 1920×1080) is drawn scaled into its cell, and its row is only as tall as that (#126).
+      const fit = (id: DrawableAssetId): number =>
+        Math.min(1, (CELL_WIDTH - 12) / ASSET_SIZES[id][0]);
+      const height = Math.max(...row.map((id) => ASSET_SIZES[id][1] * fit(id))) + 66;
       for (const [column, id] of row.entries()) {
         const x = 24 + column * CELL_WIDTH;
         const centerX = x + CELL_WIDTH / 2;
@@ -107,8 +110,7 @@ export function buildGallery({ TVG, root }: ThorVGContext, library: AssetLibrary
         const instance = library.create(id);
         gridInstances.push(instance);
         if (id === 'fx.hit' || id === 'fx.enemyDeath') oneShots.push(instance);
-        const [width] = ASSET_SIZES[id];
-        const previewScale = Math.min(1, (CELL_WIDTH - 12) / width);
+        const previewScale = fit(id);
         setTransform(instance, centerX, anchorY, 0, previewScale);
         container.add(instance.paint);
         const cross = new TVG.Shape();

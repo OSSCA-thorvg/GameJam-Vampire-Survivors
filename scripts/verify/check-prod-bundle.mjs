@@ -29,6 +29,8 @@ const FORBIDDEN = [
   'togglePerfOverlay',
   // #119: the scenario progress message, filtered out before the main thread's switch inside the dev/perf guard.
   'stressProgress',
+  // #126: the dev/e2e splash skip flag; production always plays the boot splash.
+  'skipSplash',
   ...STRESS_SCENARIO_NAMES,
 ];
 /** Only text files can contain the names; thorvg.wasm and images are skipped. */

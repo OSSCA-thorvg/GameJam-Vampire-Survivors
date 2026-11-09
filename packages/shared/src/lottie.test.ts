@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import { validateLottie } from './lottie';
+import { EXTENDED_LOTTIE_IDS, lottieProfile } from './lottie-motion';
 
 const image = () => ({ id: 'art', w: 384, h: 384, u: '', p: 'level-up/art.png', e: 0 });
 const composition = () => ({
@@ -100,4 +101,111 @@ it.each([
   expect(() => validateLottie({ ...composition(), ...patch }, 'fx/level-up.json')).toThrow(
     /timeline/,
   );
+});
+
+// ADR 0020: precompositions, alpha track mattes and (in the manifest) bilinear images only for `ui.splash`.
+const splashImage = () => ({ id: '2', w: 1080, h: 1350, u: '', p: 'splash/logo.png', e: 0 });
+const splashShape = (extra: Record<string, unknown> = {}) => ({
+  ty: 4,
+  shapes: [],
+  ks: {},
+  ...extra,
+});
+const splash = () => ({
+  v: '5.7.0',
+  fr: 30,
+  ip: 0,
+  op: 210,
+  w: 1920,
+  h: 1080,
+  assets: [
+    splashImage(),
+    {
+      id: 'logo',
+      nm: 'ThorVG logo',
+      fr: 30,
+      layers: [splashShape(), { ty: 2, refId: '2', ks: {} }],
+    },
+  ] as Record<string, unknown>[],
+  layers: [
+    splashShape({ td: 1 }),
+    { ty: 0, refId: 'logo', tt: 1, w: 1920, h: 1080, ks: {} },
+    splashShape({ tt: 1 }),
+  ] as Record<string, unknown>[],
+});
+const asSplash = (value: unknown) =>
+  validateLottie(value, 'ui/splash.json', lottieProfile('ui.splash'));
+
+it('admits the splash structure only under the ui.splash profile', () => {
+  expect(EXTENDED_LOTTIE_IDS).toEqual(['ui.splash']);
+  expect(asSplash(splash())).toMatchObject({
+    images: [{ id: '2', path: 'splash/logo.png' }],
+    lastFrame: 210,
+  });
+  for (const id of ['fx.levelUp', 'enemy.lottieTest'])
+    expect(() => validateLottie(splash(), 'ui/splash.json', lottieProfile(id))).toThrow();
+  const matteOnly = {
+    ...composition(),
+    layers: [{ ty: 4, shapes: [], ks: {}, tt: 1 }],
+    assets: [],
+  };
+  expect(() =>
+    validateLottie(matteOnly, 'fx/chest-open.json', lottieProfile('fx.chestOpen')),
+  ).toThrow(/Unsupported/);
+});
+
+it.each<[string, (value: ReturnType<typeof splash>) => void]>([
+  [
+    'a nested precomposition layer',
+    (v) => {
+      (v.assets[1]?.layers as unknown[]).push({ ty: 0, refId: 'logo', w: 10, h: 10, ks: {} });
+    },
+  ],
+  ['tt 2', (v) => void Object.assign(v.layers[2] ?? {}, { tt: 2 })],
+  ['td 2', (v) => void Object.assign(v.layers[0] ?? {}, { td: 2 })],
+  [
+    'an unknown precomposition refId',
+    (v) => void Object.assign(v.layers[1] ?? {}, { refId: 'nope' }),
+  ],
+  [
+    'an unreferenced precomposition',
+    (v) => {
+      v.assets.push({ id: 'spare', layers: [] });
+    },
+  ],
+  [
+    'a precomposition referenced twice',
+    (v) => {
+      v.layers.push({ ty: 0, refId: 'logo', w: 1920, h: 1080, ks: {} });
+    },
+  ],
+  [
+    'a precomposition asset with p',
+    (v) => void Object.assign(v.assets[1] ?? {}, { p: 'splash/x.png' }),
+  ],
+  [
+    '65 layers in total',
+    (v) => {
+      (v.assets[1]?.layers as unknown[]).push(...Array.from({ length: 61 }, () => splashShape()));
+    },
+  ],
+  ['masksProperties', (v) => void Object.assign(v.layers[0] ?? {}, { masksProperties: [] })],
+  ['a layer time remap', (v) => void Object.assign(v.layers[1] ?? {}, { tm: { a: 0, k: 0 } })],
+  [
+    'a data: image path',
+    (v) => void Object.assign(v.assets[0] ?? {}, { p: 'data:image/webp;base64,AAAA', e: 1 }),
+  ],
+  [
+    'nine precompositions',
+    (v) => {
+      for (let i = 0; i < 8; i++) {
+        v.assets.push({ id: `p${String(i)}`, layers: [] });
+        v.layers.push({ ty: 0, refId: `p${String(i)}`, w: 8, h: 8, ks: {} });
+      }
+    },
+  ],
+])('rejects a splash with %s', (_name, patch) => {
+  const value = splash();
+  patch(value);
+  expect(() => asSplash(value)).toThrow();
 });

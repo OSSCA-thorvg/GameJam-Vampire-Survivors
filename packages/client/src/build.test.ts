@@ -56,6 +56,8 @@ it('ships the ?perf overlay but no debug tool or stress scenario strings', () =>
     '__vsDebug',
     'testSnapshot',
     'togglePerfOverlay',
+    // #126: the dev/e2e splash skip flag.
+    'skipSplash',
     // Debug command kinds (`fastForward` is also the loop's own method name, so it is not listed).
     'grantWeapon',
     'spawnBoss',

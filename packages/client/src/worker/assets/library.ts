@@ -5,6 +5,7 @@ import {
   ASSET_IDS,
   ASSET_SIZES,
   lottieProfile,
+  type AssetEntry,
   type DrawableAssetEntry,
   type DrawableAssetId,
   type ManifestValidation,
@@ -95,7 +96,7 @@ async function loadMaster(
   if (entry.format === 'lottie') {
     const json = await response.text();
     const source = await preloadLottie(json, entry.file, baseUrl, lottieProfile(id));
-    const animation = createCachedLottie(TVG, source, onResolve);
+    const animation = createCachedLottie(TVG, source, onResolve, entry.filter ?? 'nearest');
     try {
       const info = animation.info();
       const size = animation.picture?.size();
@@ -168,44 +169,89 @@ export class AssetLibrary {
   };
   private constructor(private readonly TVG: ThorVGNamespace) {}
 
+  private baseUrl = '';
+  private validated: ManifestValidation | null = null;
+  private onProgress: (loaded: number, total: number) => void = () => undefined;
+  private loaded = 0;
+  private total = 0;
+  /** Entries already loaded (or loading) by `loadFirst`; `loadRest` skips them. */
+  private readonly started = new Set<string>();
+
+  /** Loads every manifest entry in parallel (#3); the same as `begin` followed by `loadRest`. */
   static async load(
     TVG: ThorVGNamespace,
     baseUrl: string,
     onProgress: (loaded: number, total: number) => void,
     validated: ManifestValidation,
   ): Promise<AssetLibrary> {
+    const library = AssetLibrary.begin(TVG, baseUrl, validated, onProgress);
+    await library.loadRest();
+    return library;
+  }
+
+  /** #126: an empty library over the manifest; reports the initial progress (fonts count as loaded). */
+  static begin(
+    TVG: ThorVGNamespace,
+    baseUrl: string,
+    validated: ManifestValidation,
+    onProgress: (loaded: number, total: number) => void,
+  ): AssetLibrary {
     const library = new AssetLibrary(TVG);
-    const entries = Object.entries(validated.manifest.assets);
-    const total = entries.length;
-    let loaded = entries.filter(([, entry]) => entry.format === 'ttf').length;
-    onProgress(loaded, total);
+    library.baseUrl = baseUrl;
+    library.validated = validated;
+    library.onProgress = onProgress;
+    const entries = Object.values(validated.manifest.assets);
+    library.total = entries.length;
+    library.loaded = entries.filter((entry) => entry.format === 'ttf').length;
+    onProgress(library.loaded, library.total);
+    return library;
+  }
+
+  private async loadEntry(id: string, entry: AssetEntry): Promise<void> {
+    if (entry.format === 'ttf' || !isDrawableId(id) || this.started.has(id)) return;
+    this.started.add(id);
+    try {
+      this.masters.set(id, await loadMaster(this.TVG, this.baseUrl, entry, id, this.noteResolver));
+    } catch (error) {
+      console.warn(
+        `[assets] ${id} failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      this.masters.set(id, fallback(this.TVG, id, entry));
+      this.placeholderIds.push(id);
+    } finally {
+      this.onProgress(++this.loaded, this.total);
+    }
+  }
+
+  /** #126: loads one entry ahead of the rest (the boot splash); a failure leaves its magenta placeholder. */
+  async loadFirst(id: DrawableAssetId): Promise<void> {
+    const entry = this.validated?.manifest.assets[id];
+    if (entry) await this.loadEntry(id, entry);
+  }
+
+  /** Loads every entry `loadFirst` did not, then the fallbacks for catalog IDs without a manifest entry. */
+  async loadRest(): Promise<void> {
+    const validated = this.validated;
+    if (!validated) return;
     await Promise.all(
-      entries.map(async ([id, entry]) => {
-        if (entry.format === 'ttf' || !isDrawableId(id)) return;
-        try {
-          library.masters.set(id, await loadMaster(TVG, baseUrl, entry, id, library.noteResolver));
-        } catch (error) {
-          console.warn(
-            `[assets] ${id} failed: ${error instanceof Error ? error.message : String(error)}`,
-          );
-          library.masters.set(id, fallback(TVG, id, entry));
-          library.placeholderIds.push(id);
-        } finally {
-          onProgress(++loaded, total);
-        }
-      }),
+      Object.entries(validated.manifest.assets).map(([id, entry]) => this.loadEntry(id, entry)),
     );
-    const missing = ASSET_IDS.filter(isDrawableId).filter((id) => !library.masters.has(id));
+    const missing = ASSET_IDS.filter(isDrawableId).filter((id) => !this.masters.has(id));
     for (const id of missing) {
-      library.masters.set(id, fallback(TVG, id));
-      library.placeholderIds.push(id);
+      this.masters.set(id, fallback(this.TVG, id));
+      this.placeholderIds.push(id);
     }
     const unreported = missing.filter(
       (id) => !validated.errors.some((error) => error.startsWith(id + ':')),
     );
     if (unreported.length) console.warn(`[assets] missing catalog art: ${unreported.join(', ')}`);
-    library.placeholderIds.sort();
-    return library;
+    this.placeholderIds.sort();
+  }
+
+  /** A Lottie master's native timeline, `null` for a static master or an unknown ID. */
+  timeline(id: DrawableAssetId): { fps: number; frames: number } | null {
+    const master = this.masters.get(id);
+    return master?.kind === 'lottie' ? { fps: master.fps, frames: master.frames } : null;
   }
 
   create(id: DrawableAssetId): AssetInstance {
@@ -215,7 +261,12 @@ export class AssetLibrary {
     const offsetX = -anchor[0] * size[0];
     const offsetY = -anchor[1] * size[1];
     if (master.kind === 'static') return { paint: master.paint.duplicate(), offsetX, offsetY };
-    const lottie = createCachedLottie(this.TVG, master.source, this.noteResolver);
+    const lottie = createCachedLottie(
+      this.TVG,
+      master.source,
+      this.noteResolver,
+      master.entry.filter ?? 'nearest',
+    );
     const paint = lottie.picture;
     if (!paint) {
       lottie.dispose();

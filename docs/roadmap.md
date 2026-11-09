@@ -45,6 +45,7 @@ Each row is one GitHub issue, and the issue is the source of truth for scope and
 | R1                                              | #22   | Measure performance and set entity caps                                | G6, V1         | medium   |
 | R2                                              | #23   | Deploy the client and the server                                       | M3             | medium   |
 | R3                                              | #47   | Stop emitting a duplicate ThorVG WASM file in builds                   | F2             | low      |
+| R4                                              | #126  | Play the Powered by ThorVG splash while the assets load                | —              | medium   |
 
 ## Assets
 

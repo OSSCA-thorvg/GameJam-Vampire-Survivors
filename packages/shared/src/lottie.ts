@@ -3,6 +3,9 @@ import { MAX_IMAGE_AXIS, MAX_IMAGE_DECODED_BYTES } from './png.js';
 
 export const MAX_LOTTIE_IMAGES = 64;
 export const MAX_LOTTIE_DECODED_BYTES = 32 * 1024 * 1024;
+/** ADR 0020 (`ui.splash` only): precomposition assets, and root plus precomposition layers together. */
+export const MAX_LOTTIE_PRECOMPS = 8;
+export const MAX_LOTTIE_LAYERS = 64;
 export interface LottieImage {
   id: string;
   path: string;
@@ -44,7 +47,11 @@ function scan(value: unknown, slotOwner: unknown, depth = 0): void {
   }
 }
 
-/** Only shape layers and same-owner image layers are admitted before native code sees the JSON. */
+/**
+ * Only shape layers and same-owner image layers are admitted before native code sees the JSON. The `splash` profile
+ * (ADR 0020, only `EXTENDED_LOTTIE_IDS`) also admits root precomposition layers over flat precomposition assets and
+ * alpha track mattes (`td`/`tt` 1); every other profile behaves exactly as before.
+ */
 export function validateLottie(
   value: unknown,
   ownerFile: string,
@@ -86,8 +93,10 @@ export function validateLottie(
   if (!/^[a-z0-9-]+\/[a-z0-9-]+\.json$/.test(ownerFile))
     throw new Error('Invalid Lottie owner path');
   const stem = ownerFile.split('/').pop()?.slice(0, -5) ?? '';
-  const actor = profile === 'flat' ? null : validateActorMotion(value, profile);
-  if (profile === 'flat' && 'markers' in value)
+  const extended = profile === 'splash';
+  const actor =
+    profile === 'flat' || profile === 'splash' ? null : validateActorMotion(value, profile);
+  if ((profile === 'flat' || extended) && 'markers' in value)
     throw new Error('Motion markers require an actor profile');
   scan(value, actor?.slotOwner);
   const assets = value.assets ?? [];
@@ -96,11 +105,27 @@ export function validateLottie(
   const images: LottieImage[] = [];
   const ids = new Set<string>();
   const paths = new Set<string>();
+  const precomps = new Map<string, readonly unknown[]>();
   let decodedBytes = 0;
   for (const asset of assets) {
     if (actor && record(asset) && asset.id === 'poses') continue;
+    if (extended && record(asset) && 'layers' in asset) {
+      if (
+        typeof asset.id !== 'string' ||
+        !/^[\w-]{1,64}$/.test(asset.id) ||
+        ids.has(asset.id) ||
+        precomps.has(asset.id) ||
+        !Array.isArray(asset.layers) ||
+        ['p', 'u', 'e', 'w', 'h'].some((key) => key in asset)
+      )
+        throw new Error('Invalid Lottie precomposition');
+      if (precomps.size >= MAX_LOTTIE_PRECOMPS)
+        throw new Error('Lottie precomposition count exceeds budget');
+      precomps.set(asset.id, asset.layers);
+      continue;
+    }
     if (
-      profile !== 'flat' &&
+      actor &&
       record(asset) &&
       Object.keys(asset).some((key) => !['id', 'w', 'h', 'u', 'p', 'e'].includes(key))
     )
@@ -110,6 +135,7 @@ export function validateLottie(
       typeof asset.id !== 'string' ||
       !/^[\w-]{1,64}$/.test(asset.id) ||
       ids.has(asset.id) ||
+      precomps.has(asset.id) ||
       asset.u !== '' ||
       typeof asset.p !== 'string' ||
       !asset.p.startsWith(stem + '/') ||
@@ -129,8 +155,7 @@ export function validateLottie(
     if (actor && (asset.w !== value.w * 2 || asset.h !== value.h * 2))
       throw new Error('Actor images require two-times logical dimensions');
     decodedBytes += asset.w * asset.h * 4;
-    const budget =
-      profile === 'flat' ? MAX_LOTTIE_DECODED_BYTES : (profile === 'boss' ? 4 : 1) * 1024 * 1024;
+    const budget = !actor ? MAX_LOTTIE_DECODED_BYTES : (profile === 'boss' ? 4 : 1) * 1024 * 1024;
     if (decodedBytes > budget) throw new Error('Lottie decoded resource set exceeds budget');
     ids.add(asset.id);
     paths.add(asset.p);
@@ -139,22 +164,50 @@ export function validateLottie(
   if (actor && (images.length !== 12 || assets.length !== 13))
     throw new Error('Actor image bank requires exactly twelve owned resources');
   const referenced = new Set<string>();
-  for (const layer of actor?.layers ?? value.layers) {
+  const precompUses = new Map<string, number>();
+  const checkLayer = (layer: unknown, nested: boolean): void => {
     if (
       !record(layer) ||
-      (layer.ty !== 2 && layer.ty !== 4) ||
+      (layer.ty !== 2 && layer.ty !== 4 && !(extended && !nested && layer.ty === 0)) ||
       !record(layer.ks) ||
       'masksProperties' in layer ||
-      'tt' in layer
+      'tm' in layer ||
+      ('tt' in layer && (!extended || layer.tt !== 1)) ||
+      ('td' in layer && (!extended || layer.td !== 1))
     )
       throw new Error('Unsupported Lottie layer');
     if (layer.ty === 2) {
       if (typeof layer.refId !== 'string' || !ids.has(layer.refId))
         throw new Error('Unknown Lottie image reference');
       referenced.add(layer.refId);
+    } else if (layer.ty === 0) {
+      if (
+        typeof layer.refId !== 'string' ||
+        !precomps.has(layer.refId) ||
+        !positive(layer.w) ||
+        !Number.isInteger(layer.w) ||
+        !positive(layer.h) ||
+        !Number.isInteger(layer.h) ||
+        layer.w > MAX_IMAGE_AXIS ||
+        layer.h > MAX_IMAGE_AXIS ||
+        'shapes' in layer
+      )
+        throw new Error('Invalid Lottie precomposition layer');
+      precompUses.set(layer.refId, (precompUses.get(layer.refId) ?? 0) + 1);
     } else if (!Array.isArray(layer.shapes) || 'refId' in layer)
       throw new Error('Invalid Lottie shape layer');
-  }
+  };
+  // Actor profiles validated their own parent precomposition; their bank's image layers are checked here.
+  const rootLayers = actor?.layers ?? value.layers;
+  let layerCount = rootLayers.length;
+  for (const layers of precomps.values()) layerCount += layers.length;
+  if (extended && layerCount > MAX_LOTTIE_LAYERS)
+    throw new Error('Lottie layer count exceeds budget');
+  for (const layer of rootLayers) checkLayer(layer, false);
+  for (const layers of precomps.values()) for (const layer of layers) checkLayer(layer, true);
+  for (const id of precomps.keys())
+    if (precompUses.get(id) !== 1)
+      throw new Error('Every Lottie precomposition needs exactly one root layer');
   if (images.some((image) => !referenced.has(image.id)))
     throw new Error('Unused Lottie image resource');
   return {

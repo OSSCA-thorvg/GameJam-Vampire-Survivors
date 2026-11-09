@@ -115,6 +115,11 @@ it('Lottie resources decode within their owner and preserve the original effect 
       expect(animation.lastFrame, id).toBe(id === 'fx.chestOpen' ? 24 : 30);
     }
     if (id === 'enemy.lottieTest') expect(animation.images).toHaveLength(0);
+    if (id === 'ui.splash') {
+      expect([animation.fps, animation.firstFrame, animation.lastFrame], id).toEqual([30, 0, 210]);
+      expect(animation.images, id).toHaveLength(1);
+      expect(entry).toMatchObject({ loop: false, filter: 'bilinear' });
+    }
     for (const image of animation.images) {
       const path = entry.file.slice(0, entry.file.lastIndexOf('/') + 1) + image.path;
       decodePng(readFileSync(new URL(path, assets)), [image.width, image.height]);
@@ -123,8 +128,8 @@ it('Lottie resources decode within their owner and preserve the original effect 
 });
 
 it('installs an exact format-aware primary/resource graph with no missing or orphan files', () => {
-  expect(entries).toHaveLength(85);
-  expect(entries.filter(([, entry]) => entry.format === 'lottie')).toHaveLength(37);
+  expect(entries).toHaveLength(86);
+  expect(entries.filter(([, entry]) => entry.format === 'lottie')).toHaveLength(38);
   expect(entries.filter(([, entry]) => entry.format === 'ttf')).toHaveLength(1);
   const parsed = validateManifest(JSON.parse(read('manifest.json')));
   expect(parsed.errors).toEqual([]);
@@ -133,7 +138,9 @@ it('installs an exact format-aware primary/resource graph with no missing or orp
   expect(graph.logicalIds).toEqual(entries.map(([id]) => id).sort());
   expect(graph.motionIds).toHaveLength(36);
   expect(graph.diagnosticIds).toEqual(['enemy.lottieTest']);
-  expect(graph.files.filter((file) => file.role === 'primary')).toHaveLength(entries.length);
+  expect(graph.splashIds).toEqual(['ui.splash']);
+  expect(graph.files.filter((file) => file.role === 'primary')).toHaveLength(entries.length - 1);
+  expect(graph.files.filter((file) => file.role === 'splash')).toHaveLength(2);
   expect(graph.files.filter((file) => file.role === 'owned-image').length).toBeGreaterThan(0);
 });
 

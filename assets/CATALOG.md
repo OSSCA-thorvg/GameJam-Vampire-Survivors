@@ -133,6 +133,7 @@ Used by the level-up choice, the character select screen and the HUD inventory. 
 | `ui.xpBar` | 400×12 | png | XP bar frame along the top | C6 | final |
 | `ui.hpBar` | 40×6 | png | HP bar frame and empty dark track under the player; red fill is a ThorVG Shape scaled by HP (#9) | C4 | final |
 | `ui.skull` | 16×16 | png | Kill counter icon | C4 | final |
+| `ui.splash` | 1920×1080 | lottie | "Powered by ThorVG" boot splash: 7 s, 210 frames at 30 fps, drawn at 2/3 scale into the 1280×720 view; provided by the ThorVG project for this game (2026-11-09) | #126 | final |
 
 ## Fonts drawn by ThorVG — `assets/fonts/`
 

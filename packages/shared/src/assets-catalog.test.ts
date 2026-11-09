@@ -206,4 +206,28 @@ describe('asset checks reject what they must', () => {
       ),
     ).toEqual([]);
   });
+  it('rejects the splash precomposition and matte under any ID but ui.splash (ADR 0020)', () => {
+    const splash = JSON.parse(read('ui/splash.json')) as {
+      assets: Record<string, unknown>[];
+      layers: Record<string, unknown>[];
+    };
+    const precomp = splash.assets.find((asset) => 'layers' in asset);
+    const layer = splash.layers.find((item) => item.ty === 0);
+    if (!precomp || !layer) throw new Error('ui/splash.json lost its precomposition');
+    const levelUp = JSON.parse(read('fx/level-up.json')) as {
+      assets?: Record<string, unknown>[];
+      layers: Record<string, unknown>[];
+    };
+    const injected = {
+      ...levelUp,
+      assets: [...(levelUp.assets ?? []), { ...precomp, layers: [] }],
+      layers: [...levelUp.layers, layer],
+    };
+    expect(lottieErrors(JSON.stringify(levelUp), 'fx/level-up.json', 'fx.levelUp')).toEqual([]);
+    expect(lottieErrors(JSON.stringify(injected), 'fx/level-up.json', 'fx.levelUp')).not.toEqual(
+      [],
+    );
+    expect(lottieErrors(read('ui/splash.json'), 'ui/splash.json', 'fx.levelUp')).not.toEqual([]);
+    expect(lottieErrors(read('ui/splash.json'), 'ui/splash.json', 'ui.splash')).toEqual([]);
+  });
 });

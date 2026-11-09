@@ -4,8 +4,8 @@ Development/e2e `/?gallery` shows every drawable catalog ID through the replacea
 
 ## Sub-features
 
-- Loading text shows `Loading n/total` until assetsReady; the `assets` snapshot reports `ready`, `loaded`, `total`, `placeholders`, `font`. Baseline is 85/85, font `hud`, no placeholders (`placeholders` is `[]`).
-- `gallery` reports `ids`, `panX`, `panY`, `width`, `height`, `lottieFrame`: all 84 drawable IDs, fonts excluded; real arrow input pans through all groups; white crosses mark anchors.
+- Loading text shows `Loading n/total` until assetsReady; the `assets` snapshot reports `ready`, `loaded`, `total`, `placeholders`, `font`. Baseline is 86/86, font `hud`, no placeholders (`placeholders` is `[]`).
+- `gallery` reports `ids`, `panX`, `panY`, `width`, `height`, `lottieFrame`: all 85 drawable IDs, fonts excluded; real arrow input pans through all groups; white crosses mark anchors. `ui.splash` (1920×1080, #126) is drawn scaled into its 244-unit cell at its last frame, and its row is only as tall as the scaled art; the gallery never plays the boot splash.
 - Every drawable ID draws as art (#5 starter pack); the only magenta on screen is the `ui.placeholder` reference itself. Both Lottie effects, `fx.levelUp` and `fx.chestOpen`, animate. Static instance creation makes no requests after loading.
 - Speed preview (#5, dev builds only): `V` (`KeyV`, debug command `galleryPreview`) toggles a view of `stage.ground` tiled across the screen with a labelled cluster of 30 instances for each of the 18 mass IDs (six enemies, three gems, nine mass projectiles) drifting at 100 units/s, odd rows rightward and the middle row leftward, flipped. The `galleryPreview` snapshot field is `true` while it shows; the worker logs `[debug] gallery preview shown`/`hidden`. Ground tiles show no seams. Its Paints are created once, the first time it opens.
 - Replacing the static `portrait.warden` PNG at four-times `ASSET_SIZES` dimensions changes only that portrait cell; all four static portraits retain their logical size/anchor. Animated actor primaries and their owned pose banks remain untouched.
@@ -22,7 +22,7 @@ Open `/?gallery` after verify:launch and Doctor succeed. No server is needed. Ho
 ### Claude in Chrome
 
 1. Detect the extension with tabs_context_mcp, create a new verification tab, start GIF recording and navigate to `http://localhost:5180/?gallery`. Use Playwright when the extension is unavailable.
-2. Read `await window.__vsTest.waitFor(s => s.assets?.ready, 30000)` and capture a screenshot. Check 85/85, hud, 84 drawable IDs, an empty placeholders list and no font.hud in gallery.ids.
+2. Read `await window.__vsTest.waitFor(s => s.assets?.ready, 30000)` and capture a screenshot. Check 86/86, hud, 85 drawable IDs, an empty placeholders list and no font.hud in gallery.ids.
 3. Press `v` once with `computer` `key`, wait for `s.galleryPreview === true`, screenshot, wait 1 s, screenshot again (the clusters moved; the middle row drifts left, flipped), zoom on tile corners to check for seams, press `v` again and wait for `false`.
 4. Use real ArrowDown key presses with repeat, taking screenshots after each pan; inspect every group, readable labels and white anchor crosses. Record the ring before/after its frame advances. ArrowUp returns toward the top.
 5. Save the manifest. Leave the actor primary JSON/owned PNG bank intact. Create an orange128×128 `enemies/bat-test.png`, temporarily point enemy.bat to PNG/nearest with loop removed, reload, then change only this PNG to green and reload at the same32×32 size/anchor. Switch to an inert cyan32×32 SVG, remove filter/loop, reload, then restore the manifest and remove both fixtures. Separately replace only the static portrait.warden PNG at four-times its logical size; compare all four portrait cells and restore its bytes.
@@ -137,15 +137,15 @@ test('gallery: loading progress, all IDs, panning, animation and no repeat fetch
   context.on('request', (r) => requests.push(r.url()));
   try {
     await page.goto('/?gallery');
-    await expect(page.locator('#loading')).toContainText(/Loading \d+\/85/);
+    await expect(page.locator('#loading')).toContainText(/Loading \d+\/86/);
     await ev.shot('loading');
     release();
     const ready = await assetsReady(page);
     ev.json('ready', ready);
     await expect(page.locator('#loading')).toHaveCount(0);
-    expect(selected(ready)).toMatchObject({ loaded: 85, total: 85, font: 'hud' });
+    expect(selected(ready)).toMatchObject({ loaded: 86, total: 86, font: 'hud' });
     expect(selected(ready).placeholders).toEqual([]);
-    expect(gallery(ready).ids).toHaveLength(84);
+    expect(gallery(ready).ids).toHaveLength(85);
     expect(gallery(ready).ids).not.toContain('font.hud');
     await ev.shot('top');
     const requestCount = requests.length;
@@ -535,7 +535,7 @@ test('pack: every catalog ID has art, no stray magenta, both Lottie effects anim
     await page.goto('/?gallery');
     const ready = await assetsReady(page);
     ev.json('ready', ready);
-    expect(assetsOf(ready)).toMatchObject({ loaded: 85, total: 85, placeholders: [] });
+    expect(assetsOf(ready)).toMatchObject({ loaded: 86, total: 86, placeholders: [] });
     const box = await page.locator('#app canvas').boundingBox();
     const scale = (box?.width ?? 1280) / 1280;
     // Only ui.placeholder (the 64×64 magenta reference) may contain magenta.

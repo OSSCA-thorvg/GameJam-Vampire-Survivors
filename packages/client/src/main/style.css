@@ -51,3 +51,14 @@ body {
   color: #fff;
   background: #181c28;
 }
+
+/* #126: while the splash's last frame is held, the progress sits centred just under the logo (logical y 610). */
+#loading.splash-hold {
+  inset: var(--splash-top) auto auto 50%;
+  padding: 0;
+  transform: translateX(-50%);
+  background: none;
+  font-size: var(--splash-font);
+  line-height: 1;
+  white-space: nowrap;
+}

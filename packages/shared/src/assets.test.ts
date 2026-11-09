@@ -53,3 +53,35 @@ it('accepts versioned filenames while keeping paths inside assets', () => {
       .errors,
   ).toEqual([]);
 });
+
+describe('bilinear Lottie filtering (ADR 0020)', () => {
+  const splash = {
+    file: 'ui/splash.json',
+    format: 'lottie',
+    size: [1920, 1080],
+    anchor: [0.5, 0.5],
+    loop: false,
+  };
+  const levelUp = {
+    file: 'fx/level-up.json',
+    format: 'lottie',
+    size: [96, 96],
+    anchor: [0.5, 0.5],
+  };
+  it('accepts bilinear only on the ui.splash Lottie', () => {
+    const ok = validateManifest({
+      version: 1,
+      assets: { 'ui.splash': { ...splash, filter: 'bilinear' } },
+    });
+    expect(ok.errors).toEqual([]);
+    expect(ok.manifest.assets['ui.splash']).toMatchObject({ filter: 'bilinear' });
+  });
+  it.each([
+    ['fx.levelUp', { ...levelUp, filter: 'bilinear' }],
+    ['ui.splash', { ...splash, filter: 'linear' }],
+  ])('rejects %s with an unsupported filter', (id, entry) => {
+    expect(validateManifest({ version: 1, assets: { [id]: entry } }).errors[0]).toContain(
+      'invalid raster filter',
+    );
+  });
+});
