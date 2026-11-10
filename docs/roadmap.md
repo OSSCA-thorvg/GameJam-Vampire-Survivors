@@ -52,6 +52,7 @@ Each row is one GitHub issue, and the issue is the source of truth for scope and
 | R8                                              | #156  | Show owned items and spawn chest carriers every minute                 | G1, G4, G6     | medium   |
 | R9                                              | #157  | Move player attack origins from feet to torso                          | C5, G2, A3     | medium   |
 | R10                                             | #148  | Retune the stage so a run survives past the 5:00 boss                  | —              | high     |
+| R11                                             | #151  | Keep gems dropping at the kill site after 400 lie on the ground        | —              | high     |
 
 ## Assets
 

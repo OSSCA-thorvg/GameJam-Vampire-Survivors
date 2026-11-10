@@ -57,8 +57,8 @@ it('creates every paint once: ground, garlic, gem, chest, elite marker, enemy, p
   expect(byId('weapon.bloodyTear')).toHaveLength(4);
   expect(byId('fx.chestOpen')).toHaveLength(2);
   expect(byId('gem.blue')).toHaveLength(400);
-  expect(byId('gem.green')).toHaveLength(50);
-  expect(byId('gem.red')).toHaveLength(50);
+  expect(byId('gem.green')).toHaveLength(400);
+  expect(byId('gem.red')).toHaveLength(401);
   expect(byId('ui.xpBar')).toHaveLength(1);
   // One sprite per character (#14).
   for (const id of ['player.warden', 'player.ember', 'player.swift', 'player.aurelia'])
@@ -90,8 +90,8 @@ it('creates every paint once: ground, garlic, gem, chest, elite marker, enemy, p
     'Sent Gem Thief',
     'Sent Elite Call',
   ]);
-  expect(view.countPaints()).toBe(2965);
-  expect(paints).toHaveLength(3004);
+  expect(view.countPaints()).toBe(3666);
+  expect(paints).toHaveLength(3705);
 });
 
 it('follows the camera, snapped to device pixels', () => {

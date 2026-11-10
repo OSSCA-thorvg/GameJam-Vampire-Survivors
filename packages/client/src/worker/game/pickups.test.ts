@@ -2,7 +2,7 @@ import { PICKUP_COLLECT_RADIUS, PICKUPS, PLAYER_RADIUS } from '@vs/shared';
 import { describe, expect, it } from 'vitest';
 import { quietWorld, target } from './combat-test-helpers';
 import { ENEMY_FLAG_BOSS } from './enemies';
-import { dropGem, GEM_FLYING, GEM_IDLE } from './gems';
+import { dropGem, GEM_SWEEP_MARGIN, GEM_FLYING, GEM_IDLE } from './gems';
 import {
   PICKUP_FAMILY_INTERFERENCE,
   PICKUP_FAMILY_LIGHT,
@@ -100,11 +100,35 @@ describe('effects', () => {
 
   it('Vacuum flies in only the gems that existed when it was collected', () => {
     const world = quietWorld();
-    dropGem(world, 500, 0, 1);
-    dropGem(world, -800, 300, 1);
+    dropGem(
+      world,
+      500,
+      0,
+      1,
+      world.player.x,
+      world.player.y,
+      world.camera.viewRect(GEM_SWEEP_MARGIN),
+    );
+    dropGem(
+      world,
+      -800,
+      300,
+      1,
+      world.player.x,
+      world.player.y,
+      world.camera.viewRect(GEM_SWEEP_MARGIN),
+    );
     collect(world, 'vacuum');
     expect(Array.from(world.gems.cols.state.subarray(0, 2))).toEqual([GEM_FLYING, GEM_FLYING]);
-    dropGem(world, 0, 700, 1);
+    dropGem(
+      world,
+      0,
+      700,
+      1,
+      world.player.x,
+      world.player.y,
+      world.camera.viewRect(GEM_SWEEP_MARGIN),
+    );
     const late = world.gems.count - 1;
     expect(world.gems.cols.state[late]).toBe(GEM_IDLE);
     const xp = world.player.xp;
@@ -159,7 +183,15 @@ describe('Orologion freeze', () => {
     world.spawnTimer = 0;
     const enemiesBefore = world.enemies.count;
     // A gem inside the magnet radius.
-    dropGem(world, 40, 0, 1);
+    dropGem(
+      world,
+      40,
+      0,
+      1,
+      world.player.x,
+      world.player.y,
+      world.camera.viewRect(GEM_SWEEP_MARGIN),
+    );
     const xp = world.player.xp;
     // The player walks right.
     world.input = { dx: 1, dy: 0 };

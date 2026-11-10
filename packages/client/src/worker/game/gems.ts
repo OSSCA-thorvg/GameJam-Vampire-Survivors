@@ -12,6 +12,7 @@ import type { AssetLibrary } from '../assets/library';
 import { createSpatialGrid, type SpatialGrid } from '../ecs/spatial-grid';
 import { createStore, type Store } from '../ecs/store';
 import { PaintPool, RenderBinding } from '../render/pool';
+import type { ViewRect } from './camera';
 import type { PlayerState } from './player';
 import { cueSfx, type SfxState } from './sfx';
 import type { World } from './world';
@@ -43,10 +44,11 @@ const TIER_INDEX = { blue: 0, green: 1, red: 2 } as const;
 const RED = TIER_INDEX.red;
 
 /**
- * Paints prewarmed per gem pool, in `GEM_ASSETS` order. Blue covers `GEM_CAP` (#22: a screen full of the commonest gem
- * never grows the pool mid-run); green and red stay rare.
+ * Paints prewarmed per gem pool, in `GEM_ASSETS` order. Every tier covers `GEM_CAP`, and red one more for the merge
+ * gem: past the cap the overflow keeps recycling old (mostly blue) gems into new green and red drops (#151), so no gem
+ * pool ever grows mid-run (ADR 0003, #22).
  */
-export const GEM_POOL_PREWARM = [GEM_CAP, 50, 50] as const;
+export const GEM_POOL_PREWARM = [GEM_CAP, GEM_CAP, GEM_CAP + 1] as const;
 
 /** Store slots: `GEM_CAP` normal gems plus the one reserved for the merge gem. */
 export const GEM_STORE_CAPACITY = GEM_CAP + 1;
@@ -101,36 +103,128 @@ export function addGem(world: GemState, x: number, y: number, value: number, tie
 }
 
 /**
- * Drops a gem worth `value` XP at (x, y). Below `GEM_CAP` normal gems it is a new gem of its tier; beyond, the value is
- * added to the merge gem (always red), which is created here at this drop's position when none exists. No value is
- * ever lost.
+ * The slot of the idle normal gem (never the merge gem) farthest from (px, py), or -1 when every normal gem is flying.
+ * A linear scan without allocation; `dropGem` runs it only past `GEM_CAP` (#151).
  */
-export function dropGem(world: GemState, x: number, y: number, value: number): void {
+export function farthestIdleGem(world: GemState, px: number, py: number): number {
+  const { gems, mergeGemUid } = world;
+  const { x, y, state } = gems.cols;
+  let best = -1;
+  let bestD2 = -1;
+  for (let i = 0; i < gems.count; i++) {
+    if (state[i] !== GEM_IDLE || gems.uid[i] === mergeGemUid) continue;
+    const dx = (x[i] ?? 0) - px;
+    const dy = (y[i] ?? 0) - py;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > bestD2) {
+      bestD2 = d2;
+      best = i;
+    }
+  }
+  return best;
+}
+
+/**
+ * Gems farther than this beyond the view's edge are off screen for the overflow sweep (#151): a drop past `GEM_CAP`
+ * folds all of them into the merge gem in one pass, so the next drops fit without another scan.
+ */
+export const GEM_SWEEP_MARGIN = 256;
+
+/**
+ * Folds the normal gem in `slot` into the merge gem: without one, the gem becomes the merge gem in place (tier red, its
+ * paint rebound to the red pool); otherwise its value is added to the merge gem and the slot is swap-removed (the merge
+ * gem may move, `mergeGemUid` keeps tracking it). Never creates a paint beyond the red pool's prewarm.
+ */
+function foldIntoMerge(world: GemState, slot: number): void {
+  const { gems } = world;
+  const merge = gems.indexOf(world.mergeGemUid);
+  if (merge < 0) {
+    gems.cols.tier[slot] = RED;
+    world.gemBinding?.unbind(slot);
+    world.gemBinding?.bind(slot, RED);
+    world.mergeGemUid = gems.uid[slot] ?? NO_GEM;
+    return;
+  }
+  gems.cols.value[merge] = (gems.cols.value[merge] ?? 0) + (gems.cols.value[slot] ?? 0);
+  world.gemBinding?.unbind(slot);
+  gems.remove(slot);
+}
+
+/**
+ * Folds every idle normal gem outside `keep` into the merge gem in one backward pass (swap-remove only moves gems
+ * already visited) and returns how many normal gems it freed. No allocation.
+ */
+export function sweepOffscreenGems(world: GemState, keep: ViewRect): number {
+  const { gems } = world;
+  const { x, y, state } = gems.cols;
+  let freed = 0;
+  for (let i = gems.count - 1; i >= 0; i--) {
+    if (state[i] !== GEM_IDLE || gems.uid[i] === world.mergeGemUid) continue;
+    const gx = x[i] ?? 0;
+    const gy = y[i] ?? 0;
+    if (gx >= keep.left && gx <= keep.right && gy >= keep.top && gy <= keep.bottom) continue;
+    foldIntoMerge(world, i);
+    freed++;
+  }
+  return freed;
+}
+
+/**
+ * Drops a gem worth `value` XP at (x, y), the player standing at (px, py) with `keep` the on-screen area
+ * (`camera.viewRect(GEM_SWEEP_MARGIN)`). Below `GEM_CAP` normal gems it is a new gem of its tier. Beyond, room is made
+ * so the new gem still lands at (x, y) (#151): one pass folds every idle gem outside `keep` into the merge gem (always
+ * red; the first such gem becomes it in place when none exists), which leaves room for many later drops; only when that
+ * pass frees nothing is the single idle gem farthest from the player folded in. When every gem is flying, the value is
+ * added to the merge gem, created here at this drop's position when none exists. No value is ever lost, and no paint
+ * is created beyond the pools' prewarm.
+ */
+export function dropGem(
+  world: GemState,
+  x: number,
+  y: number,
+  value: number,
+  px: number,
+  py: number,
+  keep: ViewRect,
+): void {
   if (value <= 0) return;
   const { gems } = world;
   const merge = gems.indexOf(world.mergeGemUid);
   const normal = gems.count - (merge >= 0 ? 1 : 0);
+  const tier = TIER_INDEX[gemTier(value)];
   if (normal < GEM_CAP) {
-    addGem(world, x, y, value, TIER_INDEX[gemTier(value)]);
+    addGem(world, x, y, value, tier);
     return;
   }
-  if (merge >= 0) {
-    gems.cols.value[merge] = (gems.cols.value[merge] ?? 0) + value;
-    return;
+  if (sweepOffscreenGems(world, keep) === 0) {
+    const far = farthestIdleGem(world, px, py);
+    if (far < 0) {
+      if (merge >= 0) {
+        gems.cols.value[merge] = (gems.cols.value[merge] ?? 0) + value;
+        return;
+      }
+      const slot = addGem(world, x, y, value, RED);
+      world.mergeGemUid = slot >= 0 ? (gems.uid[slot] ?? NO_GEM) : NO_GEM;
+      return;
+    }
+    foldIntoMerge(world, far);
   }
-  const slot = addGem(world, x, y, value, RED);
-  world.mergeGemUid = slot >= 0 ? (gems.uid[slot] ?? NO_GEM) : NO_GEM;
+  addGem(world, x, y, value, tier);
 }
 
-/** Inserted right after `cleanupSystem`: one gem per `enemyKilled` event of this step, worth the enemy's `xp`. */
+/**
+ * Inserted right after `cleanupSystem`: one gem per `enemyKilled` event of this step, worth the enemy's `xp`. The
+ * overflow sweep keeps gems within `GEM_SWEEP_MARGIN` of the view.
+ */
 export function gemDropSystem(world: World): void {
   const { items, count } = world.events;
+  const keep = world.camera.viewRect(GEM_SWEEP_MARGIN);
   for (let i = 0; i < count; i++) {
     const event = items[i];
-    if (event?.kind === 'enemyKilled') dropGem(world, event.x, event.y, event.xp);
+    if (event?.kind === 'enemyKilled')
+      dropGem(world, event.x, event.y, event.xp, world.player.x, world.player.y, keep);
   }
 }
-
 /** Gems read per magnet query; every gem fits. */
 const nearby = new Int32Array(GEM_STORE_CAPACITY);
 

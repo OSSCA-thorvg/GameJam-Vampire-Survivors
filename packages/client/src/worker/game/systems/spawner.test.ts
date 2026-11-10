@@ -9,6 +9,8 @@ const DT = 1 / 60;
 
 /** Steps the world system by system, calling `afterSpawn` with the slots the spawner added in that step. */
 function step(world: World, afterSpawn?: (from: number, to: number) => void): void {
+  // As world.step does: without it every step replays the previous steps' enemyKilled events (#151).
+  world.events.clear();
   for (const system of SYSTEMS) {
     const before = world.enemies.count;
     system(world, DT);
