@@ -84,6 +84,7 @@ import type {
 } from './debug/stress-scenarios';
 import { INTERFERENCE } from '@vs/shared';
 import { clearSfx, drainSfx } from './game/sfx';
+import { createResizeFrame } from './resize-frame';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -220,13 +221,8 @@ function step(dtSec: number): void {
   if (started >= 0) meter?.stepDone(performance.now() - started);
 }
 
-/** #115: a frame is queued after a resize; `render` sets the flag so that frame is skipped when the loop drew one. */
-let resizeFramePending = false;
-let renderedSinceResize = true;
-
 function render(): void {
   if (!ctx) return;
-  renderedSinceResize = true;
   const timed = meter?.enabled === true;
   const started = timed ? performance.now() : 0;
   if (import.meta.env.DEV || import.meta.env.MODE === 'perf') {
@@ -633,21 +629,24 @@ function startLoop(): void {
   gameLoop.start();
 }
 
+/**
+ * #165: the resize and its frame in one task (`resize-frame.ts`), so the cleared buffer is never presented; before the
+ * loop exists (boot) only the size is applied. Also after `forceEnd`, which stops the loop, the result keeps a drawn frame.
+ */
+const resizeFrame = createResizeFrame({
+  apply: () => {
+    if (!ctx) return;
+    ctx.canvas.resize(size.width, size.height);
+    ctx.root.scale(size.scale);
+    applyPanes();
+  },
+  render,
+  ready: () => ctx !== null && loop !== null,
+  hidden: () => hidden,
+});
+
 function applySize(): void {
-  if (!ctx) return;
-  ctx.canvas.resize(size.width, size.height);
-  ctx.root.scale(size.scale);
-  applyPanes();
-  // The new layout shows on the next frame (#115): the loop's own frame if it runs, else (after `forceEnd`, which
-  // stops the loop) this one, so a resize never leaves a stale or empty canvas. Never two renders for one resize.
-  if (!loop || resizeFramePending) return;
-  resizeFramePending = true;
-  requestAnimationFrame(() => {
-    resizeFramePending = false;
-    if (renderedSinceResize || hidden) return;
-    render();
-  });
-  renderedSinceResize = false;
+  resizeFrame.resize();
 }
 
 /**
