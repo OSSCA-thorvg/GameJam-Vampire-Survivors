@@ -423,7 +423,8 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         TVG: context.TVG,
         library,
         layers: opponentLayers,
-        scale: () => size.scale,
+        // #150: the `pip` inset draws the opponent scaled down, so its camera snaps at the inset's device scale.
+        scale: () => size.scale * split.opponentScale,
       });
       opponentView = otherView;
       opponentHud = createOpponentHud(context.TVG, opponentLayers.hud, split.opponent, [
@@ -649,11 +650,14 @@ function applySize(): void {
   renderedSinceResize = false;
 }
 
-/** Places and clips the panes for the current size and layout; the "YOU" label shows only with two panes (#115). */
+/**
+ * Places and clips the panes for the current size and layout; the "YOU" label shows only with two equal panes (#115),
+ * never over the full view of `pip` (#150).
+ */
 function applyPanes(): void {
   if (!panes || size.scale <= 0) return;
   panes.apply(size.layout, size.width / size.scale, size.height / size.scale);
-  youLabel?.setVisible(size.layout !== 'single');
+  youLabel?.setVisible(size.layout === 'columns' || size.layout === 'rows');
   if (size.layout === 'single') opponentView?.suspendPlayback();
 }
 

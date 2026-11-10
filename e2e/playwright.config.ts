@@ -4,7 +4,8 @@
 // saved under verification/issue-<N>/journeys/). The native hidden-tab project owns a fresh headed browser;
 // Linux runs need Xvfb. Select chromium for ordinary headless-only smoke. VERIFY_AUDIO_ENGINES=1 adds the headless
 // audio-firefox and audio-webkit projects, which run only e2e/audio-decode.spec.ts (#128). #149: `mobile-chromium` (a
-// Pixel 7 in landscape, headless, also in CI) runs e2e/touch.spec.ts with touch input; `mobile-webkit` (an iPhone 14 in
+// Pixel 7 in landscape, headless, also in CI) runs e2e/touch.spec.ts with touch input, and e2e/versus-pip.spec.ts
+// (#150, the versus picture-in-picture, which skips without a server); `mobile-webkit` (an iPhone 14 in
 // landscape, headless) needs WebKit (`pnpm exec playwright install webkit`), which CI does not install, so it is opt-in
 // with VERIFY_MOBILE_WEBKIT=1.
 import { readFileSync } from 'node:fs';
@@ -67,7 +68,8 @@ export default defineConfig({
     },
     {
       name: 'mobile-chromium',
-      testMatch: '**/touch.spec.ts',
+      // #150: versus-pip.spec.ts opens its own phone and desktop contexts and skips without a server.
+      testMatch: ['**/touch.spec.ts', '**/versus-pip.spec.ts'],
       use: {
         ...devices['Pixel 7 landscape'],
         headless: true,

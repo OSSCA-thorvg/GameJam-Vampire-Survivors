@@ -87,11 +87,15 @@ async function boot(): Promise<void> {
   };
 
   /**
-   * The canvas size and pane layout (#115): one view, or two panes during a versus match (ADR 0018). A layout change
+   * The canvas size and pane layout (#115): one view, or two panes during a versus match (ADR 0018), the opponent's
+   * an inset in touch mode (#150, ADR 0024). A layout change, including a switch of input mode during a match,
    * relayouts at once; size changes within a layout are debounced (`main/resize.ts`).
    */
   const resizer = createResizer({
-    measure: (panes) => computeViewport(innerWidth, innerHeight, devicePixelRatio, panes),
+    measure: (panes, mode) =>
+      computeViewport(innerWidth, innerHeight, devicePixelRatio, panes, mode),
+    // #150, ADR 0024: touch devices show the opponent as a picture-in-picture inset, desktop the equal split.
+    mode: () => (inputMode.mode === 'touch' ? 'pip' : 'split'),
     apply: (v) => {
       applyCssSize(canvas, v);
       bootLoading.place(v.cssHeight);
@@ -167,6 +171,7 @@ async function boot(): Promise<void> {
   };
   inputMode.on(() => {
     rotateHint.refresh();
+    resizer.onModeChange();
   });
   if (import.meta.env.DEV || import.meta.env.MODE === 'e2e')
     registerMainSnapshotField('touch', () => ({

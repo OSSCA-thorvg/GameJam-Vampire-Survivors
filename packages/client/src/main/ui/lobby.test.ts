@@ -86,6 +86,15 @@ describe('lobby screen', () => {
     ]);
   });
 
+  it('has a keyboard hint and a touch hint (#150), each shown in its input mode by the CSS', () => {
+    const t = setup();
+    const hints = [...t.root.querySelectorAll('.lobby .hint')];
+    expect(hints.map((p) => [p.className, p.textContent])).toEqual([
+      ['hint keys-only', 'Share the code. Arrows move, Enter presses, Escape leaves.'],
+      ['hint touch-only', 'Share the code. Tap Ready; the host taps Start.'],
+    ]);
+  });
+
   it('Start: visible only to the host, enabled only when everyone is ready and there are 2', () => {
     const host = setup();
     expect(host.button('Start').hidden).toBe(false);

@@ -54,6 +54,7 @@ Each row is one GitHub issue, and the issue is the source of truth for scope and
 | R10                                             | #148  | Retune the stage so a run survives past the 5:00 boss                  | —              | high     |
 | R11                                             | #151  | Keep gems dropping at the kill site after 400 lie on the ground        | —              | high     |
 | R12                                             | #149  | Play on phones and tablets with touch controls                         | —              | high     |
+| R13                                             | #150  | Show the versus opponent as picture-in-picture on touch devices        | R12            | medium   |
 
 ## Assets
 

@@ -1,17 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import type { MainToWorker } from '../protocol/worker-messages';
 import { createResizer, RESIZE_DEBOUNCE_MS } from './resize';
-import { computeViewport } from './viewport';
+import { computeViewport, type PaneMode } from './viewport';
 
 /** A resizer over a fake window and a fake clock. */
 function setup(w = 1600, h = 900) {
-  const win = { w, h };
+  const win = { w, h, mode: 'split' as PaneMode };
   const posted: Extract<MainToWorker, { type: 'resize' }>[] = [];
   let applied = 0;
   let time = 0;
   const timers: { cb: () => void; at: number }[] = [];
   const resizer = createResizer({
-    measure: (panes) => computeViewport(win.w, win.h, 1, panes),
+    measure: (panes, mode) => computeViewport(win.w, win.h, 1, panes, mode),
+    mode: () => win.mode,
     apply: () => applied++,
     post: (m) => posted.push(m),
     setTimer: (cb, ms) => {
@@ -36,7 +37,11 @@ function setup(w = 1600, h = 900) {
     win.h = nh;
     resizer.onResize();
   };
-  return { resizer, posted, advance, resize, applied: () => applied };
+  const setMode = (mode: PaneMode) => {
+    win.mode = mode;
+    resizer.onModeChange();
+  };
+  return { resizer, posted, advance, resize, setMode, applied: () => applied };
 }
 
 describe('createResizer (#115)', () => {
@@ -98,5 +103,26 @@ describe('createResizer (#115)', () => {
     t.advance(RESIZE_DEBOUNCE_MS);
     expect(t.posted).toHaveLength(2);
     expect(t.applied()).toBe(3);
+  });
+
+  // #150, ADR 0024: the input mode decides between the split and the touch inset.
+  it('relayouts at once when the pane mode changes during a split, and never in single player', () => {
+    const t = setup(915, 412);
+    t.setMode('pip');
+    expect(t.posted).toEqual([]);
+    expect(t.resizer.viewport.layout).toBe('single');
+    t.resizer.setPanes(2);
+    expect(t.posted.at(-1)).toMatchObject({ layout: 'pip' });
+    t.resize(920, 412); // same layout: pending
+    t.setMode('split'); // a mouse or key: columns now, the pending debounce cancelled
+    expect(t.posted.at(-1)).toMatchObject({ layout: 'columns' });
+    expect(t.posted).toHaveLength(2);
+    t.advance(RESIZE_DEBOUNCE_MS * 2);
+    expect(t.posted).toHaveLength(2);
+    t.setMode('split'); // no change: nothing
+    expect(t.posted).toHaveLength(2);
+    t.setMode('pip');
+    expect(t.posted.map((m) => m.layout)).toEqual(['pip', 'columns', 'pip']);
+    expect(t.resizer.viewport.panes).toHaveLength(2);
   });
 });
