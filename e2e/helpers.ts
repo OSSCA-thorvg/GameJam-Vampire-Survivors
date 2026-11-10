@@ -177,7 +177,7 @@ function cardRank(kind: string | null, name: string, avoidDamage: boolean): numb
 }
 
 /** The key to press for the level-up dialog's cards: the best-ranked card (`cardRank`), the first one on a tie. */
-async function levelUpKey(page: Page, avoidDamage: boolean): Promise<string> {
+export async function levelUpKey(page: Page, avoidDamage: boolean): Promise<string> {
   const cards = page.locator('[role="dialog"][aria-label="Level up"] button.card');
   await cards.first().waitFor({ timeout: 2_000 }); // the dialog mounts with the state change; never read it empty
   const found = await cards.evaluateAll((els) =>

@@ -7,6 +7,7 @@ import { HIT_SFX, MAX_VOICES, SOUND_RULES, type SfxId } from '../packages/shared
 import { WEAPONS, type WeaponId } from '../packages/shared/src/content/weapons';
 import {
   answerLevelUps,
+  levelUpKey,
   noteEvidence,
   openGame,
   settlePlaying,
@@ -127,18 +128,59 @@ async function sampleCaps(page: Page, grants: number) {
   };
 }
 
-/** Waits (answering level-ups) until each of `ids` has played in this page load; returns the counts. */
+/** How often `steer` turns the player, and for how long it holds the arrow key. */
+const STEER_EVERY_MS = 1_500;
+const STEER_HOLD_MS = 300;
+
+/**
+ * Turns the player with real arrow-key input until stopped (#169): every `STEER_EVERY_MS` it holds `ArrowLeft` or
+ * `ArrowRight`, alternating, for `STEER_HOLD_MS`. The Knife flies along the last movement direction and the Whip
+ * strikes toward the facing side, so a standing player's Knife only hits an enemy that crosses one line; turning
+ * sweeps both sides of the crowd. Returns the function that stops it and releases the key.
+ */
+function steer(page: Page): () => Promise<void> {
+  const control = { running: true };
+  const loop = (async () => {
+    let left = true;
+    while (control.running && !page.isClosed()) {
+      const key = left ? 'ArrowLeft' : 'ArrowRight';
+      left = !left;
+      try {
+        await page.keyboard.down(key);
+        await page.waitForTimeout(STEER_HOLD_MS);
+      } finally {
+        await page.keyboard.up(key).catch(() => undefined);
+      }
+      await page.waitForTimeout(STEER_EVERY_MS - STEER_HOLD_MS).catch(() => undefined);
+    }
+  })();
+  return async () => {
+    control.running = false;
+    await loop.catch(() => undefined);
+  };
+}
+
+/**
+ * Waits (answering level-ups and steering the player, `steer`) until each of `ids` has played in this page load;
+ * returns the counts.
+ */
 async function waitForHits(page: Page, ids: SfxId[]): Promise<AudioField['played']> {
   const stop = answerLevelUps(page, { avoidNewWeapons: true });
+  const stopSteer = steer(page);
   try {
     const s = await waitAudio(page, (_a, x) => ids.every((id) => played(x, id) > 0), 30_000);
     return audioOf(s).played;
   } finally {
+    await stopSteer();
     await stop();
   }
 }
 
-/** Presses `L` (precondition) until a level-up offers Garlic, and takes it; other dialogs are answered with `1`. */
+/**
+ * Presses `L` (precondition) until a level-up offers Garlic, and takes it. Other dialogs get the card that adds no new
+ * weapon (`levelUpKey`, the choice of `answerLevelUps({ avoidNewWeapons: true })`), so a weapon slot stays free until
+ * Garlic is offered (#169: answering `1` could fill all six slots first).
+ */
 async function takeGarlic(page: Page): Promise<void> {
   for (let i = 0; i < 40; i++) {
     const s = await snapshot(page);
@@ -151,7 +193,7 @@ async function takeGarlic(page: Page): Promise<void> {
       .locator('[role="dialog"][aria-label="Level up"] button.card .card-name')
       .allTextContents();
     const garlic = names.indexOf('Garlic');
-    await page.keyboard.press(String(garlic >= 0 ? garlic + 1 : 1));
+    await page.keyboard.press(garlic >= 0 ? String(garlic + 1) : await levelUpKey(page, false));
     await page.waitForTimeout(150);
   }
   throw new Error('no level-up offered Garlic');
