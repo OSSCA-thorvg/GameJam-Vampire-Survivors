@@ -32,8 +32,9 @@ describe('garlic', () => {
       if (now !== hp) ticks++;
       hp = now;
     }
-    // 5 s at a 1.3 s tick: 3 ticks; at area 2 the aura reaches 100 + 12 units.
-    expect(ticks).toBe(3);
+    // 5 s at a 1.3 s × BASE_STATS.cooldown (1.235 s) tick, the first included (#154): 4 ticks; at area 2 the aura
+    // reaches 100 + 12 units.
+    expect(ticks).toBe(4);
     expect(world.weaponVisuals.garlic).toEqual({
       shown: true,
       scale: garlicDrawScale(2),

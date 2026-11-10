@@ -58,7 +58,9 @@ const minimum = 3;
 // seed 1 the one Garlic hit knocks its target straight back out), so those seeds no longer exercise the control.
 // Seed 2 replaced by 8 when #148 was rebased onto #157's torso attack origin, which moved the ring's centre: of seeds
 // 1–40, 2, 6, 10, 11, 18, 30, 33 and 34 then fail a control.
-const SEEDS = [7, 8, 3, 731, 4];
+// Seed 8 replaced by 9 in #154, when a new weapon's first burst started following the cooldown stat: of seeds 1–40,
+// 5, 8, 18, 21, 25 and 33 then fail a control.
+const SEEDS = [7, 9, 3, 731, 4];
 // One Garlic L1 hit after the build's might, which is `BASE_STATS.might` (1.1 since #148; no build raises it).
 const GARLIC_HIT = (WEAPONS.garlic.levels[0]?.damage ?? NaN) * BASE_STATS.might;
 

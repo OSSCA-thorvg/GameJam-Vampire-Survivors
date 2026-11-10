@@ -82,8 +82,8 @@ describe('contact damage', () => {
     expect(onGameOver).toHaveBeenCalledWith(
       expect.objectContaining({ timeSec: world.time, kills: 0, level: 1, cleared: false }),
     );
-    // Two ghoul hits HIT_INVULN_SEC apart, before the Whip's first strike at 1.35 s: dead in the step after that window,
-    // then frozen. Before #105 the faster bats shifted the crowd so a bat (5) landed one of the hits and death took three.
+    // Two ghoul hits HIT_INVULN_SEC apart, before the Whip's first strike at 1.35 s × BASE_STATS.cooldown (#154): dead
+    // in the step after that window, then frozen. Before #105 the faster bats shifted the crowd so a bat (5) landed one of the hits and death took three.
     expect(world.time).toBeCloseTo(HIT_INVULN_SEC + DT, 6);
     const frozen = { time: world.time, x: Array.from(world.enemies.cols.x) };
     world.step(DT);

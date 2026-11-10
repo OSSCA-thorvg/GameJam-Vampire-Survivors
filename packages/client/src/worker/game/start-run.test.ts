@@ -1,4 +1,4 @@
-import { BASE_MAX_HP, BASE_MOVE_SPEED, BASE_STATS, CHARACTERS } from '@vs/shared';
+import { BASE_MAX_HP, BASE_MOVE_SPEED, BASE_STATS, CHARACTERS, WEAPONS } from '@vs/shared';
 import { afterEach, expect, it, vi } from 'vitest';
 import { readWeapons } from './snapshot';
 import { createWorld } from './world';
@@ -55,4 +55,14 @@ it('starts every character with exactly its own weapon, full HP and its modifier
     expect(world.player.characterModifiers).toEqual(c.modifiers);
     expect(world.player.hp).toBe(world.player.maxHp);
   }
+});
+
+it("times the starting weapon's first burst after the character's cooldown modifier (#154)", () => {
+  const swift = createWorld({ seed: 1, characterId: 'swift' });
+  expect(swift.player.stats.cooldown).toBeCloseTo(BASE_STATS.cooldown - 0.05, 10);
+  const knife = WEAPONS.knife.levels[0]?.cooldownSec ?? NaN;
+  expect(swift.weapons[0]?.cooldownLeft).toBeCloseTo(knife * swift.player.stats.cooldown, 10);
+  const warden = createWorld({ seed: 1, characterId: 'warden' });
+  const whip = WEAPONS.whip.levels[0]?.cooldownSec ?? NaN;
+  expect(warden.weapons[0]?.cooldownLeft).toBeCloseTo(whip * BASE_STATS.cooldown, 10);
 });
