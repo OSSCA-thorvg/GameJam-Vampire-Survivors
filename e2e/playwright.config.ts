@@ -1,6 +1,6 @@
 // Playwright configuration for verify-game (#31, .claude/skills/verify-game/SKILL.md). Run through `pnpm verify:e2e`,
 // which launches the client and sets VERIFY_URL; when VERIFY_URL is unset, the URL recorded by `pnpm verify:launch`
-// is used. `VERIFY_JOURNEYS=<dir>` runs the journey specs in that folder instead of e2e/ (feature-map journeys
+// for `VERIFY_PORT` (default 5180, #146) is used. `VERIFY_JOURNEYS=<dir>` runs the journey specs in that folder instead of e2e/ (feature-map journeys
 // saved under verification/issue-<N>/journeys/). The native hidden-tab project owns a fresh headed browser;
 // Linux runs need Xvfb. Select chromium for ordinary headless-only smoke. VERIFY_AUDIO_ENGINES=1 adds the headless
 // audio-firefox and audio-webkit projects, which run only e2e/audio-decode.spec.ts (#128). #149: `mobile-chromium` (a
@@ -13,14 +13,18 @@ import { defineConfig, devices } from '@playwright/test';
 
 const root = resolve(import.meta.dirname, '..');
 
+/** `VERIFY_PORT` as `scripts/verify/lib.mjs` `verifyPort` reads it; launch has already rejected invalid values. */
+const rawPort = process.env.VERIFY_PORT;
+const port = rawPort === undefined || rawPort === '' ? '5180' : rawPort;
+
 function recordedUrl(): string | undefined {
   try {
-    const client = JSON.parse(
-      readFileSync(join(root, 'verification/.run/client.json'), 'utf8'),
+    const record = JSON.parse(
+      readFileSync(join(root, `verification/.verify-run-${port}.json`), 'utf8'),
     ) as {
-      url?: string;
+      client?: { url?: string };
     };
-    return client.url;
+    return record.client?.url;
   } catch {
     return undefined;
   }
@@ -46,7 +50,7 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   reporter: [['list']],
   use: {
-    baseURL: process.env.VERIFY_URL ?? recordedUrl() ?? 'http://localhost:5180/',
+    baseURL: process.env.VERIFY_URL ?? recordedUrl() ?? `http://localhost:${port}/`,
     trace: 'retain-on-failure',
     viewport: { width: 1280, height: 720 },
   },

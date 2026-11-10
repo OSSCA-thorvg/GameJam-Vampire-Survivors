@@ -35,7 +35,7 @@ One file per user-facing feature. A PR that adds or changes user-facing behaviou
 ## Baseline preconditions
 
 - `pnpm verify:launch` succeeded and `pnpm verify:doctor` prints only `ok` lines (the served revision is `HEAD`).
-- The page is `client.json`'s `url` (`http://localhost:5180/`), loaded fresh for each journey; `__vsTest.snapshot()` reports `ready: true` and `renderer: 'gl'` before anything is driven.
+- The page is the recorded `client.url` (`http://localhost:5180/`, or your `VERIFY_PORT`; see the skill's Launch), loaded fresh for each journey; `__vsTest.snapshot()` reports `ready: true` and `renderer: 'gl'` before anything is driven.
 - No server unless the feature says so (then `pnpm verify:launch --with-server`; the first server journey is `room-server.md`, #18).
 
 ## Driving conventions

@@ -134,6 +134,7 @@ pnpm --filter server exec node scripts/smoke.mjs <base URL> <WebSocket URL> <all
 NODE_VERSION=$(cat .nvmrc) docker compose -f deploy/server/compose.yaml up -d --build   # production server: builds the runtime image vs-server:local on the owner's host; needs deploy/server/.env (deploy/server/README.md)
 pnpm exec playwright install chromium       # once per clone: the browser for verify-game (never an install script)
 pnpm verify:launch      # client in --mode e2e on :5180, ready when __vsTest reports gl (--with-server adds Docker :8787)
+VERIFY_PORT=5185 pnpm verify:launch   # parallel worktrees; doctor, e2e and cleanup read the same variable (record: verification/.verify-run-<port>.json)
 pnpm verify:doctor      # read-only checks of the launched run (pid, URL, __vsTest, buildRev == HEAD)
 pnpm verify:e2e         # launch, headless smoke + headed native hidden-tab projects, cleanup, always
 pnpm verify:e2e --issue 52 --project hidden-tab  # headed native visibility; own browser/profile only
