@@ -1,6 +1,6 @@
 import type { Scene, ThorVGNamespace } from '@thorvg/webcanvas';
 import { describe, expect, it } from 'vitest';
-import { PIP_RECT, PIP_SCALE } from '../constants';
+import { pipRect, PIP_MARGIN, PIP_RECT, PIP_SCALE, PIP_TOP } from '../constants';
 import { HUD_TOP_RIGHT_BOTTOM } from './hud';
 import {
   createPanes,
@@ -175,6 +175,54 @@ describe('createPanes', () => {
     panes.apply('single', 1280, 720);
     expect(f.scenes[1]?.scale).toBe(1);
     expect(f.shapes[3]?.visible).toBe(false);
+    expect(f.scenes).toHaveLength(3);
+    expect(f.shapes).toHaveLength(4);
+    expect(f.added).toHaveLength(4);
+  });
+
+  // #171, ADR 0025: the cover fit shows only the `visible` part of the view.
+  it('clips single to the visible area, from its corner', () => {
+    const f = fakes();
+    const panes = createPanes(f.TVG, f.root);
+    const visible = { x: 0, y: 64.5, width: 1280, height: 591 };
+    panes.apply('single', 1280, 591, visible);
+    expect(f.shapes[0]?.rect).toEqual([0, 64.5, 1280, 591]);
+    panes.apply('single', 1220, 720, { x: 30, y: 0, width: 1220, height: 720 });
+    expect(f.shapes[0]?.rect).toEqual([30, 0, 1220, 720]);
+    // Back to the letterbox: the default is the full view.
+    panes.apply('single', 1280, 720);
+    expect(f.shapes[0]?.rect).toEqual([0, 0, 1280, 720]);
+  });
+
+  it('draws the pip inset 16 units from the visible right edge and 64 from its top, creating nothing', () => {
+    const f = fakes();
+    const panes = createPanes(f.TVG, f.root);
+    for (const visible of [
+      { x: 0, y: 64.5, width: 1280, height: 591 },
+      { x: 30, y: 0, width: 1220, height: 720 },
+    ]) {
+      panes.apply('pip', visible.width, visible.height, visible);
+      const inset = pipRect(visible);
+      expect(inset.x + inset.width + PIP_MARGIN).toBeCloseTo(visible.x + visible.width, 9);
+      expect(inset.y).toBe(visible.y + PIP_TOP);
+      expect(f.shapes[0]?.rect).toEqual([visible.x, visible.y, visible.width, visible.height]);
+      expect(f.scenes[1]?.translate).toEqual([inset.x, inset.y]);
+      expect(f.scenes[1]?.scale).toBe(PIP_SCALE);
+      expect(f.shapes[1]?.rect).toEqual([inset.x, inset.y, inset.width, inset.height]);
+      expect(f.shapes[2]).toMatchObject({
+        visible: true,
+        rect: [inset.x - 2, inset.y - 2, inset.width + 4, inset.height + 4],
+        fill: [0, 0, 0, PIP_BACKDROP_ALPHA],
+      });
+      expect(f.shapes[3]).toMatchObject({
+        visible: true,
+        rect: [inset.x, inset.y, inset.width, inset.height],
+        stroke: { width: 2, color: [255, 255, 255, 255] },
+      });
+      // The 12-unit gap to the kill count (ADR 0024) holds relative to the visible top.
+      expect(inset.y - PIP_BACKDROP - (visible.y + HUD_TOP_RIGHT_BOTTOM)).toBeGreaterThanOrEqual(8);
+    }
+    expect(pipRect({ x: 0, y: 0, width: 1280, height: 720 })).toEqual(PIP_RECT);
     expect(f.scenes).toHaveLength(3);
     expect(f.shapes).toHaveLength(4);
     expect(f.added).toHaveLength(4);

@@ -1,7 +1,15 @@
 import type { Scene, Shape, ThorVGNamespace } from '@thorvg/webcanvas';
 import { assertNever } from '../../protocol/assert-never';
 import type { PaneLayout } from '../../protocol/worker-messages';
-import { PIP_RECT, PIP_SCALE, VIEW_HEIGHT, VIEW_WIDTH } from '../constants';
+import {
+  FULL_VIEW,
+  pipRect,
+  PIP_RECT,
+  PIP_SCALE,
+  VIEW_HEIGHT,
+  VIEW_WIDTH,
+  type VisibleRect,
+} from '../constants';
 
 /** Logical units between the two panes (ADR 0018; `main/viewport.ts` `PANE_GAP`). */
 export const PANE_GAP = 16;
@@ -21,7 +29,9 @@ export const PIP_BACKDROP_ALPHA = 153;
  * units, and the opponent's offset is a translate of the inner `opponent` scene: ThorVG did not move a scene's
  * clipper with that scene's own translate (found in #115), so no clip depends on it. #150 (ADR 0024): in `pip` the
  * own pane is the whole canvas and the opponent's scene is translated and scaled into the top-right inset, clipped by
- * the same untransformed frame, between a backdrop under it and a white frame above it.
+ * the same untransformed frame, between a backdrop under it and a white frame above it. #171 (ADR 0025): with one
+ * view (`single`, `pip`) the own pane's clip starts at the `visible` area's corner, where the translated root puts
+ * the canvas origin, and the inset is measured from `visible`'s top right (`pipRect`).
  */
 export interface Panes {
   readonly self: Scene;
@@ -29,9 +39,10 @@ export interface Panes {
   /**
    * Places and clips the panes for `layout` on a canvas of `areaW`×`areaH` logical units (backing size / scale). The
    * sides that touch the canvas edge reach it, so the under-2-device-pixel fill slack (#103) stays covered by ground.
-   * Rewrites the two clip rectangles in place; creates nothing.
+   * `visible` (#171) is the part of the view the canvas shows; it matters only for `single` and `pip`, the layouts
+   * that can cover the window. Rewrites the clip rectangles and the inset's two shapes in place; creates nothing.
    */
-  apply(layout: PaneLayout, areaW: number, areaH: number): void;
+  apply(layout: PaneLayout, areaW: number, areaH: number, visible?: Readonly<VisibleRect>): void;
   readonly layout: PaneLayout;
   readonly opponentVisible: boolean;
   /** The opponent scene's scale: `PIP_SCALE` in `pip`, else 1 (the opponent view snaps its camera at it). */
@@ -99,7 +110,7 @@ export function createPanes(
     get insetFrameVisible() {
       return layout === 'pip';
     },
-    apply(next, areaW, areaH) {
+    apply(next, areaW, areaH, visible = FULL_VIEW) {
       layout = next;
       if (next !== 'pip') {
         opponent.scale(1);
@@ -107,17 +118,28 @@ export function createPanes(
       }
       switch (next) {
         case 'single':
-          clip(selfClip, 0, 0, areaW, areaH);
+          clip(selfClip, visible.x, visible.y, areaW, areaH);
           opponentFrame.visible(false);
           break;
-        case 'pip':
-          clip(selfClip, 0, 0, areaW, areaH);
-          opponent.translate(PIP_RECT.x, PIP_RECT.y);
+        case 'pip': {
+          const inset = pipRect(visible);
+          clip(selfClip, visible.x, visible.y, areaW, areaH);
+          opponent.translate(inset.x, inset.y);
           opponent.scale(PIP_SCALE);
-          clip(opponentClip, PIP_RECT.x, PIP_RECT.y, PIP_RECT.width, PIP_RECT.height);
+          clip(opponentClip, inset.x, inset.y, inset.width, inset.height);
+          // ThorVG's `reset()` clears the path only; the fill and the stroke set at creation stay.
+          clip(
+            backdrop,
+            inset.x - PIP_BACKDROP,
+            inset.y - PIP_BACKDROP,
+            inset.width + 2 * PIP_BACKDROP,
+            inset.height + 2 * PIP_BACKDROP,
+          );
+          clip(border, inset.x, inset.y, inset.width, inset.height);
           opponentFrame.visible(true);
           showInset(true);
           break;
+        }
         case 'columns':
           clip(selfClip, 0, 0, VIEW_WIDTH, areaH);
           opponent.translate(OPPONENT_X, 0);

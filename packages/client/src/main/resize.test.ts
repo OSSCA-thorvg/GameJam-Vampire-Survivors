@@ -1,18 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import type { MainToWorker } from '../protocol/worker-messages';
 import { createResizer, RESIZE_DEBOUNCE_MS } from './resize';
-import { computeViewport, type PaneMode } from './viewport';
+import { computeViewport, type PaneMode, type ViewFit } from './viewport';
 
 /** A resizer over a fake window and a fake clock. */
 function setup(w = 1600, h = 900) {
-  const win = { w, h, mode: 'split' as PaneMode };
+  const win = { w, h, mode: 'split' as PaneMode, fit: 'contain' as ViewFit };
   const posted: Extract<MainToWorker, { type: 'resize' }>[] = [];
   let applied = 0;
   let time = 0;
   const timers: { cb: () => void; at: number }[] = [];
   const resizer = createResizer({
-    measure: (panes, mode) => computeViewport(win.w, win.h, 1, panes, mode),
+    measure: (panes, mode, fit) => computeViewport(win.w, win.h, 1, panes, mode, fit),
     mode: () => win.mode,
+    fit: () => win.fit,
     apply: () => applied++,
     post: (m) => posted.push(m),
     setTimer: (cb, ms) => {
@@ -41,7 +42,13 @@ function setup(w = 1600, h = 900) {
     win.mode = mode;
     resizer.onModeChange();
   };
-  return { resizer, posted, advance, resize, setMode, applied: () => applied };
+  /** The input mode switched: touch asks for the inset and the cover fit, keys for the split and the letterbox. */
+  const setInput = (input: 'touch' | 'keys') => {
+    win.mode = input === 'touch' ? 'pip' : 'split';
+    win.fit = input === 'touch' ? 'cover' : 'contain';
+    resizer.onModeChange();
+  };
+  return { resizer, posted, advance, resize, setMode, setInput, applied: () => applied };
 }
 
 describe('createResizer (#115)', () => {
@@ -124,5 +131,62 @@ describe('createResizer (#115)', () => {
     t.setMode('pip');
     expect(t.posted.map((m) => m.layout)).toEqual(['pip', 'columns', 'pip']);
     expect(t.resizer.viewport.panes).toHaveLength(2);
+  });
+
+  // #171, ADR 0025: touch mode covers the window; the fit follows the input mode in single player too.
+  it('relayouts at once when the fit changes, posts the visible rect, and one resize per switch', () => {
+    const t = setup(1024, 768);
+    expect(t.resizer.viewport).toMatchObject({ fit: 'contain', cssHeight: 576 });
+    t.setInput('touch');
+    expect(t.posted).toHaveLength(1);
+    // DPR 1: the floor (1220 units) keeps the 4:3 window from covering fully: 1024 × 604, bars above and below.
+    expect(t.posted[0]).toMatchObject({
+      type: 'resize',
+      layout: 'single',
+      width: 1024,
+      height: 604,
+      visible: { y: 0, width: 1220 },
+    });
+    expect(t.posted[0]?.visible.x).toBeCloseTo(30, 0);
+    expect(t.resizer.viewport.fit).toBe('cover');
+    t.setInput('touch'); // no change: nothing
+    expect(t.posted).toHaveLength(1);
+    t.resize(1030, 768); // same layout and fit: pending
+    t.setInput('keys'); // back to the letterbox now, the pending debounce cancelled
+    expect(t.posted).toHaveLength(2);
+    expect(t.posted[1]).toMatchObject({
+      layout: 'single',
+      visible: { x: 0, y: 0, width: 1280, height: 720 },
+    });
+    expect(t.posted[1]?.height).toBe(579); // 1030 × 768 letterboxed
+    t.advance(RESIZE_DEBOUNCE_MS * 2);
+    expect(t.posted).toHaveLength(2);
+    // Every post carries its own copy of the rect.
+    expect(t.posted[1]?.visible).not.toBe(t.resizer.viewport.visible);
+  });
+
+  it('keeps the debounce for size changes within the cover fit and posts a crop change', () => {
+    const t = setup(844, 390);
+    t.setInput('touch');
+    t.posted.length = 0;
+    for (let i = 1; i <= 10; i++) {
+      t.resize(844, 390 + i);
+      t.advance(16);
+    }
+    expect(t.posted).toEqual([]);
+    t.advance(RESIZE_DEBOUNCE_MS);
+    expect(t.posted).toHaveLength(1);
+    expect(t.posted[0]).toMatchObject({ width: 844, height: 400 });
+    expect(t.posted[0]?.visible.height).toBeCloseTo((400 * 1280) / 844, 6);
+  });
+
+  it('switches between the covered inset and the letterboxed split during a match', () => {
+    const t = setup(915, 412);
+    t.setInput('touch');
+    t.resizer.setPanes(2);
+    expect(t.resizer.viewport).toMatchObject({ layout: 'pip', fit: 'cover', cssWidth: 915 });
+    t.setInput('keys');
+    expect(t.resizer.viewport).toMatchObject({ layout: 'columns', fit: 'contain' });
+    expect(t.posted.map((m) => m.layout)).toEqual(['single', 'pip', 'columns']);
   });
 });

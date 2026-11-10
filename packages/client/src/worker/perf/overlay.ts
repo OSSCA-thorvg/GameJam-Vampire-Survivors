@@ -4,7 +4,7 @@
 // `?perf` (`init.perf`). While it is hidden and no stress scenario records, the worker skips all timing: its per-frame
 // cost is one boolean check (`meter.enabled`).
 import type { Scene, Text, ThorVGNamespace } from '@thorvg/webcanvas';
-import { MAX_STEPS } from '../constants';
+import { MAX_STEPS, type VisibleRect } from '../constants';
 import { HUD_FONT } from '../render/thorvg';
 import { createFrameTimings, type FrameTimings, type PerfSeries } from './stats';
 
@@ -41,6 +41,8 @@ export interface PerfMeter {
 export interface PerfOverlay {
   readonly meter: PerfMeter;
   setVisible(visible: boolean): void;
+  /** #171, ADR 0025: anchors the texts to the `area`'s top left; on a layout change only, creates nothing. */
+  layout(area: Readonly<VisibleRect>): void;
   readonly visible: boolean;
 }
 
@@ -49,6 +51,11 @@ let installed: PerfOverlay | null = null;
 /** Shows or hides the overlay; does nothing before `installPerfOverlay`. */
 export function setPerfOverlayVisible(visible: boolean): void {
   installed?.setVisible(visible);
+}
+
+/** Moves the overlay to the visible area's top left (#171); does nothing before `installPerfOverlay`. */
+export function layoutPerfOverlay(area: Readonly<VisibleRect>): void {
+  installed?.layout(area);
 }
 
 /** Whether the overlay is shown (the test bridge's `perfOverlay`). */
@@ -158,6 +165,10 @@ export function installPerfOverlay(opts: {
         lastText = now();
       }
       update();
+    },
+    layout(area) {
+      steps.translate(LEFT + area.x, TOP + area.y);
+      body.translate(LEFT + area.x, TOP + LINE_HEIGHT + area.y);
     },
     get visible() {
       return visible;

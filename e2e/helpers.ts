@@ -3,7 +3,7 @@
 // keyboard input. Evidence goes under VERIFY_EVIDENCE_DIR (set by `pnpm verify:e2e`, default verification/adhoc/).
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import type { Page, TestInfo } from '@playwright/test';
+import { expect, type Page, type TestInfo } from '@playwright/test';
 import type { GameSnapshot } from '../packages/client/src/protocol/worker-messages';
 import { PASSIVES } from '../packages/shared/src/content/passives';
 import type { StatId } from '../packages/shared/src/content/stats';
@@ -301,4 +301,144 @@ export async function forwardTo(
     await page.waitForTimeout(50);
   }
   throw new Error(`forwardTo: could not reach ${String(targetS)} s`);
+}
+
+/** #171, ADR 0025: the main thread's `layout` snapshot field. */
+export interface LayoutSnapshot {
+  layout: string;
+  panes: number;
+  fit: 'contain' | 'cover';
+  visible: { x: number; y: number; width: number; height: number };
+}
+export const layoutOf = (s: GameSnapshot): LayoutSnapshot => s.layout as LayoutSnapshot;
+
+export interface FitBoxes {
+  canvas: { x: number; y: number; width: number; height: number };
+  innerWidth: number;
+  innerHeight: number;
+  dpr: number;
+}
+/** The canvas's CSS box and the window's size. */
+export async function fitBoxes(page: Page): Promise<FitBoxes> {
+  return page.evaluate(() => {
+    const r = document.querySelector('canvas')?.getBoundingClientRect();
+    if (!r) throw new Error('canvas missing');
+    return {
+      canvas: { x: r.x, y: r.y, width: r.width, height: r.height },
+      innerWidth,
+      innerHeight,
+      dpr: devicePixelRatio,
+    };
+  });
+}
+
+/** #171, ADR 0025: the cover fit never crops the visible width below this (`worker/constants.ts`). */
+export const MIN_VISIBLE_WIDTH = 1220;
+
+/** `computeViewport`'s cover fit for a window: the backing size, the scale and the visible rect. */
+export function coverFormula(innerWidth: number, innerHeight: number, dpr: number) {
+  const d = Math.min(dpr, 2);
+  const width = Math.floor(innerWidth * d + 1e-6);
+  const maxHeight = Math.floor(innerHeight * d + 1e-6);
+  const scale = Math.min(Math.max(width / 1280, maxHeight / 720), width / MIN_VISIBLE_WIDTH);
+  const fitted = Math.min(maxHeight, Math.floor(720 * scale + 1e-6));
+  const height = maxHeight - fitted < 2 ? maxHeight : fitted;
+  return {
+    k: scale / d,
+    cssWidth: width / d,
+    cssHeight: height / d,
+    visible: {
+      x: Math.max(0, Math.round((1280 * scale - width) / 2)) / scale,
+      y: Math.max(0, Math.round((720 * scale - height) / 2)) / scale,
+      width: width / scale,
+      height: height / scale,
+    },
+  };
+}
+
+/**
+ * #171, ADR 0025: asserts the cover fit on a touch page. `layout.fit` is `cover`, both threads report the same
+ * `visible` rect, and it is `computeViewport`'s formula: scale = max(width / 1280, height / 720) of the backing size,
+ * but never so large that less than `MIN_VISIBLE_WIDTH` units of width stay visible; the crop is centred in whole
+ * device pixels. The canvas is as wide as the window; it is as high too (no bars) unless the floor applies, where it
+ * is the fitted box centred between two bars. Returns the rect, `k` (CSS pixels per logical unit) and the boxes;
+ * `boxes.canvas.x/y` is where the visible area's top left is in the window.
+ */
+export async function expectCoverFit(page: Page): Promise<{
+  visible: LayoutSnapshot['visible'];
+  k: number;
+  boxes: FitBoxes;
+  layout: LayoutSnapshot;
+  /** Whether the window is covered completely (no bars). */
+  full: boolean;
+}> {
+  const s = await waitForSnapshot(page, (x) => layoutOf(x).fit === 'cover', 5_000);
+  const layout = layoutOf(s);
+  const boxes = await fitBoxes(page);
+  const expected = coverFormula(boxes.innerWidth, boxes.innerHeight, boxes.dpr);
+  expect(boxes.canvas.x).toBeCloseTo(0, 0);
+  expect(Math.abs(boxes.canvas.width - boxes.innerWidth)).toBeLessThan(1);
+  expect(boxes.canvas.height).toBeCloseTo(expected.cssHeight, 1);
+  expect(boxes.canvas.y).toBeCloseTo((boxes.innerHeight - expected.cssHeight) / 2, 0);
+  for (const key of ['x', 'y', 'width', 'height'] as const)
+    expect(layout.visible[key]).toBeCloseTo(expected.visible[key], 6);
+  expect(layout.visible.width).toBeGreaterThanOrEqual(MIN_VISIBLE_WIDTH - 1e-6);
+  // The worker draws with the same rect.
+  const worker = (s.panes as { visible?: LayoutSnapshot['visible'] } | undefined)?.visible;
+  expect(worker).toEqual(layout.visible);
+  const full = Math.abs(boxes.canvas.height - boxes.innerHeight) < 1;
+  return { visible: layout.visible, k: expected.k, boxes, layout, full };
+}
+
+/** RGB of the device pixel at each point (window CSS coordinates), decoded from one screenshot in the page. */
+export async function samplePoints(
+  page: Page,
+  points: { x: number; y: number }[],
+): Promise<number[][]> {
+  const png = (await page.screenshot()).toString('base64');
+  return page.evaluate(
+    async ({ png, points }) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${png}`;
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      const g = c.getContext('2d');
+      if (!g) throw new Error('2d');
+      g.drawImage(img, 0, 0);
+      const k = img.width / innerWidth;
+      return points.map(({ x, y }) => {
+        const d = g.getImageData(
+          Math.min(img.width - 1, Math.max(0, Math.round(x * k))),
+          Math.min(img.height - 1, Math.max(0, Math.round(y * k))),
+          1,
+          1,
+        ).data;
+        return [d[0] ?? 0, d[1] ?? 0, d[2] ?? 0];
+      });
+    },
+    { png, points },
+  );
+}
+
+/**
+ * A grid of `cols` × `rows` window points over a rect given in logical units from the visible area's top left, which
+ * is at `origin` in the window (the canvas's corner; (0, 0) when the window is covered completely).
+ */
+export function gridPoints(
+  rect: { x: number; y: number; width: number; height: number },
+  k: number,
+  cols: number,
+  rows: number,
+  origin: { x: number; y: number } = { x: 0, y: 0 },
+): { x: number; y: number }[] {
+  const points: { x: number; y: number }[] = [];
+  for (let i = 0; i < cols; i++)
+    for (let j = 0; j < rows; j++)
+      points.push({
+        x: origin.x + (rect.x + (rect.width * (i + 0.5)) / cols) * k,
+        y: origin.y + (rect.y + (rect.height * (j + 0.5)) / rows) * k,
+      });
+  return points;
 }

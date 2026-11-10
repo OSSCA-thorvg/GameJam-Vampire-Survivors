@@ -5,11 +5,17 @@
 // and the opponent's as a framed top-right inset. Match 2: a desktop page keeps ADR 0018's equal split beside a phone,
 // switches to the inset on a touch and back on a key press, without creating a Paint. Debug key `I` (invulnerable)
 // is used only as a precondition, so nobody dies before the checks.
+// #171 (ADR 0025): the touch pages cover the window, so the inset is measured from the visible area's top right, and
+// the second "phone" of match 1 is a 1024×768 touch page (cropped to the HUD's minimum width, with bars above and below).
 import { devices, expect, test, type Browser, type Page } from '@playwright/test';
 import {
+  expectCoverFit,
+  gridPoints,
+  layoutOf,
   noteEvidence,
   openGame,
   pageErrors,
+  samplePoints,
   snapshot,
   startEvidence,
   waitForSnapshot,
@@ -18,8 +24,18 @@ import {
 } from './helpers';
 
 const SERVER = process.env.VERIFY_SERVER_HTTP ?? 'http://localhost:8787';
-/** ADR 0024's inset in logical units (`worker/constants.ts` `PIP_RECT`). */
-const PIP = { x: 1280 - 16 - 1280 * 0.32, y: 64, width: 1280 * 0.32, height: 720 * 0.32 };
+/**
+ * ADR 0024's inset in logical units, measured from the visible area's top right since #171 (`worker/constants.ts`
+ * `pipRect`): `right` and `y` are its distances from the visible right and top edges.
+ */
+const PIP = { right: 16, y: 64, width: 1280 * 0.32, height: 720 * 0.32 };
+/** A 4:3 touch page (#171): the cover fit crops its left and right down to 1220 units and keeps bars above and below. */
+const TABLET = {
+  viewport: { width: 1024, height: 768 },
+  deviceScaleFactor: 2,
+  isMobile: true,
+  hasTouch: true,
+};
 
 interface Rect {
   x: number;
@@ -33,7 +49,6 @@ interface Player {
   touch: boolean;
 }
 
-const layoutOf = (s: GameSnapshot) => s.layout as { layout: string; panes: number };
 const panesOf = (s: GameSnapshot) =>
   s.panes as { layout: string; opponentVisible: boolean; youLabel: boolean };
 const paneOf = (s: GameSnapshot) =>
@@ -51,12 +66,19 @@ async function serverUp(): Promise<boolean> {
   }
 }
 
-async function open(browser: Browser, journey: string, touch: boolean): Promise<Player> {
+async function open(
+  browser: Browser,
+  journey: string,
+  device: 'phone' | 'tablet' | 'desktop',
+): Promise<Player> {
+  const touch = device !== 'desktop';
   const context = await browser.newContext(
     // Every field explicitly: the project's `use` (a Pixel 7) is the default for every new context of the run.
-    touch
+    device === 'phone'
       ? { ...devices['Pixel 7 landscape'] }
-      : { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 720 } },
+      : device === 'tablet'
+        ? { ...devices['Pixel 7 landscape'], ...TABLET }
+        : { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 720 } },
   );
   const page = await context.newPage();
   const ev = startEvidence(page, journey);
@@ -162,30 +184,6 @@ async function boxes(page: Page): Promise<{ self: Rect; opp: Rect; canvas: Rect;
   });
 }
 
-/** RGB of the device pixel at each point (window CSS coordinates), decoded from one screenshot in the page. */
-async function samplePoints(page: Page, points: { x: number; y: number }[]): Promise<number[][]> {
-  const png = (await page.screenshot()).toString('base64');
-  return page.evaluate(
-    async ({ png, points }) => {
-      const img = new Image();
-      img.src = `data:image/png;base64,${png}`;
-      await img.decode();
-      const c = document.createElement('canvas');
-      c.width = img.width;
-      c.height = img.height;
-      const g = c.getContext('2d');
-      if (!g) throw new Error('2d');
-      g.drawImage(img, 0, 0);
-      const k = img.width / innerWidth;
-      return points.map(({ x, y }) => {
-        const d = g.getImageData(Math.round(x * k), Math.round(y * k), 1, 1).data;
-        return [d[0] ?? 0, d[1] ?? 0, d[2] ?? 0];
-      });
-    },
-    { png, points },
-  );
-}
-
 const white = (rgb: number[]) => rgb.every((v) => v >= 180);
 
 /** Checks the `pip` layout on `p`: both threads, the inset rect, its frame, the panel under it, live enemies. */
@@ -195,18 +193,24 @@ async function expectPip(p: Player, log: Record<string, unknown>, key: string): 
     (x) => layoutOf(x).layout === 'pip' && panesOf(x).layout === 'pip',
     5_000,
   );
-  expect(panesOf(s)).toEqual({ layout: 'pip', opponentVisible: true, youLabel: false });
+  expect(panesOf(s)).toMatchObject({ layout: 'pip', opponentVisible: true, youLabel: false });
+  // #171, ADR 0025: a touch page uses the cover fit (a phone covers the window, a 4:3 page keeps bars above and
+  // below); `k` is CSS pixels per logical unit of the cropped view.
+  const { visible, k, boxes: fit } = await expectCoverFit(p.page);
   const b = await boxes(p.page);
   await p.ev.shot(`pip-${key}`);
-  // The own view fills the canvas; the inset is ADR 0024's rect at the canvas scale (CSS px per logical unit).
-  const k = b.canvas.height / 720;
-  expect(b.self.width).toBeCloseTo(1280 * k, 1);
+  // The own view is the canvas, as wide as the window; the inset is ADR 0024's size, 16 units from the screen's
+  // right edge and 64 from the view's top.
+  expect(b.self.width).toBeCloseTo(b.canvas.width, 1);
   expect(b.self.height).toBeCloseTo(b.canvas.height, 1);
-  expect(b.opp.x - b.canvas.x).toBeCloseTo(PIP.x * k, 1);
-  expect(b.opp.y - b.canvas.y).toBeCloseTo(PIP.y * k, 1);
+  expect(fit.innerWidth - (b.opp.x + b.opp.width)).toBeCloseTo(PIP.right * k, 0);
+  expect(b.opp.y - b.canvas.y).toBeCloseTo(PIP.y * k, 0);
   expect(b.opp.width).toBeCloseTo(PIP.width * k, 1);
   expect(b.opp.height).toBeCloseTo(PIP.height * k, 1);
-  expect(b.opp.width / b.self.width).toBeCloseTo(0.32, 3);
+  expect(b.opp.width / (1280 * k)).toBeCloseTo(0.32, 3);
+  // The whole inset and the panel under it are on screen.
+  expect(b.opp.x).toBeGreaterThanOrEqual(0);
+  expect(b.panel.y + b.panel.height).toBeLessThanOrEqual(fit.innerHeight);
   // The panel sits directly under the inset, as wide as it.
   expect(b.panel.x).toBeCloseTo(b.opp.x, 0);
   expect(b.panel.y).toBeCloseTo(b.opp.y + b.opp.height + 4, 0);
@@ -233,6 +237,20 @@ async function expectPip(p: Player, log: Record<string, unknown>, key: string): 
   const gap = await samplePoints(p.page, gapPoints);
   const hudOrFrame = gap.filter((c) => white(c) || c.every((v) => v <= 24));
   expect(hudOrFrame).toEqual([]);
+  // #171: the kill counter (skull and number, `render/hud.ts`) is drawn inside the screen, 132 to 60 units from the
+  // visible right edge and 16 to 50 from its top: the skull's bone pixels and the number's white fill and black
+  // outline are there (versus has no pause button over it).
+  const kills = await samplePoints(
+    p.page,
+    gridPoints({ x: visible.width - 132, y: 16, width: 72, height: 34 }, k, 36, 17, {
+      x: b.canvas.x,
+      y: b.canvas.y,
+    }),
+  );
+  const killPixels =
+    kills.filter((c) => c.every((v) => v >= 170)).length +
+    kills.filter((c) => c.every((v) => v <= 40)).length;
+  expect(killPixels).toBeGreaterThanOrEqual(12);
   await p.page.screenshot({
     path: `${p.ev.dir}/pip-${key}-gap.png`,
     clip: {
@@ -249,6 +267,8 @@ async function expectPip(p: Player, log: Record<string, unknown>, key: string): 
     opponentPane: paneOf(live),
     mode: modeOf(live),
     boxes: b,
+    visible,
+    killPixels,
     frameWhiteShare: whiteShare,
     gapSamples: gap.length,
   };
@@ -264,8 +284,9 @@ test('versus 11: touch devices show the opponent as a framed top-right inset; de
   test.skip(!(await serverUp()), `no game server at ${SERVER}/healthz`);
   test.setTimeout(240_000);
   const log: Record<string, unknown> = {};
-  const a = await open(browser, 'versus-11-pip/a-phone', true);
-  const b = await open(browser, 'versus-11-pip/b-phone', true);
+  const a = await open(browser, 'versus-11-pip/a-phone', 'phone');
+  // #171: a 1024×768 touch page, cropped left and right only down to the HUD's minimum width.
+  const b = await open(browser, 'versus-11-pip/b-tablet', 'tablet');
   noteEvidence(testInfo, a.ev);
   const players = [a, b];
   try {
@@ -275,7 +296,7 @@ test('versus 11: touch devices show the opponent as a framed top-right inset; de
     // Both phones play for 10 s: the opponent's enemies reach the inset.
     await a.page.waitForTimeout(10_000);
     await expectPip(a, log, 'phoneA');
-    await expectPip(b, log, 'phoneB');
+    await expectPip(b, log, 'tabletB');
     for (const stop of stops) await stop();
     for (const p of [a, b]) expect(pageErrors(p.ev)).toEqual([]);
     // The phones close before the next match, so at most two software-rendered pages run at once.
@@ -286,8 +307,8 @@ test('versus 11: touch devices show the opponent as a framed top-right inset; de
     }
 
     // Match 2: a desktop page beside a phone.
-    const c = await open(browser, 'versus-11-pip/c-desktop', false);
-    const d = await open(browser, 'versus-11-pip/d-phone', true);
+    const c = await open(browser, 'versus-11-pip/c-desktop', 'desktop');
+    const d = await open(browser, 'versus-11-pip/d-phone', 'phone');
     players.push(c, d);
     expect(modeOf(await snapshot(c.page))).toBe('keys');
     await startMatch(c, d, 'Carol', 'Dave');
@@ -297,7 +318,16 @@ test('versus 11: touch devices show the opponent as a framed top-right inset; de
       (x) => layoutOf(x).layout === 'columns' && paneOf(x).enemiesShown > 0,
       20_000,
     );
-    expect(panesOf(split)).toEqual({ layout: 'columns', opponentVisible: true, youLabel: true });
+    expect(panesOf(split)).toMatchObject({
+      layout: 'columns',
+      opponentVisible: true,
+      youLabel: true,
+    });
+    // #171: the desktop split is letterboxed, never covered.
+    expect(layoutOf(split)).toMatchObject({
+      fit: 'contain',
+      visible: { x: 0, y: 0, width: 1280, height: 720 },
+    });
     const splitBoxes = await boxes(c.page);
     expect(splitBoxes.opp.width).toBeCloseTo(splitBoxes.self.width, 1);
     await c.ev.shot('desktop-columns');

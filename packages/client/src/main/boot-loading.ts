@@ -8,8 +8,12 @@ export interface BootLoading {
   /** The worker's `splashEnded`: shows the progress, centred under the logo when the animation `played`. */
   splashEnded(played: boolean): void;
   assetsReady(): void;
-  /** Places the held text for a canvas `cssHeight` CSS pixels high, centred in the window. */
-  place(cssHeight: number): void;
+  /**
+   * Places the held text for a canvas `cssHeight` CSS pixels high, centred in the window, that shows the `visible`
+   * part (logical units) of the 720-high view. #171: when the view is cropped (cover fit) the text moves up so that
+   * it ends at the visible area's bottom edge at the latest.
+   */
+  place(cssHeight: number, visible?: { y: number; height: number }): void;
   readonly visible: boolean;
   readonly held: boolean;
   readonly text: string;
@@ -40,12 +44,15 @@ export function createBootLoading(el: HTMLElement): BootLoading {
       done = true;
       el.remove();
     },
-    place(cssHeight) {
+    place(cssHeight, visible = { y: 0, height: 720 }) {
+      // CSS pixels per logical unit; the visible area's centre is the window's centre.
+      const unit = cssHeight / visible.height;
+      const top = Math.min(SPLASH_LOADING_TOP, visible.y + visible.height - SPLASH_LOADING_FONT);
       el.style.setProperty(
         '--splash-top',
-        `calc(50% + ${String(cssHeight * (SPLASH_LOADING_TOP / 720 - 0.5))}px)`,
+        `calc(50% + ${String(unit * (top - visible.y - visible.height / 2))}px)`,
       );
-      el.style.setProperty('--splash-font', `${String((cssHeight * SPLASH_LOADING_FONT) / 720)}px`);
+      el.style.setProperty('--splash-font', `${String(unit * SPLASH_LOADING_FONT)}px`);
     },
     get visible() {
       return !done && !el.hidden;

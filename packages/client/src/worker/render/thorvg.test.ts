@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import type { AssetManifest } from '@vs/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { FALLBACK_FONT, HUD_FONT, HUD_FONT_NAME, loadHudFont } from './thorvg';
+import { FALLBACK_FONT, HUD_FONT, HUD_FONT_NAME, loadHudFont, placeRoot } from './thorvg';
 
 const BASE = 'http://localhost:5173/';
 const FONT_URL = 'http://localhost:5173/fonts/hud.ttf';
@@ -126,4 +126,40 @@ it('falls back without fetching when font.hud is absent', async () => {
   expect(fetchFn).not.toHaveBeenCalled();
   expect(warn).toHaveBeenCalledOnce();
   vi.restoreAllMocks();
+});
+
+// #171, ADR 0025: the root scene shows the visible part of the view at the canvas origin.
+describe('placeRoot', () => {
+  function fakeRoot() {
+    const calls: [string, ...number[]][] = [];
+    const root = {
+      scale: (k: number) => (calls.push(['scale', k]), root),
+      translate: (x: number, y: number) => (calls.push(['translate', x, y]), root),
+    } as unknown as Parameters<typeof placeRoot>[0];
+    return { root, calls };
+  }
+
+  it('only scales the letterboxed view', () => {
+    const { root, calls } = fakeRoot();
+    placeRoot(root, 1.5, { x: 0, y: 0, width: 1280, height: 720 });
+    expect(calls).toEqual([
+      ['scale', 1.5],
+      ['translate', -0, -0],
+    ]);
+  });
+
+  it('moves the cropped view by a whole number of device pixels', () => {
+    const { root, calls } = fakeRoot();
+    // A 844 × 390 phone at DPR 2: scale 1688 / 1280, 85 device pixels cropped above.
+    const scale = 1688 / 1280;
+    placeRoot(root, scale, { x: 0, y: 85 / scale, width: 1280, height: 780 / scale });
+    expect(calls).toEqual([
+      ['scale', scale],
+      ['translate', -0, -85],
+    ]);
+    // A 4:3 tablet, cropped to the floor width: 50 device pixels cropped left.
+    const tablet = 2048 / 1220;
+    placeRoot(root, tablet, { x: 50 / tablet, y: 0, width: 1220, height: 1208 / tablet });
+    expect(calls.at(-1)).toEqual(['translate', -50, -0]);
+  });
 });

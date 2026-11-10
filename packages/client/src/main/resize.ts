@@ -1,17 +1,22 @@
 import type { MainToWorker } from '../protocol/worker-messages';
-import type { PaneMode, Viewport } from './viewport';
+import type { PaneMode, ViewFit, Viewport } from './viewport';
 
 /** Size changes within the same layout reach the worker this long after the last resize event (trailing debounce). */
 export const RESIZE_DEBOUNCE_MS = 100;
 
 export interface ResizerOptions {
-  /** `computeViewport` for the current window, `panes` and pane mode. */
-  measure: (panes: 1 | 2, mode: PaneMode) => Viewport;
+  /** `computeViewport` for the current window, `panes`, pane mode and fit. */
+  measure: (panes: 1 | 2, mode: PaneMode, fit: ViewFit) => Viewport;
   /**
    * #150, ADR 0024: the current pane mode, `'pip'` on touch devices; read on every measure. Defaults to `'split'`.
    * After it changes, call `onModeChange()`.
    */
   mode?: () => PaneMode;
+  /**
+   * #171, ADR 0025: the current fit, `'cover'` on touch devices; read on every measure. Defaults to `'contain'`. It
+   * changes with the input mode, so `onModeChange()` covers it.
+   */
+  fit?: () => ViewFit;
   /** Sizes the canvas element and writes the pane rects; cheap, called on every committed relayout. */
   apply: (viewport: Viewport) => void;
   post: (message: Extract<MainToWorker, { type: 'resize' }>) => void;
@@ -24,7 +29,10 @@ export interface Resizer {
   onResize(): void;
   /** The app's switch between one view and the versus split: relayouts at once. */
   setPanes(panes: 1 | 2): void;
-  /** #150: the pane mode may have changed (the input mode switched); relayouts at once when the layout changes. */
+  /**
+   * #150, #171: the pane mode or the fit may have changed (the input mode switched); relayouts at once when the
+   * layout or the fit changes.
+   */
   onModeChange(): void;
   readonly viewport: Viewport;
   readonly panes: 1 | 2;
@@ -35,7 +43,8 @@ export interface Resizer {
  * change relayouts at once, so the split switches within a frame; size changes within one layout keep the trailing
  * `RESIZE_DEBOUNCE_MS` debounce, so dragging a window resizes ThorVG's canvas (a buffer reallocation) once, not per
  * event, exactly as before #115 in single player. A relayout that changes nothing the worker uses posts nothing.
- * #150: a change of the pane mode (`split` ↔ `pip`) during a split counts as a layout change.
+ * #150: a change of the pane mode (`split` ↔ `pip`) during a split counts as a layout change. #171: so does a change
+ * of the fit (`contain` ↔ `cover`), in single player too, and the posted `resize` carries the `visible` rect.
  */
 export function createResizer(opts: ResizerOptions): Resizer {
   const setTimer = opts.setTimer ?? ((cb: () => void, ms: number) => setTimeout(cb, ms));
@@ -45,7 +54,10 @@ export function createResizer(opts: ResizerOptions): Resizer {
       clearTimeout(id);
     });
   const modeOf = opts.mode ?? ((): PaneMode => 'split');
-  const measure = (p: 1 | 2): Viewport => opts.measure(p, modeOf());
+  const fitOf = opts.fit ?? ((): ViewFit => 'contain');
+  const measure = (p: 1 | 2): Viewport => opts.measure(p, modeOf(), fitOf());
+  /** Whether going from `a` to `b` is more than a size change: it is committed at once, never debounced. */
+  const relayouts = (a: Viewport, b: Viewport): boolean => a.layout !== b.layout || a.fit !== b.fit;
   let panes: 1 | 2 = 1;
   let viewport = measure(panes);
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -62,7 +74,11 @@ export function createResizer(opts: ResizerOptions): Resizer {
       next.width === prev.width &&
       next.height === prev.height &&
       next.scale === prev.scale &&
-      next.layout === prev.layout
+      next.layout === prev.layout &&
+      next.visible.x === prev.visible.x &&
+      next.visible.y === prev.visible.y &&
+      next.visible.width === prev.visible.width &&
+      next.visible.height === prev.visible.height
     )
       return;
     opts.post({
@@ -71,6 +87,7 @@ export function createResizer(opts: ResizerOptions): Resizer {
       height: next.height,
       scale: next.scale,
       layout: next.layout,
+      visible: { ...next.visible },
     });
   };
 
@@ -84,7 +101,7 @@ export function createResizer(opts: ResizerOptions): Resizer {
     onResize() {
       const next = measure(panes);
       cancel();
-      if (next.layout !== viewport.layout) {
+      if (relayouts(viewport, next)) {
         commit(next);
         return;
       }
@@ -95,8 +112,8 @@ export function createResizer(opts: ResizerOptions): Resizer {
     },
     onModeChange() {
       const next = measure(panes);
-      // Single player, or the same mode as before: nothing to relayout, and a pending size debounce stays.
-      if (next.layout === viewport.layout) return;
+      // The same layout and fit as before: nothing to relayout, and a pending size debounce stays.
+      if (!relayouts(viewport, next)) return;
       cancel();
       commit(next);
     },

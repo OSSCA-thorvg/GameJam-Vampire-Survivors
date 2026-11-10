@@ -1,7 +1,7 @@
 import type { Matrix, Scene, Shape, Text, ThorVGNamespace } from '@thorvg/webcanvas';
 import { formatClock, MAX_PASSIVE_SLOTS, MAX_WEAPON_SLOTS, xpToNext } from '@vs/shared';
 import type { AssetLibrary } from '../assets/library';
-import { VIEW_WIDTH } from '../constants';
+import { FULL_VIEW, VIEW_WIDTH, type VisibleRect } from '../constants';
 import { PaintPool } from './pool';
 import { HUD_FONT } from './thorvg';
 import { setTransform } from './transform';
@@ -21,6 +21,7 @@ const MARGIN = 14;
 const XP_FRAME_W = 400;
 const XP_BAR_H = 12;
 const XP_INSET = 2;
+/** The fill's shape is this wide; `layout` scales it to the visible width less the insets. */
 const XP_FILL_W = VIEW_WIDTH - 2 * XP_INSET;
 const XP_FILL_H = XP_BAR_H - 2 * XP_INSET;
 const LEVEL_SIZE = 13;
@@ -29,19 +30,55 @@ export const TIMER_Y = MARGIN + 14;
 /** The kill counter's skull centre and the left edge of its number, which grows to the right (room for 5 digits). */
 const SKULL_X = VIEW_WIDTH - 120;
 const KILLS_X = VIEW_WIDTH - 100;
+/** "Lv n" is right-aligned this far from the right edge, on the XP bar. */
+const LEVEL_RIGHT = 2 * MARGIN;
 const SKULL_SCALE = 1.5;
-/**
- * #150, ADR 0024: the lowest edge of the top-right HUD (the kill count, outline included) in view units. The kills
- * text is top-aligned at `MARGIN + 2` = 16 with `KILLS_SIZE` 24; measured at 1280×720 its glyphs and 2-unit outline
- * end at 50. The skull (16×16 × 1.5, centred at `MARGIN + 15`) ends at 41 and "Lv n" at 17. The versus inset keeps
- * at least 8 units below this.
- */
-export const HUD_TOP_RIGHT_BOTTOM = 50;
+export { HUD_TOP_RIGHT_BOTTOM } from '../constants';
 const INVENTORY_SIZE = 14;
 const INVENTORY_LINE_HEIGHT = 20;
 const INVENTORY_PAD = 8;
 const INVENTORY_COLUMN_WIDTH = 230;
 const PASSIVES_X = MARGIN + INVENTORY_COLUMN_WIDTH;
+const INVENTORY_BACKING_W = 2 * INVENTORY_COLUMN_WIDTH;
+/** The HUD's horizontal metrics that `hud-extents.ts` derives `MIN_VISIBLE_WIDTH` from (#171, ADR 0025). */
+export const HUD_METRICS = {
+  /** Left edges of the weapon and passive columns, and their font size. */
+  weaponsX: MARGIN,
+  passivesX: PASSIVES_X,
+  inventorySize: INVENTORY_SIZE,
+  /** Right edge of the inventory's backing, from the visible left. */
+  backingRight: MARGIN - INVENTORY_PAD + INVENTORY_BACKING_W,
+  timerSize: TIMER_SIZE,
+  /** Width of the outline around the timer and the toast. */
+  outline: 2,
+} as const;
+/**
+ * Where the HUD sits for a `visible` area (#171, ADR 0025). Every element keeps its offset from one edge group of
+ * `visible`: the inventory from the top left, the timer from the top centre, "Lv n", the skull and the kill count
+ * from the top right, and the XP bar spans the visible width. With the full view these are the pre-#171 positions.
+ */
+export interface HudAnchors {
+  /** Added to every top-left element's x and to every element's y. */
+  left: number;
+  top: number;
+  /** Subtracted from every top-right element's x: the cropped width right of `visible`. */
+  rightCrop: number;
+  centreX: number;
+  /** The XP bar's width and the horizontal scale of its fill shape. */
+  xpWidth: number;
+  xpFillScale: number;
+}
+
+export function hudAnchors(visible: Readonly<VisibleRect>): HudAnchors {
+  return {
+    left: visible.x,
+    top: visible.y,
+    rightCrop: VIEW_WIDTH - (visible.x + visible.width),
+    centreX: visible.x + visible.width / 2,
+    xpWidth: visible.width,
+    xpFillScale: (visible.width - 2 * XP_INSET) / XP_FILL_W,
+  };
+}
 
 interface InventoryItem {
   readonly def: { readonly id: string; readonly name: string };
@@ -68,6 +105,7 @@ function createInventoryGroup(
   heading.text(title);
   const slots = Array.from({ length: capacity }, (_, index) => ({
     index,
+    y: TIMER_Y + (index + 1) * INVENTORY_LINE_HEIGHT,
     paint: makeText(TIMER_Y + (index + 1) * INVENTORY_LINE_HEIGHT, 255, 255, 255),
     id: undefined as string | undefined,
     level: -1,
@@ -75,6 +113,11 @@ function createInventoryGroup(
   }));
 
   return {
+    /** Moves the column by the visible area's top-left offset (#171). */
+    layout(left: number, top: number) {
+      heading.translate(x + left, TIMER_Y + top);
+      for (const slot of slots) slot.paint.translate(x + left, slot.y + top);
+    },
     setVisible(visible: boolean) {
       heading.visible(visible);
       if (!visible) {
@@ -127,6 +170,11 @@ export interface Hud {
   sync(input: HudInput): void;
   /** Shows or hides every HUD paint; hidden between runs. Creates nothing. */
   setVisible(visible: boolean): void;
+  /**
+   * #171, ADR 0025: anchors every view-space element to the `visible` area (`hudAnchors`). Called on a layout change,
+   * never per frame; moves existing paints and creates nothing. The HP bar stays in world space under the player.
+   */
+  layout(visible: Readonly<VisibleRect>): void;
   /** The HUD's pooled paints (`ui.hpBar`, `ui.skull`, `ui.xpBar`), for the `paintsCreated` count. */
   readonly pools: readonly PaintPool[];
 }
@@ -142,7 +190,7 @@ export function createHud(
   layers: { player: Pick<Scene, 'add'>; hud: Pick<Scene, 'add'> },
 ): Hud {
   const inventoryBacking: Shape = new TVG.Shape();
-  inventoryBacking.appendRect(0, 0, 2 * INVENTORY_COLUMN_WIDTH, 1).fill(16, 12, 18, 214);
+  inventoryBacking.appendRect(0, 0, INVENTORY_BACKING_W, 1).fill(16, 12, 18, 214);
   layers.hud.add(inventoryBacking);
   const barPool = new PaintPool(library, 'ui.hpBar', layers.player, 1);
   const fill: Shape = new TVG.Shape();
@@ -195,6 +243,39 @@ export function createHud(
     e23: TIMER_Y - INVENTORY_PAD / 2,
   };
   let inventoryRows = 0;
+  let anchors = hudAnchors(FULL_VIEW);
+  let skull: ReturnType<PaintPool['get']> | null = null;
+  let xpBar: ReturnType<PaintPool['get']> | null = null;
+  /** Places the acquired skull and XP bar frame for the current anchors. */
+  const placePooled = (): void => {
+    if (skull)
+      setTransform(skull, SKULL_X - anchors.rightCrop, MARGIN + 15 + anchors.top, 0, SKULL_SCALE);
+    if (xpBar) {
+      const sx = anchors.xpWidth / XP_FRAME_W;
+      xpBar.paint.transform({
+        ...matrix,
+        e11: sx,
+        e22: 1,
+        e13: anchors.centreX + sx * xpBar.offsetX,
+        e23: anchors.top + XP_BAR_H / 2 + xpBar.offsetY,
+      });
+    }
+  };
+  const layout = (visible: Readonly<VisibleRect>): void => {
+    anchors = hudAnchors(visible);
+    const { left, top, rightCrop, centreX } = anchors;
+    levelText.translate(VIEW_WIDTH - LEVEL_RIGHT - rightCrop, top - 1);
+    timer.translate(centreX, TIMER_Y + top);
+    kills.translate(KILLS_X - rightCrop, MARGIN + 2 + top);
+    weaponGroup.layout(left, top);
+    passiveGroup.layout(left, top);
+    xpMatrix.e13 = left + XP_INSET;
+    xpMatrix.e23 = top + XP_INSET;
+    inventoryMatrix.e13 = left + MARGIN - INVENTORY_PAD;
+    inventoryMatrix.e23 = top + TIMER_Y - INVENTORY_PAD / 2;
+    if (inventoryRows > 0) inventoryBacking.transform(inventoryMatrix);
+    placePooled();
+  };
   let bar = barPool.get(0);
   let shownSecond = 0;
   let shownKills = 0;
@@ -207,20 +288,14 @@ export function createHud(
     barPool.releaseAll();
     skullPool.releaseAll();
     xpBarPool.releaseAll();
+    skull = null;
+    xpBar = null;
     if (next) {
       // A new run starts at 00:00 with no kills, at level 1 with no XP.
       bar = barPool.get(barPool.acquire());
-      const skull = skullPool.get(skullPool.acquire());
-      setTransform(skull, SKULL_X, MARGIN + 15, 0, SKULL_SCALE);
-      const xpBar = xpBarPool.get(xpBarPool.acquire());
-      const sx = VIEW_WIDTH / XP_FRAME_W;
-      xpBar.paint.transform({
-        ...matrix,
-        e11: sx,
-        e22: 1,
-        e13: VIEW_WIDTH / 2 + sx * xpBar.offsetX,
-        e23: XP_BAR_H / 2 + xpBar.offsetY,
-      });
+      skull = skullPool.get(skullPool.acquire());
+      xpBar = xpBarPool.get(xpBarPool.acquire());
+      placePooled();
       shownSecond = 0;
       shownKills = 0;
       shownLevel = 1;
@@ -243,6 +318,7 @@ export function createHud(
   return {
     pools: [barPool, skullPool, xpBarPool],
     setVisible,
+    layout,
     sync({ x, y, hp, maxHp, timeSec, kills: killCount, xp, level, weapons, passives }) {
       if (!visible) return;
       weaponGroup.sync(weapons);
@@ -261,7 +337,7 @@ export function createHud(
       matrix.e23 = top + 1;
       fill.transform(matrix);
       const need = xpToNext(level);
-      xpMatrix.e11 = need > 0 ? Math.max(0, Math.min(1, xp / need)) : 0;
+      xpMatrix.e11 = (need > 0 ? Math.max(0, Math.min(1, xp / need)) : 0) * anchors.xpFillScale;
       xpFill.transform(xpMatrix);
       if (level !== shownLevel) {
         shownLevel = level;

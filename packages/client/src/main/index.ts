@@ -18,7 +18,7 @@ import {
   routeWorkerError,
   type WorkerErrorLike,
 } from './runtime-error';
-import { computeViewport, type Viewport } from './viewport';
+import { computeViewport, hudClearCss, type Viewport } from './viewport';
 import { createBootLoading } from './boot-loading';
 import { createAudioDirector } from './audio/director';
 import { createAudioEngine } from './audio/engine';
@@ -57,6 +57,11 @@ function showMessage(title: string, items: readonly string[] = []): void {
 function applyCssSize(canvas: HTMLCanvasElement, v: Viewport): void {
   canvas.style.width = `${String(v.cssWidth)}px`;
   canvas.style.height = `${String(v.cssHeight)}px`;
+  // #171: with the cover fit the pause button starts under the HUD's kill count (`ui/styles.css` `#pause-button`).
+  document.documentElement.style.setProperty(
+    '--hud-clear',
+    `${String(hudClearCss(v, innerHeight))}px`,
+  );
 }
 
 async function boot(): Promise<void> {
@@ -88,17 +93,20 @@ async function boot(): Promise<void> {
 
   /**
    * The canvas size and pane layout (#115): one view, or two panes during a versus match (ADR 0018), the opponent's
-   * an inset in touch mode (#150, ADR 0024). A layout change, including a switch of input mode during a match,
-   * relayouts at once; size changes within a layout are debounced (`main/resize.ts`).
+   * an inset in touch mode (#150, ADR 0024). In touch mode one view covers the whole window, cropped (#171,
+   * ADR 0025). A layout or fit change, including a switch of input mode, relayouts at once; size changes within a
+   * layout are debounced (`main/resize.ts`).
    */
   const resizer = createResizer({
-    measure: (panes, mode) =>
-      computeViewport(innerWidth, innerHeight, devicePixelRatio, panes, mode),
+    measure: (panes, mode, fit) =>
+      computeViewport(innerWidth, innerHeight, devicePixelRatio, panes, mode, fit),
     // #150, ADR 0024: touch devices show the opponent as a picture-in-picture inset, desktop the equal split.
     mode: () => (inputMode.mode === 'touch' ? 'pip' : 'split'),
+    // #171, ADR 0025: touch devices fill the window with a cropped view, desktop keeps the letterbox.
+    fit: () => (inputMode.mode === 'touch' ? 'cover' : 'contain'),
     apply: (v) => {
       applyCssSize(canvas, v);
-      bootLoading.place(v.cssHeight);
+      bootLoading.place(v.cssHeight, v.visible);
       markPanes();
     },
     post,
@@ -109,7 +117,7 @@ async function boot(): Promise<void> {
   canvas.width = resizer.viewport.width;
   canvas.height = resizer.viewport.height;
   applyCssSize(canvas, resizer.viewport);
-  bootLoading.place(resizer.viewport.cssHeight);
+  bootLoading.place(resizer.viewport.cssHeight, resizer.viewport.visible);
 
   const assetBaseUrl = new URL(import.meta.env.BASE_URL, location.href).href;
   /** Icons for the DOM screens (#11), resolved through the same manifest as the worker; `null` until it loads. */
@@ -247,6 +255,9 @@ async function boot(): Promise<void> {
       registerMainSnapshotField('layout', () => ({
         layout: resizer.viewport.layout,
         panes: resizer.panes,
+        // #171: how the view is fitted and which part of it the canvas shows (logical units).
+        fit: resizer.viewport.fit,
+        visible: { ...resizer.viewport.visible },
       }));
       // #20: the dialog over a running versus world, and whether its socket was lost.
       // #21: the incoming-interference banners shown now.
@@ -390,6 +401,7 @@ async function boot(): Promise<void> {
       height: resizer.viewport.height,
       scale: resizer.viewport.scale,
       layout: resizer.viewport.layout,
+      visible: { ...resizer.viewport.visible },
       assetBaseUrl,
       perf,
       ...(debug ? { debug } : {}),

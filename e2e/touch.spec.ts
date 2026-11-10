@@ -2,6 +2,9 @@
 // project (a Pixel 7 in landscape: taps, and joystick drags through CDP `Input.dispatchTouchEvent`) and the opt-in
 // `mobile-webkit` project (an iPhone 14 in landscape: taps only, since Playwright's WebKit has no touch drag). The
 // desktop journey runs in the `chromium` project and checks that a mouse never sees a touch control.
+// #171 (ADR 0025): the touch journeys also check the cover fit (the canvas is the window, the view is cropped evenly
+// and the HUD is drawn inside it), touch 5 does so on a 1024×768 touch page, and the desktop journeys check that a
+// mouse keeps the letterbox and that a switch of input mode switches the fit at once without creating a Paint.
 import {
   expect,
   test,
@@ -12,9 +15,15 @@ import {
   type TestInfo,
 } from '@playwright/test';
 import {
+  coverFormula,
+  expectCoverFit,
+  fitBoxes,
+  gridPoints,
+  layoutOf,
   noteEvidence,
   openGame,
   pageErrors,
+  samplePoints,
   snapshot,
   startEvidence,
   waitForSnapshot,
@@ -56,6 +65,82 @@ function finger(cdp: CDPSession) {
     },
     up: () => send('touchEnd', 0, 0),
   };
+}
+
+type Rgb = number[];
+const count = (pixels: Rgb[], test: (r: number, g: number, b: number) => boolean): number =>
+  pixels.filter(([r = 0, g = 0, b = 0]) => test(r, g, b)).length;
+/** The ground is green-dominant; the HUD's dark frames, white texts and black outlines are not. */
+const ground = (r: number, g: number, b: number): boolean => g > r + 15 && g > b + 15;
+
+/**
+ * #171, ADR 0025: the cover fit on a touch page in a run. The canvas is the window and `visible` is the formula's
+ * rect (`expectCoverFit`); then the HUD is sampled from a screenshot at the places its anchors give, all inside the
+ * window: the XP bar across the top edge, the timer at the top centre, the yellow "Weapons" heading at the top left,
+ * the skull and kill count at the top right (with the pause button under them) and the red HP bar under the player.
+ */
+async function expectCoveredHud(
+  page: Page,
+  ev: ReturnType<typeof startEvidence>,
+  name: string,
+): Promise<void> {
+  const { visible, k, boxes, layout } = await expectCoverFit(page);
+  const w = visible.width;
+  /** Where the visible area's top left is in the window: the canvas's corner (below a bar on a narrow window). */
+  const o = { x: boxes.canvas.x, y: boxes.canvas.y };
+  const areas = {
+    // Rects in logical units from the visible area's top left (`render/hud.ts`).
+    xpBar: gridPoints({ x: 8, y: 4, width: w - 16, height: 4 }, k, 24, 1, o),
+    timer: gridPoints({ x: w / 2 - 56, y: 30, width: 112, height: 34 }, k, 56, 17, o),
+    weapons: gridPoints({ x: 14, y: 28, width: 80, height: 20 }, k, 40, 10, o),
+    hpBar: gridPoints({ x: w / 2 - 16, y: 360 - visible.y + 7, width: 32, height: 4 }, k, 16, 2, o),
+    // The skull and the kill count, 132 to 60 units from the visible right edge.
+    kills: gridPoints({ x: w - 132, y: 16, width: 72, height: 34 }, k, 36, 17, o),
+  };
+  for (const points of Object.values(areas))
+    for (const { x, y } of points) {
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(boxes.innerWidth);
+      expect(y).toBeGreaterThanOrEqual(0);
+      expect(y).toBeLessThanOrEqual(boxes.innerHeight);
+    }
+  const all = Object.values(areas).flat();
+  const rgb = await samplePoints(page, all);
+  let at = 0;
+  const take = (n: number): Rgb[] => rgb.slice(at, (at += n));
+  const xpBar = take(areas.xpBar.length);
+  const timer = take(areas.timer.length);
+  const weapons = take(areas.weapons.length);
+  const hpBar = take(areas.hpBar.length);
+  const kills = take(areas.kills.length);
+  // The pause button starts under the kill count (50 units from the visible top), so it covers no HUD element.
+  const pause = await page.locator('#pause-button').boundingBox();
+  if (!pause) throw new Error('pause button missing');
+  expect(pause.y).toBeGreaterThanOrEqual(o.y + 50 * k);
+  expect(pause.x + pause.width).toBeLessThanOrEqual(boxes.innerWidth);
+  expect(pause.y + pause.height).toBeLessThan(boxes.innerHeight / 2);
+  // Every HUD text ends before the next one starts (level 4 for every width: `hud-extents.test.ts`).
+  expect(w).toBeGreaterThanOrEqual(1220 - 1e-6);
+  const found = {
+    pauseTop: pause.y,
+    killCounter:
+      count(kills, (r, g, b) => r >= 170 && g >= 170 && b >= 170) +
+      count(kills, (r, g, b) => r <= 40 && g <= 40 && b <= 40),
+    xpBarColumnsOnBar: count(xpBar, (r, g, b) => !ground(r, g, b)),
+    timerWhite: count(timer, (r, g, b) => r >= 200 && g >= 200 && b >= 200),
+    timerOutline: count(timer, (r, g, b) => r <= 40 && g <= 40 && b <= 40),
+    weaponsYellow: count(weapons, (r, g, b) => r >= 190 && g >= 150 && b <= 170 && r > b + 50),
+    hpRed: count(hpBar, (r, g, b) => r >= 140 && g <= 100 && b <= 90),
+  };
+  ev.json(`cover-${name}`, { layout, boxes, k, found });
+  await ev.shot(`cover-${name}`);
+  // The XP bar spans the visible width: nearly every column along the top edge is bar, not ground.
+  expect(found.xpBarColumnsOnBar).toBeGreaterThanOrEqual(22);
+  expect(found.timerWhite).toBeGreaterThanOrEqual(5);
+  expect(found.timerOutline).toBeGreaterThanOrEqual(5);
+  expect(found.weaponsYellow).toBeGreaterThanOrEqual(3);
+  expect(found.hpRed).toBeGreaterThanOrEqual(4);
+  expect(found.killCounter).toBeGreaterThanOrEqual(12);
 }
 
 const pausedDialog = (page: Page): Locator => page.locator('[role="dialog"][aria-label="Paused"]');
@@ -134,6 +219,7 @@ test('touch 1: taps start a run, the joystick moves in 8 directions, level-up, p
     const ready = await openGame(page);
     expect(ready.renderer).toBe('gl');
     await tapIntoRun(page, ev);
+    await expectCoveredHud(page, ev, 'phone');
     const cdp = await page.context().newCDPSession(page);
     const f = finger(cdp);
 
@@ -229,6 +315,7 @@ test('touch 2: taps start a run, answer a level-up, pause and resume, and portra
     const ready = await openGame(page);
     expect(ready.renderer).toBe('gl');
     await tapIntoRun(page, ev);
+    await expectCoveredHud(page, ev, 'phone');
     await tapLevelUp(page, ev);
     await tapPause(page, ev);
     await rotate(page, ev);
@@ -433,9 +520,201 @@ test('touch desktop: a mouse and the keyboard never see a touch control (chromiu
     expect(t.rotateHint).toBe(false);
     await expect(page.locator('#pause-button')).toBeHidden();
     await expect(page.locator('#touch-layer')).toBeHidden();
+    // #171, ADR 0025: desktop keeps the letterbox: the whole 1280×720 view in the old canvas box.
+    expect(layoutOf(playing)).toMatchObject({
+      fit: 'contain',
+      layout: 'single',
+      visible: { x: 0, y: 0, width: 1280, height: 720 },
+    });
+    expect((playing.panes as { visible: unknown }).visible).toEqual({
+      x: 0,
+      y: 0,
+      width: 1280,
+      height: 720,
+    });
+    expect((await fitBoxes(page)).canvas).toEqual({ x: 0, y: 0, width: 1280, height: 720 });
     await ev.shot('desktop-playing');
     expect(pageErrors(ev)).toEqual([]);
   } finally {
     ev.flush();
+  }
+});
+
+test('touch 5: a 1024×768 touch page crops only down to the minimum width of the HUD and keeps bars above and below (mobile-chromium)', async ({
+  browser,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-chromium', 'opens its own tablet context');
+  const context = await browser.newContext({
+    viewport: { width: 1024, height: 768 },
+    deviceScaleFactor: 2,
+    isMobile: true,
+    hasTouch: true,
+  });
+  const page = await context.newPage();
+  const ev = startEvidence(page, 'touch-5-tablet');
+  noteEvidence(testInfo, ev);
+  try {
+    await openGame(page);
+    await tapIntoRun(page, ev);
+    // Precondition (dev keys, no movement keys): a full inventory, so the longest rows are on screen.
+    await page.keyboard.press('i');
+    for (let i = 0; i < 6; i++) await page.keyboard.press('g');
+    for (let i = 0; i < 6; i++) await page.keyboard.press('p');
+    await page.waitForTimeout(300);
+    await expectCoveredHud(page, ev, 'tablet');
+    const { visible, boxes, full } = await expectCoverFit(page);
+    // 4:3 would cover at 960 units of width; ADR 0025's floor keeps 1220 (30 cropped on each side), the whole height
+    // of the view, and the canvas is 1024 × 604 between two 82 pixel bars.
+    expect(full).toBe(false);
+    expect(visible.y).toBe(0);
+    expect(visible.width).toBeCloseTo(1220, 6);
+    expect(visible.x).toBeCloseTo(30, 0);
+    expect(visible.height).toBeCloseTo(720, 0);
+    expect(boxes.canvas).toEqual({ x: 0, y: 82, width: 1024, height: 604 });
+    expect(pageErrors(ev)).toEqual([]);
+  } finally {
+    ev.flush();
+    await context.close();
+  }
+});
+
+test('touch 6: the full boot splash and its held loading text stay inside the covered screen (mobile-chromium)', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-chromium', 'the Pixel 7 page');
+  test.setTimeout(300_000);
+  const ev = startEvidence(page, 'touch-6-splash');
+  noteEvidence(testInfo, ev);
+  interface Boot {
+    splash?: { state: string; frame: number };
+    loading?: { visible: boolean; held: boolean };
+  }
+  const boot = (s: GameSnapshot): Boot => s as unknown as Boot;
+  try {
+    // Precondition (as in splash.spec.ts): one asset is held back, so loading outlasts the 7 s splash.
+    let release = (): void => undefined;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/enemies/bat.json', async (route) => {
+      await released;
+      await route.continue();
+    });
+    await page.goto('/?splash=full');
+    await waitForSnapshot(page, (s) => boot(s).splash?.state === 'holding', 120_000);
+    const s = await waitForSnapshot(page, (x) => boot(x).loading?.visible === true, 30_000);
+    expect(boot(s).loading).toMatchObject({ visible: true, held: true });
+    // The boot page is already covered: touch mode starts from the coarse pointer, before any tap. The `layout`
+    // snapshot field exists only once the app has started, so the visible rect comes from the formula here and is
+    // compared with the field on the title below.
+    const boxes = await fitBoxes(page);
+    expect(Math.abs(boxes.canvas.width - boxes.innerWidth)).toBeLessThan(1);
+    expect(Math.abs(boxes.canvas.height - boxes.innerHeight)).toBeLessThan(1);
+    const layout = {
+      visible: coverFormula(boxes.innerWidth, boxes.innerHeight, boxes.dpr).visible,
+    };
+    const k = boxes.canvas.width / layout.visible.width;
+    const text = await page.locator('#loading').boundingBox();
+    if (!text) throw new Error('#loading missing');
+    // Logical y 610, or higher when the crop would push it off the screen: its bottom ends at the visible bottom edge.
+    const top = Math.min(610, layout.visible.y + layout.visible.height - 24);
+    const geometry = { text, boxes, layout, expectedTop: (top - layout.visible.y) * k };
+    ev.json('geometry-holding', geometry);
+    expect(Math.abs(text.y - geometry.expectedTop)).toBeLessThanOrEqual(2);
+    expect(Math.abs(text.x + text.width / 2 - boxes.innerWidth / 2)).toBeLessThanOrEqual(2);
+    expect(text.y + text.height).toBeLessThanOrEqual(boxes.innerHeight + 1);
+    // The logo and wordmark (449..833 × 150..561 in the full view) are inside the screen: the rows just inside the
+    // visible top and bottom edges are black, and the logo's middle is not.
+    const row = (y: number) =>
+      gridPoints({ x: 0, y, width: layout.visible.width, height: 1 }, k, 64, 1);
+    const height = layout.visible.height;
+    const [topRow, bottomRow, middle] = [row(3), row(height - 30), row(360 - layout.visible.y)];
+    const rgb = await samplePoints(page, [...topRow, ...bottomRow, ...middle]);
+    const lit = (pixels: number[][]): number => pixels.filter((c) => c.some((v) => v > 40)).length;
+    const found = {
+      topRowLit: lit(rgb.slice(0, 64)),
+      bottomRowLit: lit(rgb.slice(64, 128)),
+      middleLit: lit(rgb.slice(128)),
+    };
+    ev.json('splash-rows', found);
+    expect(found.topRowLit).toBe(0);
+    expect(found.bottomRowLit).toBe(0);
+    expect(found.middleLit).toBeGreaterThan(0);
+    await ev.shot('holding');
+    release();
+    await waitForSnapshot(page, (x) => x.state === 'title', 120_000);
+    await expect(page.locator('#loading')).toHaveCount(0);
+    expect((await expectCoverFit(page)).visible).toEqual(layout.visible);
+    expect(pageErrors(ev)).toEqual([]);
+  } finally {
+    ev.flush();
+  }
+});
+
+test('touch desktop 2: a letterboxed window switches to the cover fit at once on a touch and back on a key, creating no Paint (chromium)', async ({
+  browser,
+}, testInfo) => {
+  test.skip(isMobile(testInfo.project.name), 'desktop only');
+  // 1000×700: the letterboxed view is 1000×563 with bars above and below.
+  const context = await browser.newContext({ viewport: { width: 1000, height: 700 } });
+  const page = await context.newPage();
+  const ev = startEvidence(page, 'touch-desktop-2');
+  noteEvidence(testInfo, ev);
+  const paints = (s: GameSnapshot): number => (s.debug as { paintsCreated: number }).paintsCreated;
+  try {
+    await openGame(page);
+    await waitForSnapshot(page, (s) => s.state === 'title', 5_000);
+    await page.keyboard.press('Enter');
+    await waitForSnapshot(page, (s) => s.state === 'characterSelect', 5_000);
+    await page.keyboard.press('Enter');
+    const playing = await waitForSnapshot(page, (s) => s.state === 'playing', 5_000);
+    await page.keyboard.press('i'); // precondition: nobody dies during the switches
+    expect(layoutOf(playing).fit).toBe('contain');
+    const boxed = await fitBoxes(page);
+    expect(boxed.canvas).toEqual({ x: 0, y: 68.5, width: 1000, height: 563 });
+    await ev.shot('letterboxed');
+    const log: unknown[] = [];
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+    for (let i = 0; i < 3; i++) {
+      // A touch: touch mode, and the cover fit at once (larger, cropped left and right).
+      const t0 = Date.now();
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchStart',
+        touchPoints: [{ x: 300, y: 400, id: 1 }],
+      });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      const cover = await expectCoverFit(page);
+      const coverMs = Date.now() - t0;
+      expect(touchOf(await snapshot(page)).mode).toBe('touch');
+      // 1000×700 is narrower than the floor's aspect ratio: 1220 units wide, 1000 × 590 with thinner bars.
+      expect(cover.visible.y).toBe(0);
+      expect(cover.visible.width).toBeCloseTo(1220, 6);
+      expect(cover.boxes.canvas).toEqual({ x: 0, y: 55, width: 1000, height: 590 });
+      if (i === 0) await ev.shot('covered-after-touch');
+      // A movement key: keys mode, and the letterbox again.
+      const t1 = Date.now();
+      await page.keyboard.press('ArrowRight');
+      const back = await waitForSnapshot(
+        page,
+        (s) => layoutOf(s).fit === 'contain' && touchOf(s).mode === 'keys',
+        3_000,
+      );
+      const containMs = Date.now() - t1;
+      expect(layoutOf(back).visible).toEqual({ x: 0, y: 0, width: 1280, height: 720 });
+      expect((back.panes as { visible: unknown }).visible).toEqual(layoutOf(back).visible);
+      expect((await fitBoxes(page)).canvas).toEqual(boxed.canvas);
+      log.push({ coverMs, containMs, paints: paints(back) });
+    }
+    await ev.shot('letterboxed-again');
+    const after = await snapshot(page);
+    ev.json('fit-switches', { before: paints(playing), after: paints(after), log });
+    // ADR 0003: a fit switch only moves paints. Every pool is prewarmed past what a few seconds of a run use, so the
+    // count of created pooled paints stays what it was before the first switch.
+    expect(paints(after)).toBe(paints(playing));
+    expect(pageErrors(ev)).toEqual([]);
+  } finally {
+    ev.flush();
+    await context.close();
   }
 });

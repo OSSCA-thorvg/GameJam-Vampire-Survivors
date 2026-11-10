@@ -1,6 +1,6 @@
 # 0004. Run simulation and rendering in a dedicated Web Worker
 
-- Status: Accepted
+- Status: Accepted; amended by [0025](0025-fill-the-screen-with-a-cropped-view-on-touch-devices.md) (presentation on touch devices)
 - Date: 2026-11-07
 
 ## Context
