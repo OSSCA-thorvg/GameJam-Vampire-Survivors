@@ -133,7 +133,7 @@ pnpm --filter client exec vitest run csp.test.ts   # the CSP and server-URL rule
 pnpm --filter server exec node scripts/smoke.mjs <base URL> <WebSocket URL> <allowed origin>   # /healthz, 2 clients create+join a room, foreign Origin refused
 NODE_VERSION=$(cat .nvmrc) docker compose -f deploy/server/compose.yaml up -d --build   # production server: builds the runtime image vs-server:local on the owner's host; needs deploy/server/.env (deploy/server/README.md)
 pnpm exec playwright install chromium       # once per clone: the browser for verify-game (never an install script)
-pnpm verify:launch      # client in --mode e2e on :5180, ready when __vsTest reports gl (--with-server adds Docker :8787)
+pnpm verify:launch      # client in --mode e2e on :5180, ready when __vsTest reports gl (--with-server adds Docker :8787, or shares a running vs-verify server)
 VERIFY_PORT=5185 pnpm verify:launch   # parallel worktrees; doctor, e2e and cleanup read the same variable (record: verification/.verify-run-<port>.json)
 pnpm verify:doctor      # read-only checks of the launched run (pid, URL, __vsTest, buildRev == HEAD)
 pnpm verify:e2e         # launch, headless smoke + headed native hidden-tab projects, cleanup, always
@@ -144,7 +144,7 @@ node --test scripts/verify/*.test.mjs            # harness argument-routing and 
 node --test scripts/github/check-ruleset.test.mjs   # ruleset vs CI job name matching (also in pnpm check)
 node scripts/github/check-ruleset.mjs            # required checks in .github/rulesets/main.json == ci.yml job names (CI repo rules)
 sh scripts/github/apply-ruleset.sh               # maintainer only, needs repo admin: create/update the main ruleset and enable auto-merge (GH_REPO overrides the repo); never run by CI
-pnpm verify:cleanup     # stop only what verify:launch recorded, keep verification/ evidence
+pnpm verify:cleanup     # stop only what verify:launch recorded, keep verification/ evidence; the vs-verify server stops only when its owner is the last user (#161: ownership passes to the lowest remaining port, users list in the main checkout's verification/.verify-server-users.json), a server not started by verify:launch never
 VERIFY_JOURNEYS=verification/issue-<N>/journeys pnpm exec playwright test -c e2e/playwright.config.ts   # feature-map journeys
 sh scripts/make-hud-font.sh   # rebuild assets/fonts/hud.ttf (ADR 0013); needs fonttools 4.68.0 (pipx install fonttools==4.68.0), not a project dependency
 sh scripts/make-splash.sh     # re-import assets/ui/splash.json and splash/logo.png from the pinned source (ADR 0020); needs curl, python3, dwebp 1.6.0 and your own gh token (the attachment is private)

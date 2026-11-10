@@ -1,9 +1,9 @@
 // Shared helpers for the verify-game scripts (#31, .claude/skills/verify-game/SKILL.md). Node only, no shell, so the
 // scripts behave the same on every contributor's OS.
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { connect } from 'node:net';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -67,6 +67,117 @@ export function removeRecord(port, dir = VERIFICATION_DIR) {
 
 export const SERVER_HEALTH_URL = 'http://localhost:8787/healthz';
 export const COMPOSE_PROJECT = 'vs-verify';
+
+/**
+ * Where the shared server's users list lives (#161): the main checkout's `verification/`, found through the git common
+ * dir, because parallel worktrees each have their own `verification/` but share Docker's :8787. Falls back to this
+ * checkout's folder outside git.
+ */
+export function sharedVerificationDir() {
+  try {
+    const common = execFileSync(
+      'git',
+      ['rev-parse', '--path-format=absolute', '--git-common-dir'],
+      { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+    ).trim();
+    if (common && basename(common) === '.git') return join(dirname(common), 'verification');
+  } catch {
+    // not a git checkout
+  }
+  return VERIFICATION_DIR;
+}
+
+/** `.verify-server-users.json`: the ports sharing a `vs-verify` server they did not start, with their record paths. */
+export function serverUsersPath(dir = sharedVerificationDir()) {
+  return join(dir, '.verify-server-users.json');
+}
+
+/** `{ ports: number[], records: { [port]: path } }`, empty when the file is missing or unreadable. */
+export function readServerUsers(path = serverUsersPath()) {
+  const raw = readJson(path);
+  const ports = Array.isArray(raw?.ports)
+    ? [...new Set(raw.ports.filter((p) => Number.isInteger(p)))].sort((a, b) => a - b)
+    : [];
+  const records = {};
+  for (const port of ports) {
+    const file = raw?.records?.[port];
+    if (typeof file === 'string') records[port] = file;
+  }
+  return { ports, records };
+}
+
+/** Writes the list through a temp file and a rename, so a reader never sees half a file. */
+export function writeServerUsers(users, path = serverUsersPath()) {
+  mkdirSync(dirname(path), { recursive: true });
+  const tmp = `${path}.${process.pid}.tmp`;
+  writeFileSync(tmp, JSON.stringify(users, null, 2) + '\n');
+  renameSync(tmp, path);
+}
+
+/** A launch that found `vs-verify` already running registers its port and record path as a user. */
+export function addServerUser(port, record, path = serverUsersPath()) {
+  const users = readServerUsers(path);
+  if (!users.ports.includes(port)) users.ports = [...users.ports, port].sort((a, b) => a - b);
+  users.records[port] = record;
+  writeServerUsers(users, path);
+}
+
+/** True when this record's launch owns the `vs-verify` server; records from before #161 say `reused: false` instead. */
+export function ownsServer(server) {
+  if (!server || server.project !== COMPOSE_PROJECT) return false;
+  return typeof server.owner === 'boolean' ? server.owner : server.reused === false;
+}
+
+/**
+ * Cleanup's server decision for `port` (#161). Removes the port from the users list, then:
+ * - `keep`: the record does not own the server (shared, external or none), so it stays up;
+ * - `handOver`: the owner leaves while others still use it: the lowest remaining port whose record still names the
+ *   `vs-verify` server gets `owner: true` (and leaves the list), ports without such a record are dropped;
+ * - `down`: the owner leaves and nobody else uses it, so the caller runs `docker compose -p vs-verify down`.
+ * `recordFor(port)` gives the record path of a listed port that stored none.
+ */
+export function releaseServer(port, server, path = serverUsersPath(), recordFor = recordPath) {
+  if (server?.project !== COMPOSE_PROJECT) return { action: 'keep', to: null };
+  const { ports, records } = readServerUsers(path);
+  /** Writes the list without the ports already handled. */
+  const save = (left) =>
+    writeServerUsers(
+      {
+        ports: left,
+        records: Object.fromEntries(left.map((p) => [p, records[p]]).filter(([, f]) => f)),
+      },
+      path,
+    );
+  const rest = ports.filter((p) => p !== port);
+  if (!ownsServer(server)) {
+    save(rest);
+    return { action: 'keep', to: null };
+  }
+  for (const [i, next] of rest.entries()) {
+    const file = records[next] ?? recordFor(next);
+    const record = readJson(file);
+    if (record?.server?.project !== COMPOSE_PROJECT) continue;
+    writeJson(file, { ...record, server: { ...record.server, owner: true } });
+    save(rest.slice(i + 1));
+    return { action: 'handOver', to: next };
+  }
+  save([]);
+  return { action: 'down', to: null };
+}
+
+/** True when Docker reports a running container of the `vs-verify` compose project; false without Docker. */
+export function composeProjectRunning(project = COMPOSE_PROJECT) {
+  try {
+    const out = execFileSync(
+      'docker',
+      ['ps', '-q', '--filter', `label=com.docker.compose.project=${project}`],
+      { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+    );
+    return out.trim() !== '';
+  } catch {
+    return false;
+  }
+}
 
 /** Headless Chromium gets WebGL 2 without a GPU through SwiftShader; `VERIFY_HEADED=1` runs headed on the real GPU. */
 export const HEADED = process.env.VERIFY_HEADED === '1';
