@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { PaneLayout as WorkerPaneLayout } from '../protocol/worker-messages';
-import { computeViewport, paneLayout, PANE_GAP, type PaneLayout } from './viewport';
+import {
+  computeViewport,
+  paneLayout,
+  PANE_GAP,
+  PIP_MARGIN,
+  PIP_RECT,
+  PIP_SCALE,
+  PIP_TOP,
+  type PaneLayout,
+} from './viewport';
 
 describe('computeViewport', () => {
   it('fits 1920×1080 at DPR 2', () => {
@@ -142,6 +151,62 @@ describe('computeViewport with two panes', () => {
     expect(v.panes[0]?.width).toBeCloseTo(794.67, 2);
     expect(v.panes[0]?.height).toBe(447);
     expect(v.panes[1]?.x).toBeCloseTo(804.6, 2);
+  });
+});
+
+// #150, ADR 0024: touch devices show the opponent as a top-right inset over one full view.
+describe('computeViewport in pip mode', () => {
+  it('keeps the inset constants of ADR 0024', () => {
+    expect([PIP_SCALE, PIP_MARGIN, PIP_TOP]).toEqual([0.32, 16, 64]);
+    expect(PIP_RECT.x).toBeCloseTo(854.4, 9);
+    expect(PIP_RECT.width).toBeCloseTo(409.6, 9);
+    expect(PIP_RECT.height).toBeCloseTo(230.4, 9);
+  });
+
+  it('fits 1280 × 720 at DPR 1 as the full view with a 409.6 × 230.4 inset at (854.4, 64)', () => {
+    const v = computeViewport(1280, 720, 1, 2, 'pip');
+    const single = computeViewport(1280, 720, 1);
+    expect(v).toMatchObject({
+      layout: 'pip',
+      cssWidth: single.cssWidth,
+      cssHeight: single.cssHeight,
+      width: single.width,
+      height: single.height,
+      scale: single.scale,
+    });
+    expect(v.panes[0]).toEqual({ x: 0, y: 0, width: 1280, height: 720 });
+    const inset = v.panes[1];
+    expect(inset?.x).toBeCloseTo(854.4, 9);
+    expect(inset?.y).toBe(64);
+    expect(inset?.width).toBeCloseTo(409.6, 9);
+    expect(inset?.height).toBeCloseTo(230.4, 9);
+  });
+
+  it('fits a 844 × 390 phone at DPR 3 (capped at 2) like one view, the inset scaled with it', () => {
+    const v = computeViewport(844, 390, 3, 2, 'pip');
+    const single = computeViewport(844, 390, 3);
+    expect(v.width).toBe(single.width);
+    expect(v.height).toBe(single.height);
+    expect(v.scale).toBe(single.scale);
+    expect(v.height).toBe(780);
+    const k = v.scale / 2;
+    expect(v.panes[0]).toEqual({ x: 0, y: 0, width: 1280 * k, height: 720 * k });
+    const inset = v.panes[1];
+    if (!inset) throw new Error('inset expected');
+    expect(inset.x).toBeCloseTo(462.8, 6);
+    expect(inset.y).toBeCloseTo(34.6667, 4);
+    expect(inset.width).toBeCloseTo(221.867, 3);
+    expect(inset.height).toBeCloseTo(124.8, 6);
+    // Top right: 16 units from the view's right edge, inside the canvas.
+    expect(inset.x + inset.width + PIP_MARGIN * k).toBeCloseTo(1280 * k, 9);
+    expect(inset.width / inset.height).toBeCloseTo(16 / 9, 9);
+  });
+
+  it('ignores the mode with one pane and in split', () => {
+    expect(computeViewport(844, 390, 3, 1, 'pip')).toEqual(computeViewport(844, 390, 3));
+    expect(computeViewport(1600, 900, 1, 2, 'split')).toEqual(computeViewport(1600, 900, 1, 2));
+    expect(paneLayout(844, 390, 1, 'pip')).toBe('single');
+    expect(paneLayout(844, 390, 2, 'pip')).toBe('pip');
   });
 });
 

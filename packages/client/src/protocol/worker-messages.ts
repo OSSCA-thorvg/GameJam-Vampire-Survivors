@@ -14,10 +14,11 @@ import type {
 export type BackgroundPolicy = 'pause' | 'simulate';
 
 /**
- * #115, ADR 0018: one full view, or two equal panes left/right (`columns`) or top/bottom (`rows`). Re-declared from
- * `main/viewport.ts`, which `tsconfig.worker.json` does not compile; `viewport.test.ts` keeps them equal.
+ * #115, ADR 0018: one full view, or two equal panes left/right (`columns`) or top/bottom (`rows`); #150, ADR 0024: one
+ * full view with the opponent's as a top-right inset (`pip`, touch devices). Re-declared from `main/viewport.ts`,
+ * which `tsconfig.worker.json` does not compile; `viewport.test.ts` keeps them equal.
  */
-export type PaneLayout = 'single' | 'columns' | 'rows';
+export type PaneLayout = 'single' | 'columns' | 'rows' | 'pip';
 
 /** #115: how the opponent pane is shown: playing, away or disconnected (dimmed), or out of the match (dimmer). */
 export type OpponentState = 'live' | 'away' | 'out';

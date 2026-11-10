@@ -1,6 +1,6 @@
 # 0018. Show the opponent's world from a relayed, quantized view stream
 
-- Status: Accepted
+- Status: Partly superseded by [0024](0024-show-the-opponent-as-picture-in-picture-on-touch-devices.md) (only the layout on touch devices, which shows the opponent as a picture-in-picture inset; the equal split on desktop and the view stream retained)
 - Date: 2026-11-09
 - Related issues: #114 (the stream), #115 (the split panes); supersedes in part ADR 0005 (only its line "There is no live view of the opponent's world"); amends ADR 0006 (one more relayed message)
 

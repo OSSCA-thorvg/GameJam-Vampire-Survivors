@@ -163,6 +163,11 @@ export function mount(root: HTMLElement, props: LobbyProps): Screen<LobbyProps> 
       class: 'hint keys-only',
       text: 'Share the code. Arrows move, Enter presses, Escape leaves.',
     }),
+    // #150: touch mode hides the keyboard hint (#149), so the lobby says what to tap instead.
+    h('p', {
+      class: 'hint touch-only',
+      text: 'Share the code. Tap Ready; the host taps Start.',
+    }),
     countdown,
   ]);
 

@@ -30,6 +30,13 @@ export const TIMER_Y = MARGIN + 14;
 const SKULL_X = VIEW_WIDTH - 120;
 const KILLS_X = VIEW_WIDTH - 100;
 const SKULL_SCALE = 1.5;
+/**
+ * #150, ADR 0024: the lowest edge of the top-right HUD (the kill count, outline included) in view units. The kills
+ * text is top-aligned at `MARGIN + 2` = 16 with `KILLS_SIZE` 24; measured at 1280×720 its glyphs and 2-unit outline
+ * end at 50. The skull (16×16 × 1.5, centred at `MARGIN + 15`) ends at 41 and "Lv n" at 17. The versus inset keeps
+ * at least 8 units below this.
+ */
+export const HUD_TOP_RIGHT_BOTTOM = 50;
 const INVENTORY_SIZE = 14;
 const INVENTORY_LINE_HEIGHT = 20;
 const INVENTORY_PAD = 8;

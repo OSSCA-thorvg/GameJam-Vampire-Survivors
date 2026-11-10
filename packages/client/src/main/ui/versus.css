@@ -183,3 +183,29 @@
   top: calc(var(--self-y) + 4.5rem);
   left: calc(var(--self-x) + var(--self-w) / 2);
 }
+
+/*
+ * #150, ADR 0024: touch devices. The own world fills the canvas (`--self-*`, so the banner rules above keep it centred)
+ * and `--opp-*` is the top-right inset; the panel sits right under it, as wide as it, with the nickname and HP only
+ * (the inset itself shows the AWAY/OUT dim).
+ */
+#screens[data-layout='pip'] .opponent-panel {
+  top: calc(var(--opp-y) + var(--opp-h) + 4px);
+  left: var(--opp-x);
+  width: var(--opp-w);
+}
+
+#screens[data-layout='pip'] .opponent-panel .opponent {
+  padding: 0.2rem 0.4rem;
+  font-size: 12px;
+}
+
+#screens[data-layout='pip'] .opponent-panel .opponent-numbers,
+#screens[data-layout='pip'] .opponent-panel .badge {
+  display: none;
+}
+
+#screens[data-layout='pip'] .opponent-panel .hp {
+  height: 4px;
+  margin: 0.15rem 0 0;
+}
