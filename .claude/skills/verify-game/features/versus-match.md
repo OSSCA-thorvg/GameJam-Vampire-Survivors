@@ -1306,6 +1306,42 @@ async function invulnerable(p: Player): Promise<void> {
   await waitForSnapshot(p.page, (s) => s.debugInvulnerable === true, 2_000);
 }
 
+/** The placeholder canvas's size (the last frame the worker presented) and its CSS box, in device pixels. */
+async function canvasBacking(page: Page) {
+  return page.evaluate(() => {
+    const c = document.querySelector('canvas');
+    if (!c) throw new Error('canvas missing');
+    const box = c.getBoundingClientRect();
+    return {
+      width: c.width,
+      height: c.height,
+      boxWidth: Math.round(box.width * devicePixelRatio),
+      boxHeight: Math.round(box.height * devicePixelRatio),
+    };
+  });
+}
+
+/**
+ * Waits until the worker presented a frame at a new backing size that fills the canvas's new CSS box (#165): the
+ * debounced resize was posted, applied and drawn. Under swiftshader the first frame after a resize can take seconds.
+ */
+async function waitForCanvasResize(
+  page: Page,
+  before: { width: number; height: number },
+  timeoutMs: number,
+) {
+  const started = Date.now();
+  for (;;) {
+    const now = await canvasBacking(page);
+    const moved = now.width !== before.width || now.height !== before.height;
+    if (moved && now.width === now.boxWidth && now.height === now.boxHeight)
+      return { ...now, afterMs: Date.now() - started };
+    if (Date.now() - started > timeoutMs)
+      throw new Error(`canvas never presented the new size: ${JSON.stringify(now)}`);
+    await page.waitForTimeout(50);
+  }
+}
+
 /** Layout, equal 16:9 panes and a background-only gap; returns what was measured. */
 async function checkSplit(p: Player, expected: 'columns' | 'rows', name: string) {
   const s = await snapshot(p.page);
@@ -1437,9 +1473,10 @@ test('versus 9: split panes show both worlds, labelled, following, with interfer
     await a.page.waitForTimeout(150);
     evidence.rows = await checkSplit(a, 'rows', 'a-rows-900x1400');
     expect((evidence.rowsTiming as { lowerMs: number }).lowerMs).toBeLessThanOrEqual(300);
+    // Same layout, so the debounced path: wait for the canvas to show a frame at the new size (#165), not a fixed time.
+    const before = await canvasBacking(a.page);
     await a.page.setViewportSize({ width: 1440, height: 900 });
-    await waitForSnapshot(a.page, (s) => panesOf(s).layout === 'rows', 2_000);
-    await a.page.waitForTimeout(150);
+    evidence.rows1440Committed = await waitForCanvasResize(a.page, before, 20_000);
     evidence.rows1440 = await checkSplit(a, 'rows', 'a-rows-1440x900');
     await a.page.setViewportSize({ width: 1600, height: 900 });
     await waitForSnapshot(a.page, (s) => panesOf(s).layout === 'columns', 2_000);
@@ -1840,7 +1877,7 @@ test('versus 10b: single player at 1600 x 900 keeps one full view with no YOU la
 
 - Journey 11 (#150): Playwright Test applies the project's `use` (in `mobile-chromium` a Pixel 7: touch, mobile, DPR 2.625) to every `browser.newContext()`, so the desktop page passes `devices['Desktop Chrome']` explicitly; without it the "desktop" page started in touch mode at 1280 × 720 and DPR 2.625, and the next page's worker never answered (2026-11-10, #150).
 - Journey 11's frame check samples a short vertical line across the inset's top edge per column: the 2-unit stroke is about 1 CSS pixel on a phone and is resampled from the DPR-2 backing store to the screenshot's 2.625, so a single row can miss it (2026-11-10, #150).
-- Journey 9 failed at its third check (900 × 1400 → 1440 × 900, same `rows` layout) on both `origin/main` (8176f3d) and the #150 branch, headless at load average 16-24: the screenshot 150 ms after the debounced resize showed a black canvas, and with a 2 s wait the worker did not answer a snapshot within 2 s. The `columns` and first `rows` checks passed on both (2026-11-10, #150).
+- A resize used to show a black canvas until the next frame was drawn (#165): resizing the worker's WebGL `OffscreenCanvas` clears its buffer, and the browser presented that buffer when the `resize` task ended, while the redraw waited for the next animation frame. Under swiftshader on a loaded machine the first `canvas.update()` after a resize takes 0.4-6 s (with `canvas.resize` itself at 0.3-2.6 s), so journey 9's third check (900 × 1400 → 1440 × 900, the debounced path) caught it black, and the worker answered no snapshot for seconds (load average 7-24, CPU throttle 1 and 4). Since #165 the worker draws in the same task as the resize (`worker/resize-frame.ts`), so the old frame stays (stretched to the new CSS box) until the new one replaces it. A wait on the layout alone proves nothing within one layout, so the third check waits until the placeholder canvas presents the new backing size (`waitForCanvasResize`). The worker can still be busy for seconds after a headless resize, so give such waits 20 s (2026-11-10, #165).
 - The inset first sat at `PIP_TOP` 48, where its frame touched the kill count's digits (which end at y = 50 at 1280×720, outline included); it now starts at 64, so the backdrop leaves 12 units (2026-11-10, #150).
 
 - Versus runs never change the personal records: the `records` snapshot field (`totals.runs`, `recent`) is the same before and after a match on both pages (`records.md` journey 6, 2026-11-09, #143).
