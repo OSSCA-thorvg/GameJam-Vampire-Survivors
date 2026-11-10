@@ -1,7 +1,7 @@
 import type { Matrix, Scene, Shape, ThorVGNamespace } from '@thorvg/webcanvas';
 import { CHARACTERS, type CharacterId } from '@vs/shared';
 import type { AssetSource } from '../assets/library';
-import { VIEW_HEIGHT, VIEW_WIDTH } from '../constants';
+import { VIEW_HEIGHT, VIEW_WIDTH, type VisibleRect } from '../constants';
 import { createGround } from '../render/ground';
 import { createHud } from '../render/hud';
 import { PaintPool } from '../render/pool';
@@ -79,6 +79,11 @@ export interface GameView {
   begin(characterId: CharacterId): void;
   /** Syncs the camera, ground, garlic aura, lights, gems, pickups, chests, elite markers, enemies (with their hit flash and scale), projectiles, books, player, effects, the frost overlay, HUD and the sender's interference toast (#21) from `world`. No `canvas.update()`/`render()`. */
   render(world: World): void;
+  /**
+   * #171, ADR 0025: anchors the HUD and the sent toast to the `visible` part of the view. Called on a layout change,
+   * never per frame; presentation only (the world, its camera and the ground keep the full view) and creates nothing.
+   */
+  layout(visible: Readonly<VisibleRect>): void;
 }
 
 export function createGameView({ TVG, library, layers, scale }: GameViewOptions): GameView {
@@ -195,6 +200,10 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
       feedbackOn = false;
       opacity = OPAQUE;
       hud.setVisible(true);
+    },
+    layout(visible) {
+      hud.layout(visible);
+      sentToast.layout(visible);
     },
     render(world) {
       const s = scale();

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PaneLayout as WorkerPaneLayout } from '../protocol/worker-messages';
 import {
   computeViewport,
+  hudClearCss,
   paneLayout,
   PANE_GAP,
   PIP_MARGIN,
@@ -10,6 +11,7 @@ import {
   PIP_TOP,
   type PaneLayout,
 } from './viewport';
+import { MIN_VISIBLE_WIDTH, SPLASH_CONTENT_BOUNDS } from '../worker/constants';
 
 describe('computeViewport', () => {
   it('fits 1920×1080 at DPR 2', () => {
@@ -21,6 +23,8 @@ describe('computeViewport', () => {
       scale: 3,
       layout: 'single',
       panes: [{ x: 0, y: 0, width: 1920, height: 1080 }],
+      fit: 'contain',
+      visible: { x: 0, y: 0, width: 1280, height: 720 },
     });
   });
 
@@ -33,6 +37,8 @@ describe('computeViewport', () => {
       scale: 0.625,
       layout: 'single',
       panes: [{ x: 0, y: 0, width: 800, height: 450 }],
+      fit: 'contain',
+      visible: { x: 0, y: 0, width: 1280, height: 720 },
     });
   });
 
@@ -207,6 +213,186 @@ describe('computeViewport in pip mode', () => {
     expect(computeViewport(1600, 900, 1, 2, 'split')).toEqual(computeViewport(1600, 900, 1, 2));
     expect(paneLayout(844, 390, 1, 'pip')).toBe('single');
     expect(paneLayout(844, 390, 2, 'pip')).toBe('pip');
+  });
+});
+
+// #171, ADR 0025: touch devices fill the window and crop the overflowing axis evenly.
+describe('computeViewport with cover fit', () => {
+  it('fills a 844 × 390 phone at DPR 3 (capped at 2): full width, 591.5 of 720 units high', () => {
+    const v = computeViewport(844, 390, 3, 1, 'split', 'cover');
+    expect(v).toMatchObject({
+      fit: 'cover',
+      layout: 'single',
+      cssWidth: 844,
+      cssHeight: 390,
+      width: 1688,
+      height: 780,
+    });
+    expect(v.scale).toBe(1688 / 1280);
+    expect(v.scale).toBeGreaterThanOrEqual(780 / 720);
+    expect(v.visible.x).toBe(0);
+    expect(v.visible.width).toBe(1280);
+    expect(v.visible.y).toBeCloseTo(64.6, 0);
+    expect(v.visible.height).toBeCloseTo(591.5, 1);
+    // The crop is a whole number of device pixels, so the translated root keeps pixel art on the device grid.
+    expect(v.visible.y * v.scale).toBeCloseTo(Math.round(v.visible.y * v.scale), 9);
+    // Evenly on both sides, within one device pixel.
+    expect(Math.abs(720 - v.visible.height - 2 * v.visible.y) * v.scale).toBeLessThanOrEqual(1);
+    expect(v.panes).toEqual([{ x: 0, y: 0, width: 844, height: 390 }]);
+    // About 1.2 times the letterboxed size.
+    expect(v.scale / computeViewport(844, 390, 3).scale).toBeCloseTo(1.2, 1);
+  });
+
+  it('stops cropping a 1024 × 768 tablet at MIN_VISIBLE_WIDTH and letterboxes it above and below', () => {
+    const v = computeViewport(1024, 768, 2, 1, 'split', 'cover');
+    expect(MIN_VISIBLE_WIDTH).toBe(1220);
+    // Covering the window would show only 960 units of width; the floor keeps 1220, so the scale is 2048 / 1220.
+    expect(v).toMatchObject({
+      fit: 'cover',
+      cssWidth: 1024,
+      width: 2048,
+      height: 1208,
+      cssHeight: 604,
+    });
+    expect(v.scale).toBe(2048 / 1220);
+    expect(v.visible.width).toBe(1220);
+    expect(v.visible.x).toBeCloseTo(30, 0);
+    expect(v.visible.x * v.scale).toBeCloseTo(Math.round(v.visible.x * v.scale), 9);
+    // The whole height of the view, within the one backing pixel the canvas is rounded down by.
+    expect(v.visible.y).toBe(0);
+    expect(v.visible.height).toBeLessThanOrEqual(720);
+    expect(720 - v.visible.height).toBeLessThan(1 / v.scale);
+    // The canvas is the fitted box, so the own pane is the canvas box; the window keeps 82 CSS pixel bars.
+    expect(v.panes).toEqual([{ x: 0, y: 0, width: 1024, height: 604 }]);
+    expect((768 - v.cssHeight) / 2).toBe(82);
+    // Larger than the plain letterbox (1024 / 1280), smaller than the uncapped cover (768 / 720).
+    expect(v.scale).toBeGreaterThan(computeViewport(1024, 768, 2).scale);
+    expect(v.scale).toBeLessThan(1536 / 720);
+  });
+
+  it.each([
+    [1024, 768, 2],
+    [1000, 700, 1],
+    [800, 600, 1.5],
+    [720, 720, 2],
+    [1180, 820, 2],
+  ])(
+    'never shows less than MIN_VISIBLE_WIDTH on the narrow window %d × %d at DPR %d',
+    (w, h, dpr) => {
+      const v = computeViewport(w, h, dpr, 1, 'split', 'cover');
+      expect(v.visible.width).toBeCloseTo(MIN_VISIBLE_WIDTH, 9);
+      expect(v.cssWidth).toBeCloseTo(Math.floor(w * Math.min(dpr, 2) + 1e-6) / Math.min(dpr, 2), 9);
+      expect(v.cssHeight).toBeLessThanOrEqual(h);
+      expect(v.visible.y).toBe(0);
+      expect(v.visible.x).toBeGreaterThanOrEqual(0);
+      expect(v.visible.x + v.visible.width).toBeLessThanOrEqual(1280 + 1e-9);
+      const pip = computeViewport(w, h, dpr, 2, 'pip', 'cover');
+      expect(pip.visible).toEqual(v.visible);
+      const inset = pip.panes[1];
+      const k = pip.scale / Math.min(dpr, 2);
+      expect(pip.cssWidth - ((inset?.x ?? NaN) + (inset?.width ?? NaN))).toBeCloseTo(16 * k, 9);
+    },
+  );
+
+  it('leaves windows at least as wide as the floor fully covered', () => {
+    // 1220:720 is the aspect ratio where the floor starts; 16:9 and wider crop only top and bottom.
+    for (const [w, h] of [
+      [1220, 720],
+      [1280, 720],
+      [844, 390],
+    ] as const) {
+      const v = computeViewport(w, h, 1, 1, 'split', 'cover');
+      expect([v.cssWidth, v.cssHeight]).toEqual([w, h]);
+      expect(v.visible.width).toBeGreaterThanOrEqual(MIN_VISIBLE_WIDTH - 1e-9);
+    }
+  });
+
+  it.each([
+    [844, 390, 3],
+    [863, 360, 2.625],
+    [915, 412, 2.625],
+    [1280, 720, 1],
+    [667.5, 375.25, 1.5],
+  ])('covers every device pixel of %d × %d at DPR %d and stays inside the view', (w, h, dpr) => {
+    const v = computeViewport(w, h, dpr, 1, 'split', 'cover');
+    const d = Math.min(dpr, 2);
+    expect(v.width).toBe(Math.floor(w * d + 1e-6));
+    expect(v.height).toBe(Math.floor(h * d + 1e-6));
+    expect(1280 * v.scale).toBeGreaterThanOrEqual(v.width - 1e-9);
+    expect(720 * v.scale).toBeGreaterThanOrEqual(v.height - 1e-9);
+    expect(v.visible.x).toBeGreaterThanOrEqual(0);
+    expect(v.visible.y).toBeGreaterThanOrEqual(0);
+    expect(v.visible.x + v.visible.width).toBeLessThanOrEqual(1280 + 1e-9);
+    expect(v.visible.y + v.visible.height).toBeLessThanOrEqual(720 + 1e-9);
+    expect(v.visible.width * v.scale).toBeCloseTo(v.width, 9);
+    expect(v.visible.height * v.scale).toBeCloseTo(v.height, 9);
+  });
+
+  it('measures the pip inset from the visible area: 16 units from its right edge, 64 from its top', () => {
+    for (const [w, h, dpr] of [
+      [844, 390, 3],
+      [1024, 768, 2],
+    ] as const) {
+      const v = computeViewport(w, h, dpr, 2, 'pip', 'cover');
+      const single = computeViewport(w, h, dpr, 1, 'split', 'cover');
+      expect(v.layout).toBe('pip');
+      expect(v).toMatchObject({ width: single.width, height: single.height, scale: single.scale });
+      expect(v.visible).toEqual(single.visible);
+      const k = v.scale / 2; // CSS pixels per logical unit
+      const [self, inset] = v.panes;
+      if (!self || !inset) throw new Error('two panes expected');
+      expect(self).toEqual({ x: 0, y: 0, width: v.cssWidth, height: v.cssHeight });
+      expect(inset.width).toBeCloseTo(1280 * PIP_SCALE * k, 9);
+      expect(inset.height).toBeCloseTo(720 * PIP_SCALE * k, 9);
+      expect(v.cssWidth - (inset.x + inset.width)).toBeCloseTo(PIP_MARGIN * k, 9);
+      expect(inset.y).toBeCloseTo(PIP_TOP * k, 9);
+      expect(inset.y + inset.height).toBeLessThan(v.cssHeight);
+    }
+  });
+
+  it('ignores cover with two equal panes and keeps contain byte-for-byte', () => {
+    expect(computeViewport(1600, 900, 1, 2, 'split', 'cover')).toEqual(
+      computeViewport(1600, 900, 1, 2),
+    );
+    expect(computeViewport(900, 1400, 2, 2, 'split', 'cover').fit).toBe('contain');
+    for (const [w, h, dpr] of [
+      [844, 390, 3],
+      [1005, 565, 1],
+      [1024, 768, 2],
+    ] as const) {
+      expect(computeViewport(w, h, dpr, 1, 'split', 'contain')).toEqual(computeViewport(w, h, dpr));
+      expect(computeViewport(w, h, dpr, 2, 'pip', 'contain')).toEqual(
+        computeViewport(w, h, dpr, 2, 'pip'),
+      );
+      expect(computeViewport(w, h, dpr).visible).toEqual({ x: 0, y: 0, width: 1280, height: 720 });
+    }
+  });
+
+  it('starts the pause button 8 units under the kill count over a covered view only', () => {
+    const phone = computeViewport(844, 390, 3, 1, 'split', 'cover');
+    // 58 logical units at 844 / 1280 CSS pixels per unit, from the window's top (the canvas starts there).
+    expect(hudClearCss(phone, 390)).toBeCloseTo((58 * 844) / 1280, 9);
+    // A 4:3 tablet keeps 82 pixel bars: 58 units at 1024 / 1220 below the canvas's top.
+    const tablet = computeViewport(1024, 768, 2, 1, 'split', 'cover');
+    expect(hudClearCss(tablet, 768)).toBeCloseTo(82 + (58 * 1024) / 1220, 9);
+    expect(hudClearCss(computeViewport(844, 390, 3), 390)).toBe(0);
+    expect(hudClearCss(computeViewport(1600, 900, 1, 2), 900)).toBe(0);
+  });
+
+  // Plan step 7: the splash stays centred on the full view; the crop takes only its empty margins.
+  it('keeps the boot splash content inside the visible area on phones and 4:3 tablets', () => {
+    const b = SPLASH_CONTENT_BOUNDS;
+    for (const [w, h, dpr] of [
+      [844, 390, 3],
+      [863, 360, 2.625],
+      [1024, 768, 2],
+    ] as const) {
+      const { visible } = computeViewport(w, h, dpr, 1, 'split', 'cover');
+      expect(b.x).toBeGreaterThanOrEqual(visible.x);
+      expect(b.y).toBeGreaterThanOrEqual(visible.y);
+      expect(b.x + b.width).toBeLessThanOrEqual(visible.x + visible.width);
+      expect(b.y + b.height).toBeLessThanOrEqual(visible.y + visible.height);
+    }
   });
 });
 

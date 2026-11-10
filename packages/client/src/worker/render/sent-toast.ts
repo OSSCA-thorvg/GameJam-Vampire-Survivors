@@ -1,16 +1,19 @@
 import type { Scene, Text, ThorVGNamespace } from '@thorvg/webcanvas';
 import { INTERFERENCE } from '@vs/shared';
-import { VIEW_WIDTH } from '../constants';
+import { VIEW_WIDTH, type VisibleRect } from '../constants';
 import { HUD_FONT } from './thorvg';
 
-const SIZE = 22;
+/** Font size of the toast; `hud-extents.ts` reads it for `MIN_VISIBLE_WIDTH`. */
+export const TOAST_SIZE = 22;
+const SIZE = TOAST_SIZE;
 /** Below the timer (`hud.ts`). */
 const TOAST_Y = 64;
-
 /** The sender's "Sent <label>" line (#21): one ThorVG `Text` per interference kind, created once, only shown or hidden. */
 export interface SentToast {
   /** Shows kind `index` (an `INTERFERENCE` index), or nothing for -1. */
   sync(index: number): void;
+  /** #171: anchors the line to the `visible` area's top centre; on a layout change only, creates nothing. */
+  layout(visible: Readonly<VisibleRect>): void;
 }
 
 /** Call after `initThorVG` (reads `HUD_FONT`). The labels are printable ASCII (`interference.test.ts`). */
@@ -36,6 +39,10 @@ export function createSentToast(
       texts[shown]?.visible(false);
       texts[index]?.visible(true);
       shown = index;
+    },
+    layout(visible) {
+      const x = visible.x + visible.width / 2;
+      for (const text of texts) text.translate(x, TOAST_Y + visible.y);
     },
   };
 }

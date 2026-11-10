@@ -335,9 +335,10 @@
   justify-content: center;
 }
 
+/* #171, ADR 0025: over a covered view (`--hud-clear` above 0) it starts under the HUD's kill count, not on it. */
 #pause-button {
   position: fixed;
-  top: calc(0.75rem + env(safe-area-inset-top));
+  top: max(calc(0.75rem + env(safe-area-inset-top)), var(--hud-clear, 0px));
   right: calc(0.75rem + env(safe-area-inset-right));
   z-index: 10;
   display: none;

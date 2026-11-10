@@ -20,6 +20,18 @@ export type BackgroundPolicy = 'pause' | 'simulate';
  */
 export type PaneLayout = 'single' | 'columns' | 'rows' | 'pip';
 
+/**
+ * #171, ADR 0025: the part of the 1280×720 view the canvas shows, in logical units. The whole view when it is
+ * letterboxed (`contain`); the centred part that fits the window when the canvas covers it (`cover`, touch mode). The
+ * simulation never reads it: `camera.viewRect`, the spawner and the view stream stay on the full view.
+ */
+export interface VisibleRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 /** #115: how the opponent pane is shown: playing, away or disconnected (dimmed), or out of the match (dimmer). */
 export type OpponentState = 'live' | 'away' | 'out';
 
@@ -118,6 +130,8 @@ export type MainToWorker =
       scale: number;
       /** #115: the pane layout the backing size was computed for. */
       layout: PaneLayout;
+      /** #171, ADR 0025: the part of the 1280×720 view the canvas shows, in logical units (presentation only). */
+      visible: VisibleRect;
       assetBaseUrl: string;
       /**
        * Dev, e2e and perf builds only. `skipSplash` (#126, dev and e2e only): the e2e build skips the boot splash
@@ -127,7 +141,15 @@ export type MainToWorker =
       /** #22: the page was opened with `?perf`, so the perf overlay is shown from boot, in every build. */
       perf: boolean;
     }
-  | { type: 'resize'; width: number; height: number; scale: number; layout: PaneLayout }
+  | {
+      type: 'resize';
+      width: number;
+      height: number;
+      scale: number;
+      layout: PaneLayout;
+      /** #171, ADR 0025: as in `init`. */
+      visible: VisibleRect;
+    }
   | { type: 'input'; dx: Axis; dy: Axis }
   | { type: 'pause' }
   | { type: 'resume' }

@@ -8,6 +8,7 @@ import type {
   GameMainToWorker,
   PaneLayout,
   RunMode,
+  VisibleRect,
   MainToWorker,
   TestSnapshotRequest,
   WorkerToMain,
@@ -20,12 +21,13 @@ import {
 } from './debug';
 import {
   installPerfOverlay,
+  layoutPerfOverlay,
   perfOverlayVisible,
   registerPerfStat,
   type PerfMeter,
 } from './perf/overlay';
 import { createLoop, type Loop } from './loop';
-import { HUD_FONT, initThorVG, type ThorVGContext } from './render/thorvg';
+import { HUD_FONT, initThorVG, placeRoot, type ThorVGContext } from './render/thorvg';
 import { loadManifest } from './assets/manifest';
 import { AssetLibrary } from './assets/library';
 import { createBootGate } from './boot-gate';
@@ -45,7 +47,7 @@ import { createStatusEmitter } from './game/status';
 import { createViewEmitter, summarizeView } from './game/view-stream';
 import { createOpponentFeed, readOpponentFeed } from './game/opponent-feed';
 import { createSpawnLog } from './game/spawn-log';
-import { createGameView } from './game/view';
+import { createGameView, type GameView } from './game/view';
 import { createSession, type Session } from './game/session';
 import { createLevelUpFlow, xpForNextLevel } from './game/level';
 import { createChestFlow } from './game/systems/chest-open';
@@ -84,6 +86,7 @@ import type {
 } from './debug/stress-scenarios';
 import { INTERFERENCE } from '@vs/shared';
 import { clearSfx, drainSfx } from './game/sfx';
+import { FULL_VIEW } from './constants';
 import { createResizeFrame } from './resize-frame';
 
 declare const self: DedicatedWorkerGlobalScope;
@@ -103,12 +106,22 @@ let policy: BackgroundPolicy = 'pause';
 let inputX: Axis = 0;
 let inputY: Axis = 0;
 /** Latest backing size and scale; a `resize` that arrives during boot is applied once ThorVG is ready. */
-let size: { width: number; height: number; scale: number; layout: PaneLayout } = {
+let size: {
+  width: number;
+  height: number;
+  scale: number;
+  layout: PaneLayout;
+  /** #171, ADR 0025: the part of the view the canvas shows; presentation only, the simulation never reads it. */
+  visible: VisibleRect;
+} = {
   width: 0,
   height: 0,
   scale: 1,
   layout: 'single',
+  visible: { ...FULL_VIEW },
 };
+/** The run's view, for `applyPanes` to anchor its HUD to the visible area (#171). */
+let hudView: Pick<GameView, 'layout'> | null = null;
 
 /** Simulation steps since boot, for the test bridge's `steps` (and `timeS` when no run exists). */
 let stepCount = 0;
@@ -259,6 +272,7 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
     height: message.height,
     scale: message.scale,
     layout: message.layout,
+    visible: message.visible,
   };
   try {
     const validated = await loadManifest(message.assetBaseUrl);
@@ -274,6 +288,7 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
       message.scale,
       message.assetBaseUrl,
       validated.manifest,
+      message.visible,
     );
     const renderer = context.canvas.renderer;
     if (renderer !== 'gl')
@@ -282,7 +297,8 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
     if (
       size.width !== message.width ||
       size.height !== message.height ||
-      size.scale !== message.scale
+      size.scale !== message.scale ||
+      size.visible !== message.visible
     )
       applySize();
     assetState.font = HUD_FONT;
@@ -411,6 +427,7 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         layers,
         scale: () => size.scale,
       });
+      hudView = gameView;
       const overlay = createDefeatOverlay(context.TVG, split.self, [layers.world, layers.hud]);
       defeat = overlay;
       youLabel = createPaneLabel(context.TVG, layers.hud, YOU_LABEL);
@@ -513,6 +530,7 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
           layout: split.layout,
           opponentVisible: split.opponentVisible,
           youLabel: youLabel?.visible ?? false,
+          visible: { ...size.visible },
         }));
         registerSnapshotField('opponentPane', () => ({
           cameraX: otherView.cameraX,
@@ -581,12 +599,15 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
     assetState.placeholders = [...library.placeholders];
     assetState.ready = true;
     // #22: on `root` after every layer, so it draws on top. Dev builds always install it (hidden until `` ` ``).
-    if (import.meta.env.DEV || message.perf || scenario)
-      meter = installPerfOverlay({
+    if (import.meta.env.DEV || message.perf || scenario) {
+      const perfOverlay = installPerfOverlay({
         TVG: context.TVG,
         root: context.root,
         visible: message.perf,
-      }).meter;
+      });
+      perfOverlay.layout(size.visible);
+      meter = perfOverlay.meter;
+    }
     if ((import.meta.env.DEV || import.meta.env.MODE === 'perf') && scenario && meter) {
       if (scenario.def.kind === 'lottie')
         recorderCounts = {
@@ -637,7 +658,8 @@ const resizeFrame = createResizeFrame({
   apply: () => {
     if (!ctx) return;
     ctx.canvas.resize(size.width, size.height);
-    ctx.root.scale(size.scale);
+    placeRoot(ctx.root, size.scale, size.visible);
+    layoutPerfOverlay(size.visible);
     applyPanes();
   },
   render,
@@ -651,11 +673,12 @@ function applySize(): void {
 
 /**
  * Places and clips the panes for the current size and layout; the "YOU" label shows only with two equal panes (#115),
- * never over the full view of `pip` (#150).
+ * never over the full view of `pip` (#150). #171: the own pane's clip, the inset and the HUD follow the visible area.
  */
 function applyPanes(): void {
   if (!panes || size.scale <= 0) return;
-  panes.apply(size.layout, size.width / size.scale, size.height / size.scale);
+  panes.apply(size.layout, size.width / size.scale, size.height / size.scale, size.visible);
+  hudView?.layout(size.visible);
   youLabel?.setVisible(size.layout === 'columns' || size.layout === 'rows');
   if (size.layout === 'single') opponentView?.suspendPlayback();
 }
@@ -742,6 +765,7 @@ function handle(message: GameMainToWorker): void {
         height: message.height,
         scale: message.scale,
         layout: message.layout,
+        visible: message.visible,
       };
       applySize();
       break;

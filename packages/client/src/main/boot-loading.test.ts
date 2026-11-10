@@ -54,3 +54,21 @@ it('places the text at logical y 610 of a 720 CSS pixel view', () => {
   expect(el.style.getPropertyValue('--splash-top')).toBe('calc(50% + 250px)');
   expect(el.style.getPropertyValue('--splash-font')).toBe('24px');
 });
+
+// #171, ADR 0025: with the cover fit the view is cropped, so the text is placed through the visible area.
+it('scales with the covered view and stays inside the visible area', () => {
+  const loading = createBootLoading(el);
+  // A 4:3 tablet: the whole height is visible, 768 CSS pixels for 720 units.
+  loading.place(768, { y: 0, height: 720 });
+  expect(el.style.getPropertyValue('--splash-top')).toBe(
+    `calc(50% + ${String((768 / 720) * 250)}px)`,
+  );
+  expect(el.style.getPropertyValue('--splash-font')).toBe('25.6px');
+  // A phone: 540 of 720 units visible from y = 90 in 360 CSS pixels; y 610 would end below the screen (630), so the
+  // text's bottom sits on the visible area's bottom edge: its top at 606, 246 units under the centre (360).
+  loading.place(360, { y: 90, height: 540 });
+  expect(el.style.getPropertyValue('--splash-top')).toBe(
+    `calc(50% + ${String((360 / 540) * 246)}px)`,
+  );
+  expect(el.style.getPropertyValue('--splash-font')).toBe('16px');
+});

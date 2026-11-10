@@ -1,4 +1,12 @@
-import { PIP_RECT, VIEW_HEIGHT, VIEW_WIDTH } from '../worker/constants';
+import {
+  FULL_VIEW,
+  HUD_CLEARANCE,
+  HUD_TOP_RIGHT_BOTTOM,
+  MIN_VISIBLE_WIDTH,
+  pipRect,
+  VIEW_HEIGHT,
+  VIEW_WIDTH,
+} from '../worker/constants';
 
 export { PIP_MARGIN, PIP_RECT, PIP_SCALE, PIP_TOP } from '../worker/constants';
 
@@ -31,10 +39,25 @@ export interface Viewport {
   layout: PaneLayout;
   /**
    * The panes in CSS pixels relative to the canvas, self first then opponent; one entry for `single`. Each is exactly
-   * the 1280×720 logical view at `scale`, except the `pip` inset, which is that view at `PIP_SCALE`.
+   * the 1280×720 logical view at `scale`, except the `pip` inset, which is that view at `PIP_SCALE`, and the own view
+   * with `cover`, which is the canvas (the visible part of the view).
    */
   panes: PaneRect[];
+  /** #171, ADR 0025: how the view was fitted; `cover` only for one view (`single`, `pip`) when it was asked for. */
+  fit: ViewFit;
+  /**
+   * #171: the part of the 1280×720 view the canvas shows, in logical units: the whole view with `contain`; with
+   * `cover` the centred part, whose offset is a whole number of device pixels (the worker translates the root scene
+   * by it, so pixel art stays on the device grid).
+   */
+  visible: PaneRect;
 }
+
+/**
+ * #171, ADR 0025: `contain` letterboxes the whole view (desktop); `cover` fills the window and crops the overflowing
+ * axis evenly (touch devices).
+ */
+export type ViewFit = 'contain' | 'cover';
 
 /**
  * #115: the canvas shows one view, or two panes left/right or top/bottom (ADR 0018); #150: or one view with the
@@ -83,7 +106,11 @@ export function paneLayout(
  * Fits the fixed logical view (ADR 0004) into the window, letterboxed, at up to 2× device pixels. The canvas covers
  * whole device pixels only, and fills an axis whose letterbox would be thinner than `FILL_SLACK` device pixels. With
  * `panes` 2 (#115, a versus match) the fitted area holds two such views and a `PANE_GAP` between them; with mode
- * `'pip'` (#150, touch devices, ADR 0024) it is one view, fitted like `single`, and `panes[1]` is the `PIP_RECT` inset.
+ * `'pip'` (#150, touch devices, ADR 0024) it is one view, fitted like `single`, and `panes[1]` is the inset.
+ * #171, ADR 0025: with `fit` `'cover'` one view (`single`, `pip`) fills the whole window instead: the scale is the
+ * larger of the two axis scales, the overflow is cropped evenly and `visible` is what remains, never narrower than
+ * `MIN_VISIBLE_WIDTH` (`coverViewport`); the inset is measured from `visible`'s top right. Two equal panes ignore
+ * `cover`.
  */
 export function computeViewport(
   innerWidth: number,
@@ -91,29 +118,23 @@ export function computeViewport(
   devicePixelRatio: number,
   panes: 1 | 2 = 1,
   mode: PaneMode = 'split',
+  fit: ViewFit = 'contain',
 ): Viewport {
   const layout = paneLayout(innerWidth, innerHeight, panes, mode);
+  if (fit === 'cover' && (layout === 'single' || layout === 'pip'))
+    return coverViewport(innerWidth, innerHeight, devicePixelRatio, layout);
   const areaW = layout === 'columns' ? 2 * VIEW_WIDTH + PANE_GAP : VIEW_WIDTH;
   const areaH = layout === 'rows' ? 2 * VIEW_HEIGHT + PANE_GAP : VIEW_HEIGHT;
-  const fit = Math.min(innerWidth / areaW, innerHeight / areaH);
+  const fitted = Math.min(innerWidth / areaW, innerHeight / areaH);
   const dpr = Math.min(devicePixelRatio || 1, MAX_DPR);
-  const width = axis(areaW, fit, innerWidth, dpr);
-  const height = axis(areaH, fit, innerHeight, dpr);
+  const width = axis(areaW, fitted, innerWidth, dpr);
+  const height = axis(areaH, fitted, innerHeight, dpr);
   const scale = Math.min(width / areaW, height / areaH);
   const paneW = (VIEW_WIDTH * scale) / dpr;
   const paneH = (VIEW_HEIGHT * scale) / dpr;
   const panesOut: PaneRect[] = [];
   if (layout === 'pip') {
-    const k = scale / dpr;
-    panesOut.push(
-      { x: 0, y: 0, width: paneW, height: paneH },
-      {
-        x: PIP_RECT.x * k,
-        y: PIP_RECT.y * k,
-        width: PIP_RECT.width * k,
-        height: PIP_RECT.height * k,
-      },
-    );
+    panesOut.push({ x: 0, y: 0, width: paneW, height: paneH }, insetPane(FULL_VIEW, scale / dpr));
   }
   for (let i = 0; i < (layout === 'single' ? 1 : layout === 'pip' ? 0 : 2); i++) {
     const offset = (i * (VIEW_WIDTH + PANE_GAP) * scale) / dpr;
@@ -133,5 +154,72 @@ export function computeViewport(
     scale,
     layout,
     panes: panesOut,
+    fit: 'contain',
+    visible: { ...FULL_VIEW },
   };
+}
+
+/** The `pip` inset for `visible` in CSS pixels relative to the canvas; `k` is CSS pixels per logical unit. */
+function insetPane(visible: PaneRect, k: number): PaneRect {
+  const inset = pipRect(visible);
+  return {
+    x: (inset.x - visible.x) * k,
+    y: (inset.y - visible.y) * k,
+    width: inset.width * k,
+    height: inset.height * k,
+  };
+}
+
+/**
+ * #171, ADR 0025: one view covering the window, cropped evenly on the overflowing axis. The crop never leaves less
+ * than `MIN_VISIBLE_WIDTH` units of width (the HUD's top row needs it): a window narrower than that aspect ratio (a
+ * 4:3 tablet) is scaled so exactly that width is visible, and the canvas is then the fitted box, as wide as the
+ * window and letterboxed above and below like `contain`, so `panes[0]` stays the canvas box.
+ */
+function coverViewport(
+  innerWidth: number,
+  innerHeight: number,
+  devicePixelRatio: number,
+  layout: 'single' | 'pip',
+): Viewport {
+  const dpr = Math.min(devicePixelRatio || 1, MAX_DPR);
+  const width = Math.max(1, Math.floor(innerWidth * dpr + 1e-6));
+  const maxHeight = Math.max(1, Math.floor(innerHeight * dpr + 1e-6));
+  const covering = Math.max(width / VIEW_WIDTH, maxHeight / VIEW_HEIGHT);
+  // Covering the whole window would show `width / covering` units of width; never less than the floor.
+  const scale = Math.min(covering, width / MIN_VISIBLE_WIDTH);
+  // Whole device pixels; when the floor applies the view's full height fits and the rest of the window is bars.
+  // Bars thinner than `FILL_SLACK` device pixels in total cannot be drawn as bars (#103): the canvas fills them.
+  const fitted = Math.min(maxHeight, Math.max(1, Math.floor(VIEW_HEIGHT * scale + 1e-6)));
+  const height = maxHeight - fitted < FILL_SLACK ? maxHeight : fitted;
+  // The crop on each side in whole device pixels (0 on an axis that is not cropped).
+  const cropX = Math.max(0, Math.round((VIEW_WIDTH * scale - width) / 2));
+  const cropY = Math.max(0, Math.round((VIEW_HEIGHT * scale - height) / 2));
+  const visible: PaneRect = {
+    x: cropX / scale,
+    y: cropY / scale,
+    width: width / scale,
+    height: height / scale,
+  };
+  const cssWidth = width / dpr;
+  const cssHeight = height / dpr;
+  const panes: PaneRect[] = [{ x: 0, y: 0, width: cssWidth, height: cssHeight }];
+  if (layout === 'pip') panes.push(insetPane(visible, scale / dpr));
+  return { cssWidth, cssHeight, width, height, scale, layout, panes, fit: 'cover', visible };
+}
+
+/**
+ * #171, ADR 0025: how far below the window's top a DOM control at the top right must start, in CSS pixels, to clear
+ * the HUD's "Lv n", skull and kill count. With the cover fit the canvas reaches the window's right edge, so the touch
+ * pause button would lie over them: it starts `HUD_CLEARANCE` units under the kill count instead, measured from the
+ * canvas's top (which is below the window's top when a narrow window keeps bars). 0 when the view is letterboxed
+ * (the button keeps its corner, as before #171).
+ */
+export function hudClearCss(
+  v: Pick<Viewport, 'fit' | 'cssWidth' | 'cssHeight' | 'visible'>,
+  windowHeight: number,
+): number {
+  if (v.fit !== 'cover') return 0;
+  const canvasTop = Math.max(0, (windowHeight - v.cssHeight) / 2);
+  return canvasTop + (HUD_TOP_RIGHT_BOTTOM + HUD_CLEARANCE) * (v.cssWidth / v.visible.width);
 }

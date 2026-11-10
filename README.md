@@ -31,7 +31,7 @@ Survive 15 minutes against ever larger hordes while your weapons fire on their o
 | Navigate menus         | Arrow keys (or `W`/`S`), `Enter` picks |
 | Pick a level-up choice | `1`–`3`, or arrows and `Enter`         |
 
-On a phone or tablet (landscape), play by touch: drag anywhere on the game to move with the floating joystick, tap **Pause** at the top right to pause, and tap the buttons and cards of every screen. Portrait shows a "rotate your device" hint and pauses a single-player run.
+On a phone or tablet (landscape), play by touch: drag anywhere on the game to move with the floating joystick, tap **Pause** at the top right to pause, and tap the buttons and cards of every screen. In touch mode the game fills the whole screen: the view is cropped evenly instead of letterboxed, so everything is larger and a little less of the world is visible. A screen narrower than about 1.69:1 (a 4:3 tablet) is cropped only slightly and keeps bars above and below, so the HUD always fits. Portrait shows a "rotate your device" hint and pauses a single-player run.
 
 | Action (touch)   | Touch                                                      |
 | ---------------- | ---------------------------------------------------------- |
@@ -53,7 +53,7 @@ On a phone or tablet (landscape), play by touch: drag anywhere on the game to mo
 - 17 sound effects and 2 original chiptune music loops, synthesized with ZzFX and ZzFXM as MP3 assets, played after the first key or click: title and stage music that ducks under the pause and dialogs, weapon hits, kills, gems and menu clicks; `M` or the corner button mutes, and the pause screen sets the music and effects volume (#128, #129).
 - Personal records saved in the browser for single-player runs: "New best!" on the results, each character's best time and clear on its card, and a Records screen with bests, totals, the last 10 runs and weapon bests (#143).
 - A stage tuned for playability with a headless balance probe: normal enemies are slower than every character, each wave caps its live crowd, contact damage is lower and every character starts with a built-in PowerUp equivalent, so an ordinary run survives well past the 5:00 boss (#148).
-- Touch controls for phones and tablets: a floating joystick, a Pause button, tappable screens, no page scroll or zoom, sound on the first tap, and a rotate hint in portrait (#149).
+- Touch controls for phones and tablets: a floating joystick, a Pause button, tappable screens, no page scroll or zoom, sound on the first tap, and a rotate hint in portrait (#149). The game fills the screen with a cropped view instead of black bars (#171).
 - Versus matches against the WebSocket server: lobby, countdown, interference items, split view, Win/Lose/Draw and Rematch.
 - The client is published to GitHub Pages; the server is built and run on the owner's own host and has no public domain yet.
 

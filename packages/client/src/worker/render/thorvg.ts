@@ -1,6 +1,7 @@
 import ThorVG from '@thorvg/webcanvas';
 import type { Canvas, Scene, ThorVGNamespace } from '@thorvg/webcanvas';
 import type { AssetManifest } from '@vs/shared';
+import { FULL_VIEW, type VisibleRect } from '../constants';
 
 /** Name under which `initThorVG` registers the bundled HUD font (ADR 0013). */
 export const HUD_FONT_NAME = 'hud';
@@ -18,7 +19,10 @@ export let HUD_FONT: string = FALLBACK_FONT;
 export interface ThorVGContext {
   TVG: ThorVGNamespace;
   canvas: Canvas;
-  /** Root scene, scaled from logical units (1280×720) to device pixels. Later issues add their layers under it. */
+  /**
+   * Root scene, scaled from logical units (1280×720) to device pixels and translated so the visible part of the view
+   * starts at the canvas origin (`placeRoot`). Later issues add their layers under it.
+   */
   root: Scene;
 }
 
@@ -53,6 +57,20 @@ export async function loadHudFont(
 }
 
 /**
+ * Scales the root scene to device pixels and moves the `visible` part of the view to the canvas origin (#171,
+ * ADR 0025). The offset is a whole number of device pixels (`main/viewport.ts`), and (0, 0) when the view is
+ * letterboxed. ThorVG applies a paint's translation in its parent's units, after its scale.
+ */
+export function placeRoot(
+  root: Pick<Scene, 'scale' | 'translate'>,
+  scale: number,
+  visible: Readonly<VisibleRect>,
+): void {
+  root.scale(scale);
+  root.translate(-Math.round(visible.x * scale), -Math.round(visible.y * scale));
+}
+
+/**
  * Initializes ThorVG once with the WebGL renderer on the transferred `OffscreenCanvas` (ADR 0003), then loads the HUD
  * font (ADR 0013). The device pixel ratio is applied through the root scene's scale, because a worker has no reliable
  * `devicePixelRatio`.
@@ -64,6 +82,7 @@ export async function initThorVG(
   scale: number,
   assetBaseUrl: string,
   manifest: AssetManifest,
+  visible: Readonly<VisibleRect> = FULL_VIEW,
 ): Promise<ThorVGContext> {
   const TVG = await ThorVG.init({
     renderer: 'gl',
@@ -72,7 +91,7 @@ export async function initThorVG(
   await loadHudFont(TVG, assetBaseUrl, manifest);
   const canvas = new TVG.Canvas(offscreen, { width, height, enableDevicePixelRatio: false });
   const root = new TVG.Scene();
-  root.scale(scale);
+  placeRoot(root, scale, visible);
   canvas.add(root);
   return { TVG, canvas, root };
 }
