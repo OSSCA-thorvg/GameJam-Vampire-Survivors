@@ -1,9 +1,27 @@
 html,
 body {
   height: 100%;
+  height: 100dvh;
   margin: 0;
   background: #000;
   overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* #149: on touch, no scrolling, pinch zoom, text selection or tap highlight over the game. */
+body {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* The nickname and room code stay editable and selectable. */
+input {
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
 }
 
 #app {

@@ -75,3 +75,12 @@ it('closes by itself after 3 s, and never after unmount', () => {
   expect(second.onClose).not.toHaveBeenCalled();
   expect(document.querySelector('.chest')).toBeNull();
 });
+
+it('#149: closes once on a tap anywhere on the overlay', () => {
+  const { onClose, screen } = setup();
+  document.querySelector<HTMLElement>('li.card')?.click();
+  document.querySelector<HTMLElement>('.chest')?.click();
+  key('Enter');
+  expect(onClose).toHaveBeenCalledOnce();
+  screen.unmount();
+});

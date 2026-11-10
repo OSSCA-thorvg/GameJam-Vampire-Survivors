@@ -84,6 +84,23 @@ describe('audio director (#129)', () => {
     expect(calls.unlock).toBe(2);
   });
 
+  it('#149: also unlocks on a trusted touchend and click (iOS Safari), never on untrusted ones', () => {
+    const { calls } = setup();
+    document.dispatchEvent(new Event('touchend'));
+    document.body.click();
+    expect(calls.unlock).toBe(2);
+    const { engine, calls: untrusted } = fakeEngine();
+    createAudioDirector({
+      engine,
+      doc: document,
+      root: document.body,
+      initial: { muted: false, music: 5, sfx: 7 },
+    });
+    document.dispatchEvent(new Event('touchend'));
+    document.body.click();
+    expect(untrusted.unlock).toBe(0);
+  });
+
   it('unlocks on a gesture during the splash but starts no music and no sound', () => {
     const { director, calls } = setup();
     director.screen({ name: 'booting' });

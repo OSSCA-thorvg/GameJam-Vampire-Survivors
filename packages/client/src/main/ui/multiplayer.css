@@ -147,3 +147,25 @@
 .lobby .countdown-number {
   font-size: 6rem;
 }
+
+/* #149: on a short landscape phone the entry and lobby fit without scrolling: buttons side by side. */
+@media (max-height: 540px) {
+  [data-input='touch'] .multiplayer-entry .menu,
+  [data-input='touch'] .lobby .menu {
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  [data-input='touch'] .multiplayer-entry .join-row {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  [data-input='touch'] .multiplayer-entry .field {
+    gap: 0.1rem;
+  }
+
+  [data-input='touch'] .lobby .room-code {
+    font-size: 1.5rem;
+  }
+}

@@ -83,7 +83,7 @@ function card(
  * The character select (#14, ADR 0009): one card per character in a `role="listbox"`, each with its portrait, name,
  * description, starting weapon and formatted modifiers, all from content data and set with `textContent` (ADR 0011).
  * Left/Right or A/D move the selection (wrapping), Enter confirms, Escape goes back; a click selects a card and a
- * double-click confirms it. The selected card is focused and has `aria-selected="true"`. Each card also shows the
+ * double-click confirms it. The Start and Back buttons (#149) do what Enter and Escape do, for touch. The selected card is focused and has `aria-selected="true"`. Each card also shows the
  * character's personal best time and a `Cleared` mark once it cleared 15:00 (#143), for both purposes.
  */
 export function mount(
@@ -125,10 +125,31 @@ export function mount(
       bestEls[i] ?? { time: h('span'), cleared: h('span') },
     ),
   );
+  // #149: what Enter and Escape do, as buttons for touch (a tap on a card only selects it).
+  const start = h('button', {
+    type: 'button',
+    class: 'character-start',
+    text: 'Start',
+    'on:click': () => {
+      confirm(current.selectedId);
+    },
+  });
+  const back = h('button', {
+    type: 'button',
+    text: 'Back',
+    'on:click': () => {
+      if (!done) current.onBack();
+    },
+  });
   const el = h('section', { class: 'screen character-select', 'aria-labelledby': 'cs-heading' }, [
     h('h2', { id: 'cs-heading', text: 'Choose your character' }),
     h('div', { class: 'characters', role: 'listbox', 'aria-labelledby': 'cs-heading' }, cards),
-    h('p', { class: 'hint', text: 'Left and Right choose, Enter starts, Escape goes back.' }),
+    h('div', { class: 'menu row' }, [start, back]),
+    h('p', {
+      class: 'hint keys-only',
+      text: 'Left and Right choose, Enter starts, Escape goes back.',
+    }),
+    h('p', { class: 'hint touch-only', text: 'Tap a character, then Start.' }),
   ]);
   const show = (): void => {
     props.characters.forEach((c, i) => {

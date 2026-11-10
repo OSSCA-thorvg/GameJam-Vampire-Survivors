@@ -83,8 +83,9 @@ export function createAudioDirector(opts: AudioDirectorOptions): AudioDirector {
   const onGesture = (event: Event): void => {
     if (trusted(event)) engine.unlock();
   };
-  doc.addEventListener('keydown', onGesture, true);
-  doc.addEventListener('pointerdown', onGesture, true);
+  // #149: iOS Safari does not always treat `pointerdown` as user activation; `touchend` and `click` it does.
+  for (const type of ['keydown', 'pointerdown', 'touchend', 'click'])
+    doc.addEventListener(type, onGesture, true);
 
   doc.addEventListener('keydown', (event) => {
     if (

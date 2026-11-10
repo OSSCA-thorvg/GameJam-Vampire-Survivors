@@ -442,6 +442,77 @@ describe('createApp (happy-dom)', () => {
   });
 });
 
+describe('createApp touch (#149, happy-dom)', () => {
+  const button = (name: string) =>
+    [...document.querySelectorAll('button')].find((b) => b.textContent === name);
+
+  it('tells onStateChange listeners every transition after its screen is shown, until unsubscribed', () => {
+    document.body.replaceChildren();
+    const root = document.createElement('div');
+    document.body.append(root);
+    const app = createApp(
+      root,
+      () => undefined,
+      () => 1,
+    );
+    const seen: { name: string; mounted: number }[] = [];
+    const off = app.onStateChange((state) =>
+      seen.push({ name: state.name, mounted: root.children.length }),
+    );
+    app.dispatch({ type: 'start' });
+    app.dispatch({ type: 'select', id: 'swift' });
+    app.dispatch({ type: 'confirm' });
+    app.dispatch({ type: 'pauseToggle' });
+    app.dispatch({ type: 'hidden' }); // already paused: no transition
+    off();
+    app.dispatch({ type: 'pauseToggle' });
+    expect(seen).toEqual([
+      { name: 'characterSelect', mounted: 1 },
+      { name: 'characterSelect', mounted: 1 },
+      { name: 'playing', mounted: 0 },
+      { name: 'playing', mounted: 1 },
+    ]);
+  });
+
+  it('plays title → character → run → chest → pause → quit by taps alone', () => {
+    document.body.replaceChildren();
+    const root = document.createElement('div');
+    document.body.append(root);
+    const sent: MainToWorker[] = [];
+    const app = createApp(
+      root,
+      (m) => sent.push(m),
+      () => 1,
+    );
+    button('Start')?.click();
+    root.querySelector<HTMLElement>('[data-character="ember"]')?.click();
+    button('Start')?.click();
+    expect(app.state).toEqual(playing);
+    app.dispatch({ type: 'chestOpened', rewards });
+    root.querySelector<HTMLElement>('.chest')?.click();
+    expect(app.state).toEqual(playing);
+    app.dispatch({ type: 'pauseToggle' });
+    button('Quit to title')?.click();
+    expect(app.state).toEqual(title);
+    expect(sent).toEqual([
+      { type: 'startRun', seed: 1, characterId: 'ember', mode: 'single' },
+      { type: 'chestClosed' },
+      { type: 'pause' },
+      { type: 'endRun' },
+    ]);
+  });
+
+  it('the character select Back button returns to the title', () => {
+    document.body.replaceChildren();
+    const root = document.createElement('div');
+    document.body.append(root);
+    const app = createApp(root, () => undefined);
+    button('Multiplayer')?.click();
+    button('Back')?.click();
+    expect(app.state).toEqual(title);
+  });
+});
+
 describe('createApp multiplayer flow (happy-dom, fake socket)', () => {
   const key = (code: string) =>
     document.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }));

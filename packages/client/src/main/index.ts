@@ -3,10 +3,11 @@
 import './style.css';
 import type { GameWorkerToMain, MainToWorker, WorkerToMain } from '../protocol/worker-messages';
 import { assertNever } from '../protocol/assert-never';
-import { createApp, type App } from './app';
+import { createApp, type App, type AppState } from './app';
 import { createRecordsStore } from './records/store';
 import { installDebugTools, recordStats, registerDebugKey } from './debug';
 import { createInput } from './input';
+import { createInputMode } from './input-mode';
 import { checkSupport } from './support';
 import { loadAssetUrls, type AssetUrl } from './ui/asset-url';
 import { logStressProgress, showStressResult } from './stress-results';
@@ -24,6 +25,9 @@ import { createAudioEngine } from './audio/engine';
 import { loadAudioEntries } from './audio/entries';
 import { loadAudioSettings } from './audio/settings';
 import { mountSoundToggle, type SoundToggle } from './ui/sound-toggle';
+import { mountPauseButton, type PauseButton } from './ui/pause-button';
+import { mountRotateHint } from './ui/rotate-hint';
+import { mountTouchStick, type TouchStick } from './ui/touch-stick';
 
 function appRoot(): HTMLElement {
   const app = document.getElementById('app');
@@ -61,6 +65,9 @@ async function boot(): Promise<void> {
     showMessage('This game needs a recent Chrome, Edge, Firefox or Safari 17+', support.missing);
     return;
   }
+
+  /** #149: touch or keyboard controls; `body[data-input]` shows the touch controls only in touch mode. */
+  const inputMode = createInputMode(document, window);
 
   const canvas = document.createElement('canvas');
   const loading = document.createElement('p');
@@ -132,6 +139,43 @@ async function boot(): Promise<void> {
 
   /** The screens (#9), started on the title once the worker is ready; none in the `?gallery` and `?stress` scenes. */
   let app: App | null = null;
+  /** #149: the touch controls, created with the screens. */
+  let stick: TouchStick | null = null;
+  let pauseButton: PauseButton | null = null;
+  /** A single-player run being played: the only state the pause button and the portrait pause act on. */
+  const playingSingle = (s: AppState): boolean => s.name === 'playing' && !s.paused;
+  /**
+   * #149: portrait is not played (ADR 0004's landscape view). Its appearance pauses a single-player run through the
+   * hidden-tab pause; versus ignores `hidden` and keeps running (ADR 0005). Dispatched after the current transition.
+   */
+  const pauseIfPortrait = (): void => {
+    queueMicrotask(() => {
+      if (app && rotateHint.shown && playingSingle(app.state)) app.dispatch({ type: 'hidden' });
+    });
+  };
+  const rotateHint = mountRotateHint(
+    document.body,
+    window.matchMedia('(orientation: portrait)'),
+    () => inputMode.mode === 'touch',
+    pauseIfPortrait,
+  );
+  /** The joystick steers only while a run is played without a dialog; the pause button only in single player. */
+  const followState = (s: AppState): void => {
+    stick?.setActive(playingSingle(s) || (s.name === 'versusPlaying' && s.overlay === null));
+    pauseButton?.setVisible(playingSingle(s));
+    if (rotateHint.shown) pauseIfPortrait();
+  };
+  inputMode.on(() => {
+    rotateHint.refresh();
+  });
+  if (import.meta.env.DEV || import.meta.env.MODE === 'e2e')
+    registerMainSnapshotField('touch', () => ({
+      mode: inputMode.mode,
+      stickActive: (stick?.active ?? false) && inputMode.mode === 'touch',
+      axis: [...(stick?.axis ?? [0, 0])],
+      pauseButton: (pauseButton?.visible ?? false) && inputMode.mode === 'touch',
+      rotateHint: rotateHint.shown,
+    }));
   /** The screen root, once the app started; carries the layout and the pane rects for the versus CSS (#115). */
   let screensEl: HTMLElement | null = null;
   /** Writes `data-layout` and the pane rects (window CSS pixels) on `#screens`, read by `versus.css`. */
@@ -157,6 +201,10 @@ async function boot(): Promise<void> {
   let debugScene = false;
   const startApp = (): void => {
     if (app || debugScene) return;
+    // #149: the joystick layer goes before the screens, so it lies above the canvas and under every screen.
+    stick = mountTouchStick(appRoot(), (dx, dy) => {
+      input.setTouchAxis(dx, dy);
+    });
     const screens = document.createElement('div');
     screens.id = 'screens';
     appRoot().append(screens);
@@ -180,6 +228,11 @@ async function boot(): Promise<void> {
         director.setSettings({ ...s, muted: !s.muted });
       },
     });
+    pauseButton = mountPauseButton(document.body, () => {
+      started.dispatch({ type: 'pauseToggle' });
+    });
+    started.onStateChange(followState);
+    followState(started.state);
     app = started;
     if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
       registerMainSnapshotField('state', () => started.state.name);
@@ -339,7 +392,7 @@ async function boot(): Promise<void> {
     [offscreen],
   );
 
-  createInput(document, window, (dx, dy) => {
+  const input = createInput(document, window, (dx, dy) => {
     post({ type: 'input', dx, dy });
   });
 

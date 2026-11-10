@@ -6,7 +6,7 @@ export interface ChestProps {
   rewards: readonly ChestReward[];
   /** Icon URLs (`loadAssetUrls`); `null` draws a magenta box. */
   iconUrl: AssetUrl;
-  /** Called once, by Enter or the timer. */
+  /** Called once, by Enter, a tap or the timer. */
   onClose: () => void;
   /** Milliseconds before it closes by itself; `CHEST_CLOSE_MS` by default. */
   closeAfterMs?: number;
@@ -73,7 +73,8 @@ function row(reward: ChestReward, iconUrl: AssetUrl): HTMLElement {
 
 /**
  * The treasure chest overlay (#15, ADR 0009): a centred panel titled "Treasure" listing the rewards, which the worker
- * has already applied. Enter closes it, and so does a timer of `closeAfterMs`; either calls `onClose` once. Every text
+ * has already applied. Enter or a tap on it (#149) closes it, and so does a timer of `closeAfterMs`; any of them calls
+ * `onClose` once. Every text
  * comes from content data and is set with `textContent` (ADR 0011).
  */
 export function mount(root: HTMLElement, props: ChestProps): Screen<ChestProps> {
@@ -87,7 +88,13 @@ export function mount(root: HTMLElement, props: ChestProps): Screen<ChestProps> 
   };
   const el = h(
     'section',
-    { class: 'screen overlay chest', role: 'dialog', 'aria-label': 'Treasure' },
+    {
+      class: 'screen overlay chest',
+      role: 'dialog',
+      'aria-label': 'Treasure',
+      // #149: a tap anywhere on the overlay closes it, like Enter.
+      'on:click': close,
+    },
     [
       h('h2', { text: 'Treasure' }),
       h(
@@ -95,7 +102,8 @@ export function mount(root: HTMLElement, props: ChestProps): Screen<ChestProps> 
         { class: 'menu cards rewards' },
         props.rewards.map((r) => row(r, props.iconUrl)),
       ),
-      h('p', { class: 'hint', text: 'Enter to continue' }),
+      h('p', { class: 'hint keys-only', text: 'Enter to continue' }),
+      h('p', { class: 'hint touch-only', text: 'Tap to continue' }),
     ],
   );
   const onKey = (e: KeyboardEvent): void => {

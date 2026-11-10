@@ -159,7 +159,10 @@ export function mount(root: HTMLElement, props: LobbyProps): Screen<LobbyProps> 
     error,
     h('div', { class: 'menu' }, [ready, start, leave]),
     confirmRow,
-    h('p', { class: 'hint', text: 'Share the code. Arrows move, Enter presses, Escape leaves.' }),
+    h('p', {
+      class: 'hint keys-only',
+      text: 'Share the code. Arrows move, Enter presses, Escape leaves.',
+    }),
     countdown,
   ]);
 

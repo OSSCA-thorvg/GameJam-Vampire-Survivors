@@ -30,6 +30,7 @@ One file per user-facing feature. A PR that adds or changes user-facing behaviou
 | `audio.md`                     | sound effects and music: autoplay unlock, music per screen, cues, ducking, voice caps, mute and volume, hidden tab      | #129  |
 | `records.md`                   | personal records: New best! badges, best time and Cleared on the cards, the Records screen, reset, `vs.records`         | #143  |
 | `inventory-hud.md`             | owned weapons and passive levels, reward changes, reset, and the first scheduled chest carrier                          | #156  |
+| `touch-controls.md`            | phones and tablets: input mode, floating joystick, Pause button, tappable screens, no scroll/zoom, rotate hint          | #149  |
 
 ## Baseline preconditions
 

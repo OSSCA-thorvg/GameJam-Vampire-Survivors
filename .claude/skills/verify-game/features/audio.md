@@ -19,7 +19,7 @@ The main snapshot field `audio` (`main/audio/engine.ts` `snapshot()`, dev and e2
 
 ## How to get to it (user POV)
 
-Open the game and press Enter on the title: sound starts with the title music. Start a run for the stage music and the world cues; Escape for the pause screen with the volume rows; `M` or the corner button to mute. Versus needs the server (`pnpm verify:launch --with-server`) and two players. Preconditions used by the journeys: `I` (invulnerable), `L` (level-up), `G` (weapons), `]` (a denser minute), `E` (a chest), `J` (an interference pickup).
+Open the game and press Enter on the title: sound starts with the title music. On a touch device the first tap unlocks it (trusted `touchend` and `click` too, for iOS Safari; `touch-controls.md`, #149). Start a run for the stage music and the world cues; Escape for the pause screen with the volume rows; `M` or the corner button to mute. Versus needs the server (`pnpm verify:launch --with-server`) and two players. Preconditions used by the journeys: `I` (invulnerable), `L` (level-up), `G` (weapons), `]` (a denser minute), `E` (a chest), `J` (an interference pickup).
 
 ## Driving it
 
