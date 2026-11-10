@@ -1,18 +1,22 @@
-// verify-game Cleanup (#31): stops only what verify:launch recorded in verification/.run/ (never by process name),
-// stops the Docker server only if this harness started it, deletes verification/.run/, and keeps all evidence.
+// verify-game Cleanup (#31): stops only what verify:launch recorded for `VERIFY_PORT` (default 5180, #146) in
+// verification/.verify-run-<port>.json (never by process name), stops the Docker server only if this harness started
+// it, deletes only that port's record and log, and keeps all evidence and every other port's record.
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import {
-  CLIENT_JSON,
   COMPOSE_PROJECT,
   ROOT,
-  SERVER_JSON,
   isAlive,
-  readJson,
-  removeRunDir,
+  readRecord,
+  recordPath,
+  removeRecord,
   sleep,
+  verifyPortOrExit,
 } from './lib.mjs';
+
+const PORT = verifyPortOrExit('verify:cleanup');
+const record = readRecord(PORT);
 
 const isWindows = process.platform === 'win32';
 
@@ -46,7 +50,7 @@ function isOurProcess(pid, port) {
   );
 }
 
-const client = readJson(CLIENT_JSON);
+const client = record.client;
 if (client && Number.isInteger(client.pid)) {
   if (isAlive(client.pid) && !isOurProcess(client.pid, client.port)) {
     console.warn(
@@ -63,10 +67,10 @@ if (client && Number.isInteger(client.pid)) {
     console.warn(`verify:cleanup: pid ${client.pid} was already gone`);
   }
 } else {
-  console.warn('verify:cleanup: no client recorded');
+  console.warn(`verify:cleanup: no client recorded for port ${PORT}`);
 }
 
-const server = readJson(SERVER_JSON);
+const server = record.server;
 if (server?.reused === false) {
   const nodeVersion = readFileSync(join(ROOT, '.nvmrc'), 'utf8').trim();
   console.warn(`verify:cleanup: docker compose -p ${COMPOSE_PROJECT} down`);
@@ -80,5 +84,7 @@ if (server?.reused === false) {
   console.warn('verify:cleanup: the server was reused, not started here: left running');
 }
 
-removeRunDir();
-console.warn('verify:cleanup: removed verification/.run/; evidence folders are untouched');
+removeRecord(PORT);
+console.warn(
+  `verify:cleanup: removed ${relative(ROOT, recordPath(PORT))}; evidence folders and other ports' records are untouched`,
+);

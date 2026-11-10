@@ -7,14 +7,64 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ROOT = fileURLToPath(new URL('../..', import.meta.url));
-/** Run state: the processes this harness started. Deleted by cleanup; evidence lives beside it, never inside. */
-export const RUN_DIR = join(ROOT, 'verification/.run');
-export const CLIENT_JSON = join(RUN_DIR, 'client.json');
-export const SERVER_JSON = join(RUN_DIR, 'server.json');
-export const VITE_LOG = join(RUN_DIR, 'vite.log');
+/** Default port: the user's `pnpm dev` keeps 5173, and #4's `ALLOWED_ORIGINS` lists exactly 5173 and 5180. */
+export const DEFAULT_PORT = 5180;
 
-/** Fixed port: the user's `pnpm dev` keeps 5173, and #4's `ALLOWED_ORIGINS` lists exactly 5173 and 5180. */
-export const PORT = 5180;
+/**
+ * The port this harness run uses (#146): `VERIFY_PORT` when it is an integer from 1024 to 65535, `DEFAULT_PORT`
+ * when it is unset or empty. Any other value throws, so a typo never silently falls back to 5180.
+ */
+export function verifyPort(env = process.env) {
+  const raw = env.VERIFY_PORT;
+  if (raw === undefined || raw === '') return DEFAULT_PORT;
+  const port = /^\d+$/.test(raw) ? Number(raw) : NaN;
+  if (!Number.isInteger(port) || port < 1024 || port > 65535)
+    throw new Error(
+      `VERIFY_PORT must be an integer from 1024 to 65535 (got ${JSON.stringify(raw)}); unset it for ${DEFAULT_PORT}`,
+    );
+  return port;
+}
+
+/** `verifyPort()` for a script's top level: prints the error as `<script>: <message>` and exits 1 instead of throwing. */
+export function verifyPortOrExit(script, env = process.env) {
+  try {
+    return verifyPort(env);
+  } catch (err) {
+    console.error(`${script}: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+/** Run state: one record per port, so launches on different ports never overwrite each other. Evidence lives beside it. */
+export const VERIFICATION_DIR = join(ROOT, 'verification');
+
+/** `verification/.verify-run-<port>.json`: `{ client, server }`, what verify:launch started on that port. */
+export function recordPath(port, dir = VERIFICATION_DIR) {
+  return join(dir, `.verify-run-${port}.json`);
+}
+
+/** `verification/.verify-run-<port>.log`: the Vite output of that port's launch. */
+export function viteLogPath(port, dir = VERIFICATION_DIR) {
+  return join(dir, `.verify-run-${port}.log`);
+}
+
+/** The port's record, `{}` when there is none or it is unreadable. */
+export function readRecord(port, dir = VERIFICATION_DIR) {
+  const record = readJson(recordPath(port, dir));
+  return record && typeof record === 'object' ? record : {};
+}
+
+/** Merges `patch` into the port's record (launch writes `server` before `client`). */
+export function updateRecord(port, patch, dir = VERIFICATION_DIR) {
+  writeJson(recordPath(port, dir), { ...readRecord(port, dir), ...patch });
+}
+
+/** Deletes only this port's record and Vite log; other ports' records and the evidence folders stay. */
+export function removeRecord(port, dir = VERIFICATION_DIR) {
+  rmSync(recordPath(port, dir), { force: true });
+  rmSync(viteLogPath(port, dir), { force: true });
+}
+
 export const SERVER_HEALTH_URL = 'http://localhost:8787/healthz';
 export const COMPOSE_PROJECT = 'vs-verify';
 
@@ -35,10 +85,6 @@ export function readJson(path) {
 export function writeJson(path, value) {
   mkdirSync(join(path, '..'), { recursive: true });
   writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
-}
-
-export function removeRunDir() {
-  rmSync(RUN_DIR, { recursive: true, force: true });
 }
 
 export function gitRev() {

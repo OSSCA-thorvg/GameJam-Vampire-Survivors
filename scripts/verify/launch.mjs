@@ -1,33 +1,36 @@
-// verify-game Launch (#31): serves the client on the fixed port 5180 in `--mode e2e`, records what it started in
-// verification/.run/, and waits until the game itself is ready (`__vsTest.snapshot()` reports `ready` and `gl`).
-// `--with-server` also makes sure the Docker server answers /healthz, reusing a running one.
+// verify-game Launch (#31): serves the client in `--mode e2e` on `VERIFY_PORT` (default 5180, #146), records what it
+// started in verification/.verify-run-<port>.json, and waits until the game itself is ready (`__vsTest.snapshot()`
+// reports `ready` and `gl`). `--with-server` also makes sure the Docker server answers /healthz, reusing a running one.
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, openSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  CLIENT_JSON,
   COMPOSE_PROJECT,
-  PORT,
+  DEFAULT_PORT,
   ROOT,
-  RUN_DIR,
   SERVER_HEALTH_URL,
-  SERVER_JSON,
-  VITE_LOG,
+  VERIFICATION_DIR,
   gitRev,
   httpOk,
   isAlive,
   logTail,
   portInUse,
   probeGame,
-  readJson,
-  removeRunDir,
+  readRecord,
+  recordPath,
+  removeRecord,
   sleep,
-  writeJson,
+  updateRecord,
+  verifyPortOrExit,
+  viteLogPath,
 } from './lib.mjs';
 
 const READY_TIMEOUT_MS = 30_000;
 const SERVER_TIMEOUT_MS = 180_000;
 const withServer = process.argv.includes('--with-server');
+const PORT = verifyPortOrExit('verify:launch');
+const VITE_LOG = viteLogPath(PORT);
+const portEnv = PORT === DEFAULT_PORT ? '' : `VERIFY_PORT=${PORT} `;
 const isWindows = process.platform === 'win32';
 
 function fail(message) {
@@ -45,16 +48,26 @@ function killTree(pid) {
   }
 }
 
-if (await portInUse(PORT)) fail(`port ${PORT} is in use: run \`pnpm verify:cleanup\` or free it`);
-const previous = readJson(CLIENT_JSON);
+if (await portInUse(PORT))
+  fail(
+    `port ${PORT} is in use: run \`${portEnv}pnpm verify:cleanup\` or free it, or pick another port with VERIFY_PORT`,
+  );
+const previous = readRecord(PORT).client;
 if (previous && isAlive(previous.pid))
-  fail(`a previous run (pid ${previous.pid}) is still recorded: run \`pnpm verify:cleanup\` first`);
-mkdirSync(RUN_DIR, { recursive: true });
+  fail(
+    `a previous run (pid ${previous.pid}) is still recorded in ${recordPath(PORT)}: run \`${portEnv}pnpm verify:cleanup\` first`,
+  );
+mkdirSync(VERIFICATION_DIR, { recursive: true });
 
 // Server first, so a failure here leaves no client process behind.
 if (withServer) {
+  // The server's Origin allow-list lives in the user's .env; this script only says what to add, never edits it.
+  if (PORT !== DEFAULT_PORT)
+    console.warn(
+      `verify:launch: port ${PORT} is not ${DEFAULT_PORT}: add http://localhost:${PORT} to ALLOWED_ORIGINS in .env (then restart the server) for versus journeys`,
+    );
   if (await httpOk(SERVER_HEALTH_URL)) {
-    writeJson(SERVER_JSON, { reused: true, url: SERVER_HEALTH_URL });
+    updateRecord(PORT, { server: { reused: true, url: SERVER_HEALTH_URL } });
     console.warn(`verify:launch: reusing the server already answering ${SERVER_HEALTH_URL}`);
   } else {
     if (!existsSync(join(ROOT, 'compose.yaml')))
@@ -63,7 +76,7 @@ if (withServer) {
       fail('no .env: run `cp .env.example .env` once (compose.yaml reads it)');
     const nodeVersion = readFileSync(join(ROOT, '.nvmrc'), 'utf8').trim();
     // Recorded before starting, so cleanup removes a half-started project too.
-    writeJson(SERVER_JSON, { reused: false, project: COMPOSE_PROJECT });
+    updateRecord(PORT, { server: { reused: false, project: COMPOSE_PROJECT } });
     console.warn(
       `verify:launch: starting the server: docker compose -p ${COMPOSE_PROJECT} up -d --build server`,
     );
@@ -77,12 +90,14 @@ if (withServer) {
       },
     );
     if (up.status !== 0)
-      fail('docker compose up failed; run `pnpm verify:cleanup`, then see the dev-server skill');
+      fail(
+        `docker compose up failed; run \`${portEnv}pnpm verify:cleanup\`, then see the dev-server skill`,
+      );
     const deadline = Date.now() + SERVER_TIMEOUT_MS;
     while (!(await httpOk(SERVER_HEALTH_URL))) {
       if (Date.now() > deadline)
         fail(
-          `${SERVER_HEALTH_URL} did not answer within ${SERVER_TIMEOUT_MS / 1000} s; run \`pnpm verify:cleanup\``,
+          `${SERVER_HEALTH_URL} did not answer within ${SERVER_TIMEOUT_MS / 1000} s; run \`${portEnv}pnpm verify:cleanup\``,
         );
       await sleep(1000);
     }
@@ -99,12 +114,14 @@ const child = spawn(
 );
 child.unref();
 const rev = gitRev();
-writeJson(CLIENT_JSON, {
-  pid: child.pid,
-  port: PORT,
-  url,
-  rev,
-  startedAt: new Date().toISOString(),
+updateRecord(PORT, {
+  client: {
+    pid: child.pid,
+    port: PORT,
+    url,
+    rev,
+    startedAt: new Date().toISOString(),
+  },
 });
 
 const deadline = Date.now() + READY_TIMEOUT_MS;
@@ -120,8 +137,11 @@ if (!snapshot?.ready || snapshot.renderer !== 'gl') {
   console.error('--- Vite log tail ---');
   console.error(logTail(VITE_LOG));
   killTree(child.pid);
-  if (!readJson(SERVER_JSON)) removeRunDir();
-  else console.error('verify:launch: the server is still recorded: run `pnpm verify:cleanup`');
+  if (!readRecord(PORT).server) removeRecord(PORT);
+  else
+    console.error(
+      `verify:launch: the server is still recorded: run \`${portEnv}pnpm verify:cleanup\``,
+    );
   process.exit(1);
 }
 console.warn(
