@@ -2,12 +2,14 @@
 // One line per check, ok or fail; exits 1 on any failure. Reads only the record of `VERIFY_PORT` (default 5180, #146).
 import { relative } from 'node:path';
 import {
+  COMPOSE_PROJECT,
   DEFAULT_PORT,
   ROOT,
   SERVER_HEALTH_URL,
   gitRev,
   httpOk,
   isAlive,
+  ownsServer,
   probeGame,
   readRecord,
   recordPath,
@@ -50,11 +52,16 @@ if (client) {
     `stale server: ${relaunch}`,
   );
 }
+/** How this port relates to the recorded server (#161). */
+function serverRole(server) {
+  if (server.project !== COMPOSE_PROJECT) return 'not started by verify:launch';
+  return ownsServer(server)
+    ? `project ${server.project}, owned by this port`
+    : `project ${server.project}, shared`;
+}
+
 const server = record.server;
 if (server) {
-  report(
-    await httpOk(SERVER_HEALTH_URL),
-    `${SERVER_HEALTH_URL} answers (${server.reused ? 'reused' : `project ${server.project}`})`,
-  );
+  report(await httpOk(SERVER_HEALTH_URL), `${SERVER_HEALTH_URL} answers (${serverRole(server)})`);
 }
 process.exit(failed > 0 ? 1 : 0);

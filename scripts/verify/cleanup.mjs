@@ -1,6 +1,7 @@
 // verify-game Cleanup (#31): stops only what verify:launch recorded for `VERIFY_PORT` (default 5180, #146) in
-// verification/.verify-run-<port>.json (never by process name), stops the Docker server only if this harness started
-// it, deletes only that port's record and log, and keeps all evidence and every other port's record.
+// verification/.verify-run-<port>.json (never by process name), stops the Docker server only if this port's launch owns
+// it and no other port still uses it (#161), deletes only that port's record and log, and keeps all evidence and every
+// other port's record.
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -10,6 +11,7 @@ import {
   isAlive,
   readRecord,
   recordPath,
+  releaseServer,
   removeRecord,
   sleep,
   verifyPortOrExit,
@@ -71,17 +73,30 @@ if (client && Number.isInteger(client.pid)) {
 }
 
 const server = record.server;
-if (server?.reused === false) {
+// The server (#161): only its owner stops it, and only once no other port's launch still uses it; otherwise
+// ownership passes to the lowest remaining port. A server not started by verify:launch is never touched.
+const release = releaseServer(PORT, server);
+if (release.action === 'down') {
   const nodeVersion = readFileSync(join(ROOT, '.nvmrc'), 'utf8').trim();
-  console.warn(`verify:cleanup: docker compose -p ${COMPOSE_PROJECT} down`);
-  const down = spawnSync('docker', ['compose', '-p', server.project ?? COMPOSE_PROJECT, 'down'], {
+  console.warn(
+    `verify:cleanup: last user of the ${COMPOSE_PROJECT} server: docker compose -p ${COMPOSE_PROJECT} down`,
+  );
+  const down = spawnSync('docker', ['compose', '-p', COMPOSE_PROJECT, 'down'], {
     cwd: ROOT,
     stdio: 'inherit',
     env: { ...process.env, NODE_VERSION: nodeVersion },
   });
   if (down.status !== 0) console.error('verify:cleanup: docker compose down failed');
-} else if (server?.reused) {
-  console.warn('verify:cleanup: the server was reused, not started here: left running');
+} else if (release.action === 'handOver') {
+  console.warn(
+    `verify:cleanup: the ${COMPOSE_PROJECT} server is still used by port ${release.to}: left running, port ${release.to} owns it now`,
+  );
+} else if (server?.project === COMPOSE_PROJECT) {
+  console.warn(
+    `verify:cleanup: the ${COMPOSE_PROJECT} server is shared and not owned by port ${PORT}: left running`,
+  );
+} else if (server) {
+  console.warn('verify:cleanup: the server was not started by verify:launch: left running');
 }
 
 removeRecord(PORT);

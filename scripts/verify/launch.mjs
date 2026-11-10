@@ -1,11 +1,14 @@
 // verify-game Launch (#31): serves the client in `--mode e2e` on `VERIFY_PORT` (default 5180, #146), records what it
 // started in verification/.verify-run-<port>.json, and waits until the game itself is ready (`__vsTest.snapshot()`
-// reports `ready` and `gl`). `--with-server` also makes sure the Docker server answers /healthz, reusing a running one.
+// reports `ready` and `gl`). `--with-server` also makes sure the Docker server answers /healthz, reusing a running one
+// and recording whether this launch owns it (#161).
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, openSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   COMPOSE_PROJECT,
+  addServerUser,
+  composeProjectRunning,
   DEFAULT_PORT,
   ROOT,
   SERVER_HEALTH_URL,
@@ -14,6 +17,7 @@ import {
   httpOk,
   isAlive,
   logTail,
+  ownsServer,
   portInUse,
   probeGame,
   readRecord,
@@ -48,6 +52,18 @@ function killTree(pid) {
   }
 }
 
+async function waitForServer() {
+  const deadline = Date.now() + SERVER_TIMEOUT_MS;
+  while (!(await httpOk(SERVER_HEALTH_URL))) {
+    if (Date.now() > deadline)
+      fail(
+        `${SERVER_HEALTH_URL} did not answer within ${SERVER_TIMEOUT_MS / 1000} s; run \`${portEnv}pnpm verify:cleanup\``,
+      );
+    await sleep(1000);
+  }
+  console.warn(`verify:launch: server ok (${SERVER_HEALTH_URL})`);
+}
+
 if (await portInUse(PORT))
   fail(
     `port ${PORT} is in use: run \`${portEnv}pnpm verify:cleanup\` or free it, or pick another port with VERIFY_PORT`,
@@ -66,9 +82,27 @@ if (withServer) {
     console.warn(
       `verify:launch: port ${PORT} is not ${DEFAULT_PORT}: add http://localhost:${PORT} to ALLOWED_ORIGINS in .env (then restart the server) for versus journeys`,
     );
-  if (await httpOk(SERVER_HEALTH_URL)) {
-    updateRecord(PORT, { server: { reused: true, url: SERVER_HEALTH_URL } });
-    console.warn(`verify:launch: reusing the server already answering ${SERVER_HEALTH_URL}`);
+  // Ownership (#161): only the launch that creates the `vs-verify` containers owns them (`owner: true`). A launch that
+  // finds them running shares them and joins the users list, so the owner's cleanup keeps them up for it; a server
+  // started outside verify:launch (`pnpm server:up`) is never recorded with a project and never stopped.
+  if (composeProjectRunning() && ownsServer(readRecord(PORT).server)) {
+    // A run on this port that never cleaned up started it: this port still owns it.
+    console.warn(`verify:launch: ${COMPOSE_PROJECT} is still owned by this port's earlier run`);
+    await waitForServer();
+  } else if (composeProjectRunning()) {
+    updateRecord(PORT, {
+      server: { reused: true, owner: false, project: COMPOSE_PROJECT, url: SERVER_HEALTH_URL },
+    });
+    addServerUser(PORT, recordPath(PORT));
+    console.warn(
+      `verify:launch: sharing the running ${COMPOSE_PROJECT} server; it stays up until its last user cleans up`,
+    );
+    await waitForServer();
+  } else if (await httpOk(SERVER_HEALTH_URL)) {
+    updateRecord(PORT, { server: { reused: true, owner: false, url: SERVER_HEALTH_URL } });
+    console.warn(
+      `verify:launch: reusing the server already answering ${SERVER_HEALTH_URL} (not started by verify:launch, never stopped by it)`,
+    );
   } else {
     if (!existsSync(join(ROOT, 'compose.yaml')))
       fail('no compose.yaml: the server arrives with #4');
@@ -76,7 +110,7 @@ if (withServer) {
       fail('no .env: run `cp .env.example .env` once (compose.yaml reads it)');
     const nodeVersion = readFileSync(join(ROOT, '.nvmrc'), 'utf8').trim();
     // Recorded before starting, so cleanup removes a half-started project too.
-    updateRecord(PORT, { server: { reused: false, project: COMPOSE_PROJECT } });
+    updateRecord(PORT, { server: { reused: false, owner: true, project: COMPOSE_PROJECT } });
     console.warn(
       `verify:launch: starting the server: docker compose -p ${COMPOSE_PROJECT} up -d --build server`,
     );
@@ -93,15 +127,7 @@ if (withServer) {
       fail(
         `docker compose up failed; run \`${portEnv}pnpm verify:cleanup\`, then see the dev-server skill`,
       );
-    const deadline = Date.now() + SERVER_TIMEOUT_MS;
-    while (!(await httpOk(SERVER_HEALTH_URL))) {
-      if (Date.now() > deadline)
-        fail(
-          `${SERVER_HEALTH_URL} did not answer within ${SERVER_TIMEOUT_MS / 1000} s; run \`${portEnv}pnpm verify:cleanup\``,
-        );
-      await sleep(1000);
-    }
-    console.warn(`verify:launch: server ok (${SERVER_HEALTH_URL})`);
+    await waitForServer();
   }
 }
 

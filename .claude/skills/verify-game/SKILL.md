@@ -15,14 +15,14 @@ Once per clone: `nvm use`, `corepack enable`, `pnpm install`, `pnpm exec playwri
 
 ```sh
 pnpm verify:launch                 # client in --mode e2e on http://localhost:5180 (default port)
-pnpm verify:launch --with-server   # also the Docker server on :8787 (reuses a running one; needs .env)
+pnpm verify:launch --with-server   # also the Docker server on :8787 (shares a running one; needs .env)
 VERIFY_PORT=5185 pnpm verify:launch   # parallel worktrees; doctor, e2e and cleanup read the same variable
 ```
 
-- It records what it started in `verification/.verify-run-<port>.json` (`client`: `pid`, `port`, `url`, `rev`, `startedAt`; `server`: `reused`, `project`), with the Vite log beside it as `.verify-run-<port>.log`.
+- It records what it started in `verification/.verify-run-<port>.json` (`client`: `pid`, `port`, `url`, `rev`, `startedAt`; `server`: `reused`, `owner`, `project`, `url`), with the Vite log beside it as `.verify-run-<port>.log`.
 - It is ready only when `window.__vsTest.snapshot()` reports `ready: true` and `renderer: 'gl'` (checked in headless Chromium), within 30 s; otherwise it prints the Vite log tail and exits 1.
 - Port busy: it exits 1 with "port 5180 is in use: run `pnpm verify:cleanup` or free it, or pick another port with VERIFY_PORT". It never moves to another port by itself (`--strictPort`), and never touches the user's `pnpm dev` on 5173.
-- **Parallel worktrees (#146):** give each worktree (or each concurrent run) its own `VERIFY_PORT`, an integer from 1024 to 65535 (default 5180; anything else exits 1 with a clear message), and set the same variable for `verify:doctor`, `verify:e2e` and `verify:cleanup`. Each port has its own record, so a cleanup stops only its own port's client. The Docker server on :8787 is shared: a second `--with-server` launch reuses it, and its Origin allow-list must include the port, so on any port but 5180 launch prints a line asking you to add `http://localhost:<port>` to `ALLOWED_ORIGINS` in `.env` (it never edits `.env`; restart the server after editing). CI keeps 5180.
+- **Parallel worktrees (#146):** give each worktree (or each concurrent run) its own `VERIFY_PORT`, an integer from 1024 to 65535 (default 5180; anything else exits 1 with a clear message), and set the same variable for `verify:doctor`, `verify:e2e` and `verify:cleanup`. Each port has its own record, so a cleanup stops only its own port's client. The Docker server on :8787 is shared, and stays up until its last user cleans up (#161): the launch that creates the `vs-verify` containers records `owner: true`; a launch that finds them running records `owner: false` and adds its port and record path to `.verify-server-users.json` in the main checkout's `verification/` (found through `git rev-parse --git-common-dir`, so every worktree sees the same list); a server answering `/healthz` that is not `vs-verify` (`pnpm server:up`) is recorded without a project and never stopped. So clean up every port you launched (`VERIFY_PORT=<port> pnpm verify:cleanup`): a port that never cleans up keeps the server running. Two `--with-server` launches started at the same instant can both see no server; start them one after the other. The server's Origin allow-list must include the port, so on any port but 5180 launch prints a line asking you to add `http://localhost:<port>` to `ALLOWED_ORIGINS` in `.env` (it never edits `.env`; restart the server after editing). CI keeps 5180.
 
 ## Doctor
 
@@ -73,7 +73,7 @@ Pick the driver, then follow the feature file's **Driving it** section for that 
 pnpm verify:cleanup
 ```
 
-Stops only the process group recorded for `VERIFY_PORT` (default 5180) in `verification/.verify-run-<port>.json` (never by name), runs `docker compose -p vs-verify down` only if that record's `server` says `reused: false`, deletes only that port's record and log, and leaves every evidence folder and every other port's record in place. Close the Claude in Chrome tabs you opened first.
+Stops only the process group recorded for `VERIFY_PORT` (default 5180) in `verification/.verify-run-<port>.json` (never by name), removes its port from the shared users list and runs `docker compose -p vs-verify down` only if that record's `server` says `owner: true` (records from before #161: `reused: false`) and no other port still uses the server; when the owner leaves first, ownership passes to the lowest remaining port (its record is rewritten with `owner: true`) and the server stays up (#161). A server not started by `verify:launch` is never stopped. It deletes only that port's record and log, and leaves every evidence folder and every other port's record in place. Close the Claude in Chrome tabs you opened first.
 
 ## Helpers
 
