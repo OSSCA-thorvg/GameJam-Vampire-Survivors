@@ -1,4 +1,4 @@
-import { xpToNext } from '@vs/shared';
+import { BASE_MAX_HP, xpToNext } from '@vs/shared';
 import { expect, it, vi } from 'vitest';
 import type { WorkerToMain } from '../../protocol/worker-messages';
 import { FX_ASSETS } from './fx';
@@ -98,6 +98,8 @@ it('heals by LEVELUP_HEAL, capped at maxHp, when the heal is the only option', (
 
 it('applies passive options and recomputes the stats (#12)', () => {
   const { world } = setup();
+  const maxHp = BASE_MAX_HP;
+  expect(world.player.maxHp).toBe(maxHp);
   world.player.hp = 50;
   applyLevelUpOption(world, {
     kind: 'newPassive',
@@ -107,7 +109,7 @@ it('applies passive options and recomputes the stats (#12)', () => {
     iconId: 'icon.passive.hollowHeart',
   });
   expect(world.passives.map((p) => [p.def.id, p.level])).toEqual([['hollowHeart', 1]]);
-  expect(world.player.maxHp).toBe(120);
+  expect(world.player.maxHp).toBe(maxHp + 20);
   expect(world.player.hp).toBe(70);
   applyLevelUpOption(world, {
     kind: 'upgradePassive',
@@ -118,7 +120,7 @@ it('applies passive options and recomputes the stats (#12)', () => {
     iconId: 'icon.passive.hollowHeart',
   });
   expect(world.passives[0]?.level).toBe(2);
-  expect(world.player.stats.maxHp).toBe(140);
+  expect(world.player.stats.maxHp).toBe(maxHp + 40);
   expect(world.player.hp).toBe(90);
 });
 

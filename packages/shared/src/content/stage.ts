@@ -6,6 +6,11 @@ export interface WaveDef {
   fromMinute: number;
   /** Top up to this many live enemies when below. */
   minAlive: number;
+  /**
+   * The periodic batch is skipped while this many live normal (non-boss) enemies or more are alive (#148), so a player
+   * who falls behind on kills is not buried by an unbounded crowd. The `minAlive` top-up and timed events ignore it.
+   */
+  maxAlive: number;
   /** Periodic batch spawn interval. */
   spawnIntervalSec: number;
   batchSize: number;
@@ -37,34 +42,41 @@ type Mix = WaveDef['enemies'];
 const mix = (...pairs: [EnemyId, number][]): Mix =>
   pairs.map(([enemyId, weight]) => ({ enemyId, weight }));
 
-// [minAlive, spawnIntervalSec, batchSize, mix] per minute (#17). Initial values, untuned: the project owner decided not
-// to tune against the original's footage (docs/reference/gameplay.md § Enemies and waves).
+// [minAlive, spawnIntervalSec, batchSize, mix] per minute (#17). Initial values, tuned for playability with the
+// headless balance probe (#148, worker/game/balance-probe.ts), not a footage match: the project owner decided not to
+// tune against the original's footage (docs/reference/gameplay.md § Enemies and waves).
 const WAVES: [number, number, number, Mix][] = [
-  [15, 2.0, 3, mix(['bat', 3], ['ghoul', 1])],
-  [25, 1.8, 4, mix(['bat', 3], ['ghoul', 2])],
-  [40, 1.6, 5, mix(['bat', 2], ['ghoul', 2])],
-  [55, 1.5, 6, mix(['bat', 2], ['ghoul', 2], ['skeleton', 1])],
-  [70, 1.4, 7, mix(['ghoul', 2], ['skeleton', 2], ['bat', 1])],
-  [90, 1.3, 8, mix(['skeleton', 2], ['ghoul', 1], ['wisp', 1])],
-  [110, 1.2, 9, mix(['skeleton', 2], ['wisp', 2], ['bat', 1])],
-  [130, 1.1, 10, mix(['skeleton', 2], ['wisp', 2], ['brute', 1])],
-  [150, 1.0, 11, mix(['wisp', 2], ['brute', 2], ['skeleton', 1])],
-  [170, 0.9, 12, mix(['brute', 2], ['wisp', 2], ['skeleton', 1])],
-  [195, 0.8, 13, mix(['brute', 2], ['wisp', 1], ['wraith', 1])],
-  [220, 0.75, 15, mix(['brute', 2], ['wraith', 1], ['wisp', 1])],
-  [245, 0.65, 16, mix(['wraith', 2], ['brute', 2])],
-  [270, 0.6, 18, mix(['wraith', 2], ['brute', 1], ['wisp', 1])],
-  [300, 0.5, 20, mix(['wraith', 3], ['brute', 1])],
+  [12, 2.2, 3, mix(['bat', 3], ['ghoul', 1])],
+  [20, 2.0, 4, mix(['bat', 3], ['ghoul', 2])],
+  [30, 1.8, 4, mix(['bat', 2], ['ghoul', 2])],
+  [40, 1.7, 5, mix(['bat', 2], ['ghoul', 2], ['skeleton', 1])],
+  [50, 1.6, 6, mix(['ghoul', 2], ['skeleton', 2], ['bat', 1])],
+  [60, 1.5, 6, mix(['skeleton', 2], ['ghoul', 1], ['wisp', 1])],
+  [75, 1.4, 7, mix(['skeleton', 2], ['wisp', 2], ['bat', 1])],
+  [90, 1.3, 8, mix(['skeleton', 2], ['wisp', 2], ['brute', 1])],
+  [105, 1.2, 9, mix(['wisp', 2], ['brute', 2], ['skeleton', 1])],
+  [120, 1.1, 10, mix(['brute', 2], ['wisp', 2], ['skeleton', 1])],
+  [140, 1.0, 11, mix(['brute', 2], ['wisp', 1], ['wraith', 1])],
+  [160, 0.9, 12, mix(['brute', 2], ['wraith', 1], ['wisp', 1])],
+  [180, 0.8, 13, mix(['wraith', 2], ['brute', 2])],
+  [205, 0.75, 15, mix(['wraith', 2], ['brute', 1], ['wisp', 1])],
+  [230, 0.7, 16, mix(['wraith', 3], ['brute', 1])],
 ];
 
-/** Initial values, untuned (see `WAVES`). */
+/**
+ * `maxAlive` = this × `minAlive` for every wave, at most `ENEMY_CAP` (#148; initial value, tuned for playability, not a
+ * footage match).
+ */
+const MAX_ALIVE_FACTOR = 2;
+
+/** Initial values, untuned; the two swarm counts tuned for playability (#148, see `WAVES`). */
 const EVENTS: StageEvent[] = [
   { at: 180, kind: 'elite', enemyId: 'ghoul', count: 1 },
   { at: 300, kind: 'boss', enemyId: 'reaper5' },
-  { at: 390, kind: 'swarm', enemyId: 'bat', count: 40, formation: 'ring' },
+  { at: 390, kind: 'swarm', enemyId: 'bat', count: 30, formation: 'ring' },
   { at: 480, kind: 'elite', enemyId: 'brute', count: 1 },
   { at: 600, kind: 'boss', enemyId: 'reaper10' },
-  { at: 720, kind: 'swarm', enemyId: 'wisp', count: 60, formation: 'line' },
+  { at: 720, kind: 'swarm', enemyId: 'wisp', count: 45, formation: 'line' },
   { at: 810, kind: 'elite', enemyId: 'wraith', count: 2 },
 ];
 
@@ -84,6 +96,7 @@ export const STAGE: StageDef = {
   waves: WAVES.map(([minAlive, spawnIntervalSec, batchSize, enemies], fromMinute) => ({
     fromMinute,
     minAlive,
+    maxAlive: Math.min(ENEMY_CAP, Math.round(MAX_ALIVE_FACTOR * minAlive)),
     spawnIntervalSec,
     batchSize,
     enemies,
@@ -103,6 +116,8 @@ export function validateStage(stage: StageDef): string[] {
       errors.push(`${at}: fromMinute must be greater than the previous wave's`);
     if (!(wave.minAlive >= 0 && wave.minAlive <= ENEMY_CAP))
       errors.push(`${at}: minAlive must be from 0 to ENEMY_CAP (${String(ENEMY_CAP)})`);
+    if (!(wave.maxAlive >= wave.minAlive && wave.maxAlive <= ENEMY_CAP))
+      errors.push(`${at}: maxAlive must be from minAlive to ENEMY_CAP (${String(ENEMY_CAP)})`);
     if (!(wave.spawnIntervalSec > 0)) errors.push(`${at}: spawnIntervalSec must be positive`);
     if (!(Number.isInteger(wave.batchSize) && wave.batchSize >= 0))
       errors.push(`${at}: batchSize must be a nonnegative integer`);

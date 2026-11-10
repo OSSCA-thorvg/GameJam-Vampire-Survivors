@@ -1,4 +1,4 @@
-import { MAX_WEAPON_SLOTS } from '@vs/shared';
+import { BASE_STATS, MAX_WEAPON_SLOTS } from '@vs/shared';
 import { expect, it } from 'vitest';
 import { indexEnemies, target } from '../combat-test-helpers';
 import { NEVER_HIT } from '../enemies';
@@ -13,6 +13,9 @@ it('keeps one hit-time column per weapon slot, NEVER_HIT on spawn', () => {
 });
 
 it('moves hit times with their enemy through a swap-remove of another enemy', () => {
+  // One book hit: the L1 damage 10 after BASE_STATS.might (#148), stored in the float32 HP column.
+  const once = Math.fround(1000 - 10 * BASE_STATS.might);
+  const twice = Math.fround(once - 10 * BASE_STATS.might);
   const { world, w } = armed('kingBible');
   const lv = { ...effectiveLevel(world, w), speed: 0 };
   w.activeLeft = 10;
@@ -25,7 +28,7 @@ it('moves hit times with their enemy through a swap-remove of another enemy', ()
   world.time = 10;
   indexEnemies(world);
   kingBible.update?.(world.weaponContext, w, lv, DT);
-  expect(world.enemies.cols.hp[ghoul]).toBe(990);
+  expect(world.enemies.cols.hp[ghoul]).toBe(once);
   expect(hitT[ghoul]).toBe(10);
   // Removing slot 0 moves the ghoul into it; its hit time moves along, so the book does not hit it again yet.
   world.enemies.remove(other);
@@ -35,17 +38,17 @@ it('moves hit times with their enemy through a swap-remove of another enemy', ()
   world.time = 10.25;
   indexEnemies(world);
   kingBible.update?.(world.weaponContext, w, lv, DT);
-  expect(world.enemies.cols.hp[moved]).toBe(990);
+  expect(world.enemies.cols.hp[moved]).toBe(once);
   // A new enemy in the freed slot 1 starts unhit, so the book hits it at once.
   const fresh = target(world, 'ghoul', 75, 0);
   expect(fresh).toBe(1);
   expect(hitT[fresh]).toBe(NEVER_HIT);
   indexEnemies(world);
   kingBible.update?.(world.weaponContext, w, lv, DT);
-  expect(world.enemies.cols.hp[fresh]).toBe(990);
-  expect(world.enemies.cols.hp[moved]).toBe(990);
+  expect(world.enemies.cols.hp[fresh]).toBe(once);
+  expect(world.enemies.cols.hp[moved]).toBe(once);
   world.time = 10.5;
   indexEnemies(world);
   kingBible.update?.(world.weaponContext, w, lv, DT);
-  expect(world.enemies.cols.hp[moved]).toBe(980);
+  expect(world.enemies.cols.hp[moved]).toBe(twice);
 });

@@ -1,4 +1,4 @@
-import { MAX_WEAPON_SLOTS, WEAPONS } from '@vs/shared';
+import { BASE_STATS, MAX_WEAPON_SLOTS, WEAPONS } from '@vs/shared';
 import { describe, expect, it } from 'vitest';
 import { quietWorld } from '../combat-test-helpers';
 import { addWeapon, grantNextWeapon, levelUpWeapon } from './owned';
@@ -7,7 +7,7 @@ import { weaponSystem } from './system';
 const DT = 1 / 60;
 
 describe('weapon system', () => {
-  it('fires a 1.35 s cooldown exactly 4 times in 6 s of steps', () => {
+  it('fires a 1.35 s cooldown, after BASE_STATS.cooldown, exactly 4 times in 6 s of steps', () => {
     const world = quietWorld();
     addWeapon(world, 'whip');
     expect(WEAPONS.whip.levels[0]?.cooldownSec).toBe(1.35);
@@ -18,7 +18,9 @@ describe('weapon system', () => {
       if (world.fx.count > before) fireSteps.push(i);
     }
     // No enemies: each strike adds only its `weapon.whip` effect, and nothing expires without the fx system.
-    expect(fireSteps).toEqual([81, 162, 243, 324]);
+    // The first strike comes after the raw 1.35 s (81 steps); each later one after 1.35 s × BASE_STATS.cooldown (#148).
+    const every = Math.ceil(1.35 * BASE_STATS.cooldown * 60);
+    expect(fireSteps).toEqual([81, 81 + every, 81 + 2 * every, 81 + 3 * every]);
   });
 
   it('fires a burst of amount 3 as 3 projectiles 0.1 s apart', () => {

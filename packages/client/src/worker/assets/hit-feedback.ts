@@ -5,6 +5,8 @@ const CYCLE_FRAMES = 600;
 const STEP = 1 / 60;
 const BLINK_SEC = 0.08;
 const DIM_PERCENT = 39.216;
+/** Fixed steps in one invulnerability window (30 at 0.5 s, 36 at 0.6 s), so the keys cover it to the end. */
+const WINDOW_STEPS = Math.ceil(HIT_INVULN_SEC / STEP - 1e-6);
 
 export const NORMAL_FEEDBACK_SLOT = { damage: { p: { a: 0, k: 100 } } };
 
@@ -44,7 +46,7 @@ export function createHitFeedbackSlotAtFrame(activeFrame: number, remainingTime:
   let remaining = remainingTime;
   let frame = activeFrame;
   let previous = 100;
-  for (let step = 0; step <= 30; step++) {
+  for (let step = 0; step <= WINDOW_STEPS; step++) {
     if (step) {
       remaining -= STEP;
       // The unchanged contact-damage system ends its countdown at this threshold.

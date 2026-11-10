@@ -1,3 +1,4 @@
+import { BASE_STATS } from '@vs/shared';
 import { describe, expect, it } from 'vitest';
 import { indexEnemies, target } from '../combat-test-helpers';
 import { armed, DT, effectiveLevel, withStats } from './arm-test-helpers';
@@ -23,14 +24,16 @@ describe('king bible', () => {
           `step ${String(i)}`,
         ).toBeCloseTo(75 * 1.2, 3);
     }
-    // First out after the 3 s cooldown (180 steps), out for 3 s, then the cooldown counts 3 s with no books; float
-    // drift in `activeLeft` adds one step to each activation.
+    // First out after the raw 3 s cooldown (180 steps), out for 3 s, then the cooldown counts 3 s × BASE_STATS.cooldown
+    // (2.85 s since #148) with no books; float drift in `activeLeft` adds one step to each activation, and the cooldown
+    // starts counting in the step the books go away.
+    const cooldown = Math.round(3 * BASE_STATS.cooldown * 60);
     const changes = counts.flatMap((c, i) => (c !== (counts[i - 1] ?? 0) ? [[i, c]] : []));
     expect(changes).toEqual([
       [180, 2],
       [361, 0],
-      [540, 2],
-      [721, 0],
+      [360 + cooldown, 2],
+      [360 + cooldown + 181, 0],
     ]);
   });
 
@@ -53,7 +56,7 @@ describe('king bible', () => {
     expect(hits).toHaveLength(6);
     for (let i = 1; i < hits.length; i++)
       expect((hits[i] ?? 0) - (hits[i - 1] ?? 0)).toBeGreaterThanOrEqual(0.5 - 1e-4);
-    expect(world.enemies.cols.hp[ghoul]).toBe(1000 - 6 * 10);
+    expect(world.enemies.cols.hp[ghoul]).toBeCloseTo(1000 - 6 * 10 * BASE_STATS.might, 3);
   });
 
   it('keeps its books out longer with the duration stat', () => {

@@ -106,7 +106,7 @@ test('deployed site: CSP meta, single-player run to results, multiplayer entry',
 ## Gotchas
 
 - Production builds have no `__vsTest`, so this journey observes the DOM, requests and CSP events only; `renderer: 'gl'` is shown by the canvas drawing at all (there is no fallback renderer) (2026-11-09, #23).
-- An idle Warden dies in about 15 s, which is how the journey reaches the results quickly; a stronger build may survive longer, hence the 7-minute bound (2026-11-09, #23).
+- An idle Warden dies in about 15 s (about 1–2 minutes (balance probe seeds 1–30: 39–206 s, over 2 minutes in 2 of 30) since #148's retune), which is how the journey reaches the results quickly; a stronger build may survive longer, hence the 7-minute bound (2026-11-09, #23).
 - Pages sends no headers, so `frame-ancestors` cannot be enforced there; `vite preview` sends the header version for local checks (2026-11-09, #23).
 - The Pages build fails if `VITE_SERVER_URL` is not `wss://`: an https page cannot open `ws://` sockets (2026-11-09, #23).
 - Until the owner sets up the server's domain and TLS, only the "server unset" path can run on the public site; the server is checked locally with `deploy/server/compose.yaml` and `smoke.mjs` (2026-11-09, #23).

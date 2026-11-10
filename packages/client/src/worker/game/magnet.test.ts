@@ -1,8 +1,9 @@
-import { BASE_PICKUP_RANGE } from '@vs/shared';
+import { BASE_PICKUP_RANGE, BASE_STATS } from '@vs/shared';
 import { expect, it } from 'vitest';
 import { dropGem, gemSystem, GEM_FLYING, GEM_IDLE } from './gems';
 import { createWorld } from './world';
 
+/** A value-1 gem is worth `BASE_STATS.growth` XP once collected (#12, 1.1 since #148). */
 const world = () => {
   const w = createWorld({ seed: 1 });
   w.player.x = 0;
@@ -20,7 +21,7 @@ it('pulls in a gem 50 units away and collects it within 1 s while the player sta
   }
   expect(w.gems.count).toBe(0);
   expect(t).toBeLessThan(1);
-  expect(w.player.xp).toBe(1);
+  expect(w.player.xp).toBe(BASE_STATS.growth);
 });
 
 it('leaves a gem 200 units away untouched, idle, forever', () => {
@@ -41,7 +42,7 @@ it('keeps chasing the player once flying, even when the player walks out of the 
   w.player.x = -200;
   for (let i = 0; i < 120 && w.gems.count > 0; i++) gemSystem(w, 1 / 60);
   expect(w.gems.count).toBe(0);
-  expect(w.player.xp).toBe(1);
+  expect(w.player.xp).toBe(BASE_STATS.growth);
 });
 
 it('scales the range by stats.magnet and collected XP by stats.growth (#12)', () => {

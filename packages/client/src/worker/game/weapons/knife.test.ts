@@ -1,4 +1,4 @@
-import { WEAPONS } from '@vs/shared';
+import { BASE_STATS, WEAPONS } from '@vs/shared';
 import { describe, expect, it } from 'vitest';
 import { armed, DT, effectiveLevel, flyProjectiles, withStats } from './arm-test-helpers';
 import { knife, KNIFE_RADIUS, KNIFE_SPREAD } from './patterns/knife';
@@ -18,7 +18,7 @@ describe('knife', () => {
       KNIFE_RADIUS,
       1,
       2,
-      6.5,
+      Math.fround(6.5 * BASE_STATS.might),
     ]);
     expect(p.y[0]).toBeCloseTo(-19.2, 4);
     flyProjectiles(world, 30);
@@ -58,6 +58,11 @@ describe('knife', () => {
     for (let i = 0; i < 10; i++) weaponSystem(world, DT);
     const p = world.projectiles.cols;
     expect(world.projectiles.count).toBe(2);
-    expect([p.vx[0], p.damage[0], p.radius[0], p.scale[0]]).toEqual([750, 13, KNIFE_RADIUS * 2, 2]);
+    expect([p.vx[0], p.damage[0], p.radius[0], p.scale[0]]).toEqual([
+      750,
+      Math.fround(6.5 * (BASE_STATS.might + 1)),
+      KNIFE_RADIUS * 2,
+      2,
+    ]);
   });
 });

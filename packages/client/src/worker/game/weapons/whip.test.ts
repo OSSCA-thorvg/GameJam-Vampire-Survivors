@@ -1,4 +1,4 @@
-import { WEAPONS } from '@vs/shared';
+import { BASE_STATS, WEAPONS } from '@vs/shared';
 import { describe, expect, it } from 'vitest';
 import { hpByUid, indexEnemies, quietWorld, target } from '../combat-test-helpers';
 import { addWeapon, levelUpWeapon } from './owned';
@@ -8,6 +8,8 @@ import { weaponSystem } from './system';
 const DT = 1 / 60;
 const L1 = WEAPONS.whip.levels[0];
 if (!L1) throw new Error('no whip L1');
+/** HP left after one L1 strike through `weaponSystem`, which applies `BASE_STATS.might` (1.1 since #148). */
+const STRUCK = Math.fround(1000 - L1.damage * BASE_STATS.might);
 
 /** A quiet world holding only the Whip at `level`, about to strike (its cooldown ends on the next step). */
 function armed(level: number) {
@@ -57,7 +59,7 @@ describe('whip', () => {
     const right = target(world, 'bat', 50, 0);
     indexEnemies(world);
     weaponSystem(world, DT);
-    expect(world.enemies.cols.hp[left]).toBe(990);
+    expect(world.enemies.cols.hp[left]).toBe(STRUCK);
     expect(world.enemies.cols.hp[right]).toBe(1000);
     expect(w.burstFacingX).toBe(-1);
     const strike = world.fx.count - 1;
@@ -68,7 +70,7 @@ describe('whip', () => {
   it('leaves an enemy behind the player untouched at L1 and hits it 0.1 s later at L2', () => {
     for (const [level, expected] of [
       [1, 1000],
-      [2, 990],
+      [2, STRUCK],
     ] as const) {
       const { world } = armed(level);
       const front = target(world, 'bat', 60, 0);
@@ -80,7 +82,7 @@ describe('whip', () => {
         weaponSystem(world, DT);
         if (world.enemies.cols.hp[behind] !== before) hits.push(i);
       }
-      expect(world.enemies.cols.hp[front], `L${String(level)}`).toBe(990);
+      expect(world.enemies.cols.hp[front], `L${String(level)}`).toBe(STRUCK);
       expect(world.enemies.cols.hp[behind], `L${String(level)}`).toBe(expected);
       expect(hits).toEqual(level === 2 ? [7] : []);
     }

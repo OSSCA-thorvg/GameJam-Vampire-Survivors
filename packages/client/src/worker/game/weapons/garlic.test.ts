@@ -1,3 +1,4 @@
+import { BASE_STATS } from '@vs/shared';
 import { describe, expect, it } from 'vitest';
 import { indexEnemies, target } from '../combat-test-helpers';
 import { armed, DT, effectiveLevel, withStats } from './arm-test-helpers';
@@ -12,7 +13,7 @@ describe('garlic', () => {
     const outside = target(world, 'bat', 0, 50);
     indexEnemies(world);
     garlic.fire(world.weaponContext, w, effectiveLevel(world, w), 0);
-    expect(world.enemies.cols.hp[inside]).toBe(995);
+    expect(world.enemies.cols.hp[inside]).toBe(Math.fround(1000 - 5 * BASE_STATS.might));
     expect(world.enemies.cols.hp[outside]).toBe(1000);
     expect(world.enemies.cols.kbX[inside]).toBeGreaterThan(0);
     expect(world.enemies.cols.kbY[inside]).toBeLessThan(0);

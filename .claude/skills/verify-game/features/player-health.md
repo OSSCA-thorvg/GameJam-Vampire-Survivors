@@ -1,13 +1,13 @@
 # Player health
 
-Contact damage, invulnerability, death and the in-game HUD (#9): enemies touching the player lower its HP, at most one hit per 0.5 s with the sprite blinking meanwhile; at 0 HP the run stops; the HP bar, the `mm:ss` timer and the kill counter are drawn by ThorVG in the worker (ADR 0004), never in the DOM.
+Contact damage, invulnerability, death and the in-game HUD (#9): enemies touching the player lower its HP, at most one hit per 0.6 s (0.5 s before #148) with the sprite blinking meanwhile; at 0 HP the run stops; the HP bar, the `mm:ss` timer and the kill counter are drawn by ThorVG in the worker (ADR 0004), never in the DOM.
 
 ## Sub-features
 
-- **Contact damage:** standing still at minute 0, the first bats touch the player within about 5–10 s; `player.hp` drops from 120 (the default Warden, #14) in steps of an enemy's `contactDamage` less Warden's 1 armor (bat 5 − 1 = 4, ghoul 10 − 1 = 9), and a crowd deals only the strongest touching enemy's damage per hit.
-- **Invulnerability:** consecutive drops are at least 0.5 s of simulated time apart (`HIT_INVULN_SEC`; by sampling, at least 0.5 s minus one sampling interval), and `player.invulnerable` is `true` right after a hit.
+- **Contact damage:** standing still at minute 0, the first bats touch the player within about 5–10 s; `player.hp` drops from 140 (the default Warden, #14; 120 before #148) in steps of an enemy's `contactDamage` less Warden's armor (2 since #148's built-in PowerUp equivalent: bat 3 − 2 = 1, ghoul 5 − 2 = 3), and HP climbs back at 0.2 HP/s (`recovery`), and a crowd deals only the strongest touching enemy's damage per hit.
+- **Invulnerability:** consecutive drops are at least 0.6 s of simulated time apart (`HIT_INVULN_SEC`, 0.6 since #148; by sampling, at least 0.6 s minus one sampling interval), and `player.invulnerable` is `true` right after a hit.
 - **Damage feedback:** while invulnerable, the player sprite blinks (opacity 255 and 100, alternating every 0.08 s): screenshots during the window show it dimmed.
-- **HP bar:** a 40×6 bar 6 units under the player's feet, in world space; its red fill shrinks to `hp / maxHp` (screenshots: full at 120, about two thirds at 80).
+- **HP bar:** a 40×6 bar 6 units under the player's feet, in world space; its red fill shrinks to `hp / maxHp` (screenshots: full at 140 since #148, 120 before; about two thirds at 93).
 - **Timer and kills:** `mm:ss` at the top centre (from `timeS`, updated once per second) and a skull with the kill count at the top right (`kills`, rising as weapons kill enemies since #10; `weapons.md`).
 - **Not DOM:** while playing, `#app` holds only `canvas` and the empty `#screens` container; no DOM text matches `\d\d:\d\d`, and no element carries an HP, timer or kill class or id.
 - **Death:** at 0 HP the run stops (`state: 'results'`, `paused: true`, `timeS` frozen) and the results screen shows the survived time matching `timeS`, kills and level (`run-flow.md`).
@@ -23,10 +23,10 @@ Open the game URL, press Enter on "Start", Enter on the character select (the de
 
 1. `tabs_context_mcp` `{ createIfEmpty: true }`, use the group's new empty tab; `gif_creator` `start_recording`.
 2. `navigate` to `http://localhost:5180/`; `javascript_tool` `await window.__vsTest.waitFor((s) => s.state === 'title', 30000)`; `computer` `key` `Enter` twice (Start, Warden); `screenshot` → full HP bar under the player, `00:00` timer, skull and `0`.
-3. `javascript_tool` `JSON.stringify((await window.__vsTest.waitFor((s) => s.player.hp < s.player.maxHp, 30000)).player)` → `hp` 116 or 111, `invulnerable: true`; `screenshot` at once (the sprite dimmed) and `zoom` on the player → the bar's red fill shorter.
-4. `javascript_tool` sampling `player.hp` and `timeS` every 100 ms for 3 s (one `await` loop returning the array) → drops of 4 or 9, at least about 0.4 s of `timeS` apart.
+3. `javascript_tool` `JSON.stringify((await window.__vsTest.waitFor((s) => s.player.hp < s.player.maxHp, 30000)).player)` → `hp` about 139 or 137, `invulnerable: true`; `screenshot` at once (the sprite dimmed) and `zoom` on the player → the bar's red fill shorter.
+4. `javascript_tool` sampling `player.hp` and `timeS` every 100 ms for 3 s (one `await` loop returning the array) → drops of about 1 or 3 (recovery adds up to 0.02 HP per 100 ms), at least about 0.5 s of `timeS` apart.
 5. `javascript_tool` `[...document.querySelectorAll('#app *')].map((e) => e.tagName)` → `["CANVAS", "DIV"]`; `get_page_text` → empty.
-6. `javascript_tool` `JSON.stringify(await window.__vsTest.waitFor((s) => s.state === 'results', 90000))`; `get_page_text` → Survived matches `timeS`; `screenshot`.
+6. `javascript_tool` `JSON.stringify(await window.__vsTest.waitFor((s) => s.state === 'results', 300000))`; `get_page_text` → Survived matches `timeS`; `screenshot`.
 7. `gif_creator` `stop_recording`, `export` `{ download: true, filename: "issue-<N>-player-health.gif" }`; `tabs_close_mcp` on the tab.
 
 ### Playwright
@@ -56,7 +56,7 @@ interface PlayerSnap {
 }
 const player = (s: GameSnapshot) => s.player as PlayerSnap;
 
-test('player-health 1: contact lowers HP in hits at least 0.5 s apart, the sprite blinks and the bar shrinks', async ({
+test('player-health 1: contact lowers HP in hits at least HIT_INVULN_SEC apart, the sprite blinks and the bar shrinks', async ({
   page,
 }, testInfo) => {
   const ev = startEvidence(page, 'player-health-1-contact');
@@ -64,7 +64,7 @@ test('player-health 1: contact lowers HP in hits at least 0.5 s apart, the sprit
   try {
     const start = await startRun(page);
     expect(start.renderer).toBe('gl');
-    expect(player(start)).toMatchObject({ hp: 120, maxHp: 120, invulnerable: false }); // Warden (#14)
+    expect(player(start)).toMatchObject({ hp: 140, maxHp: 140, invulnerable: false }); // Warden (#14), 140 since #148
     await ev.shot('full-hp');
     // Stand still until the first bats arrive.
     const firstHit = await waitForSnapshot(page, (s) => player(s).hp < player(s).maxHp, 30_000);
@@ -89,13 +89,15 @@ test('player-health 1: contact lowers HP in hits at least 0.5 s apart, the sprit
     const span = (samples.at(-1)?.timeS ?? 0) - (samples[0]?.timeS ?? 0);
     ev.json('samples', { firstHit: player(firstHit), samples, drops, gaps, slack, span });
     expect(drops.length).toBeGreaterThanOrEqual(2);
-    for (const gap of gaps) expect(gap).toBeGreaterThanOrEqual(0.5 - slack - 1e-9);
-    // At most one hit per 0.5 s window over the sampled span (plus the window already open at the first sample).
-    expect(drops.length).toBeLessThanOrEqual(Math.floor(span / 0.5) + 1);
-    // Each step of HP is one contact hit less Warden's 1 armor (#14): a bat's 5 − 1 or a ghoul's 10 − 1.
+    for (const gap of gaps) expect(gap).toBeGreaterThanOrEqual(0.6 - slack - 1e-9);
+    // At most one hit per 0.6 s window (HIT_INVULN_SEC since #148) over the sampled span (plus the window already open
+    // at the first sample).
+    expect(drops.length).toBeLessThanOrEqual(Math.floor(span / 0.6) + 1);
+    // Each step of HP is one contact hit less Warden's 2 armor (#14, #148): a bat's 3 − 2 or a ghoul's 5 − 2, while
+    // recovery (0.2 HP/s since #148) adds a little between samples.
     for (let i = 1; i < samples.length; i++) {
       const d = (samples[i - 1]?.hp ?? 0) - (samples[i]?.hp ?? 0);
-      expect([0, 4, 9]).toContain(d);
+      expect(d <= 0 || [1, 3].some((hit) => Math.abs(d - hit) <= 0.1)).toBe(true);
     }
     expect(samples.some((s) => s.invulnerable)).toBe(true);
     await ev.shot('after-3s');
@@ -138,13 +140,13 @@ test('player-health 2: the HP bar, timer and kill counter are drawn by the worke
 test('player-health 3: at 0 HP the run stops and the results show the survived time, kills and level', async ({
   page,
 }, testInfo) => {
-  test.setTimeout(120_000);
+  test.setTimeout(360_000); // a standing Warden can live over 2 minutes since #148
   const ev = startEvidence(page, 'player-health-3-death');
   noteEvidence(testInfo, ev);
   try {
     await startRun(page);
     answerLevelUps(page); // #11: a run pauses on each level-up; answer it with 1 and keep playing
-    const dead = await waitForSnapshot(page, (s) => s.state === 'results', 90_000);
+    const dead = await waitForSnapshot(page, (s) => s.state === 'results', 300_000);
     await ev.shot('results');
     await page.waitForTimeout(1000);
     const later = await snapshot(page);
@@ -180,7 +182,7 @@ test('player-health 3: at 0 HP the run stops and the results show the survived t
 
 ## Gotchas
 
-- Since #10 the starting Whip kills bats on the facing side, so `kills` is no longer 0 at death; a standing player still dies in about 15 s at minute 0 (measured 15.5 s, 2026-11-08, #10).
+- Since #10 the starting Whip kills bats on the facing side, so `kills` is no longer 0 at death; a standing player still dies in about 15 s at minute 0 (measured 15.5 s, 2026-11-08, #10). Since #148's lower contact damage and 0.6 s invulnerability a standing Warden dies at about 25–45 s (balance probe, seeds 1–3; 2026-11-09, #148).
 
 - The first hit's timing depends on the random seed (spawn points); wait on `hp < maxHp` rather than a fixed time (2026-11-08, #9).
 - A drop is seen at the first sample after the hit, so sampled gaps can be shorter than 0.5 s by up to one sampling interval (about 0.1–0.2 s of `timeS` with snapshot latency); the journey allows exactly that slack and also caps the number of drops at one per 0.5 s of the sampled span (2026-11-08, #9).

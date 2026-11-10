@@ -15,7 +15,7 @@ The step between the title and a run (#14, ADR 0008, ADR 0009): four characters,
 
 ## How to get to it (user POV)
 
-Open the game URL and press Enter on "Start": the character select appears. No server and no debug key are needed. A run ends only by death (stand still for about 15–40 s, longer with Warden's 120 HP and armor).
+Open the game URL and press Enter on "Start": the character select appears. No server and no debug key are needed. A run ends only by death (stand still for about 1–2 minutes since #148, longer with Warden's 140 HP and 2 armor).
 
 ## Driving it
 

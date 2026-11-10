@@ -28,7 +28,7 @@ Open the game URL: the title screen appears once loading finishes. Press Enter, 
 3. `computer` `key` `Enter` → `state: "characterSelect"`; `key` `Enter` (Warden); `javascript_tool` `(await window.__vsTest.waitFor((s) => s.state === 'playing' && s.timeS > 3, 10000)).timeS`; `screenshot`.
 4. `computer` `key` `Escape`; `read_page` `{ filter: "interactive" }` → a dialog "Paused" with buttons "Resume" and "Quit to title"; read `timeS` and `enemyPositions` twice 1 s apart → equal; `screenshot`.
 5. `computer` `key` `Enter`; read `timeS` → a little above the frozen value; `screenshot`.
-6. Wait for death: `javascript_tool` `JSON.stringify(await window.__vsTest.waitFor((s) => s.state === 'results', 90000))`; `get_page_text` → "Game over", Survived `mm:ss` matching `timeS`, Kills equal to the snapshot's `kills`, Level equal to its `player.level` (press `1` on each level-up dialog on the way, #11); `screenshot`.
+6. Wait for death: `javascript_tool` `JSON.stringify(await window.__vsTest.waitFor((s) => s.state === 'results', 300000))`; `get_page_text` → "Game over", Survived `mm:ss` matching `timeS`, Kills equal to the snapshot's `kills`, Level equal to its `player.level` (press `1` on each level-up dialog on the way, #11); `screenshot`.
 7. `computer` `key` `Enter` (Retry); read `debug.paintsCreated` → the same as at step 2, `characterId` unchanged. Repeat steps 6–7 to taste, then `key` `ArrowDown`, `key` `Enter` (Title) → `state: "title"`.
 8. `gif_creator` `stop_recording`, `export` `{ download: true, filename: "issue-<N>-run-flow.gif" }`; `tabs_close_mcp` on the tab.
 
@@ -131,7 +131,7 @@ test('run-flow 1: title, Enter starts, Escape pauses with time and enemies froze
 test('run-flow 2: five runs of Retry and death then Title keep the paint count flat', async ({
   page,
 }, testInfo) => {
-  test.setTimeout(480_000);
+  test.setTimeout(1_500_000); // five standing deaths of up to about 3 minutes each since #148
   const ev = startEvidence(page, 'run-flow-2-retry');
   noteEvidence(testInfo, ev);
   try {
@@ -149,7 +149,7 @@ test('run-flow 2: five runs of Retry and death then Title keep the paint count f
     await page.keyboard.press('Enter'); // the default Warden (#14)
     for (let run = 1; run <= 5; run++) {
       const start = await waitForSnapshot(page, (s) => s.state === 'playing' && s.timeS < 1, 5_000);
-      const dead = await waitForSnapshot(page, (s) => s.state === 'results', 90_000);
+      const dead = await waitForSnapshot(page, (s) => s.state === 'results', 300_000);
       const resultTime = await page.locator('[data-stat="time"]').textContent();
       runs.push({
         run,
@@ -182,6 +182,6 @@ test('run-flow 2: five runs of Retry and death then Title keep the paint count f
 
 ## Gotchas
 
-- A run ends only by death until the 15-minute end (#17); standing still dies in about 15–30 s at minute 0 (bats deal 5 per hit, one hit per 0.5 s), so journey 2 takes about a minute and a half for five runs (2026-11-08, #9).
+- A run ends only by death until the 15-minute end (#17); standing still dies in about 15–30 s at minute 0 (bats deal 5 per hit, one hit per 0.5 s), so journey 2 takes about a minute and a half for five runs (2026-11-08, #9). Since #148 (bats 3 per hit, one hit per 0.6 s, the built-in PowerUp equivalent in `BASE_STATS`: Warden 140 HP, 2 armor, 0.2 HP/s recovery) a standing Warden dies in about 1–2 minutes (balance probe seeds 1–30: 39–206 s, over 2 minutes in 2 of 30), so journey 2's five runs take up to about 15 minutes and its 90 s death waits can time out; another character, or moving into the crowd, dies sooner (2026-11-10, #148).
 - Enter on a focused button activates it natively; the screens only handle Enter when focus is elsewhere, so a single press never activates two buttons. `page.keyboard.press('Enter')` right after a transition lands on the new screen's focused button (2026-11-08, #9).
 - `steps` keeps counting on the title and results screens (the loop runs under the screens); read `timeS`, which is 0 outside a run and frozen while paused or dead (2026-11-08, #9).

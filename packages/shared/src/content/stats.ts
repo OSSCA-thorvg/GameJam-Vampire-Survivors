@@ -25,24 +25,27 @@ export interface StatModifier {
 }
 
 /**
- * The stats with nothing owned. Factor stats (`might`, `area`, `cooldown`, `speed`, `duration`, `moveSpeed`,
+ * The stats with nothing owned. This game has no gold or meta progression (ADR 0008), so these carry a fixed built-in
+ * equivalent of the original's permanent PowerUps, about a third of their maximum ranks (#148): `might` 1.1, `armor` 1,
+ * `maxHp` `BASE_MAX_HP` 120, `recovery` 0.2, `cooldown` 0.95, `magnet` 1.25, `growth` 1.1 (initial values, tuned for
+ * playability, not a footage match). Factor stats (`might`, `area`, `cooldown`, `speed`, `duration`, `moveSpeed`,
  * `magnet`, `luck`, `growth`) sit around 1 and modifiers add to the factor; `cooldown` lower is faster. `amount`,
  * `armor` and `maxHp` are flat, and `recovery` is HP per second.
  */
 export const BASE_STATS: Readonly<StatBlock> = Object.freeze({
-  might: 1,
+  might: 1.1,
   area: 1,
-  cooldown: 1,
+  cooldown: 0.95,
   amount: 0,
   speed: 1,
   duration: 1,
   maxHp: BASE_MAX_HP,
-  recovery: 0,
-  armor: 0,
+  recovery: 0.2,
+  armor: 1,
   moveSpeed: 1,
-  magnet: 1,
+  magnet: 1.25,
   luck: 1,
-  growth: 1,
+  growth: 1.1,
 });
 
 /** Every `StatId`, in `BASE_STATS` order. */

@@ -56,6 +56,8 @@ describe('collection', () => {
 describe('effects', () => {
   it('Floor Chicken heals 30, capped at max HP', () => {
     const world = quietWorld();
+    // No recovery (BASE_STATS has 0.2 HP/s since #148), so the step's HP change is the heal alone.
+    world.player.stats.recovery = 0;
     world.player.hp = 50;
     collect(world, 'floorChicken');
     expect(world.player.hp).toBe(80);
@@ -116,6 +118,8 @@ describe('effects', () => {
 describe('Orologion freeze', () => {
   it('stops chase and separation and contact damage for 10 s, then enemies move again', () => {
     const world = quietWorld();
+    // No recovery (BASE_STATS has 0.2 HP/s since #148), so unchanged HP shows that no contact damage landed.
+    world.player.stats.recovery = 0;
     target(world, 'bat', 200, 0);
     target(world, 'ghoul', 0, -150);
     // Touching the player.

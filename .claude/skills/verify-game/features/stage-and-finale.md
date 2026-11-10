@@ -4,8 +4,8 @@ The one stage's schedule and its end (#17, ADRs 0005, 0007, 0008): a wave per mi
 
 ## Sub-features
 
-- **Wave table:** `STAGE.waves` in `packages/shared/src/content/stage.ts`, 15 waves (minute 0–14), `minAlive` 15 → 300, a batch of 3 → 20 every 2.0 → 0.5 s, the mix moving from bats and ghouls to skeletons (from 3:00), wisps (5:00), brutes (7:00) and wraiths (10:00). Initial values, untuned (the project owner decided not to tune against the original). `enemies` rises over the run (15 at 0:00, about 90 at 5:00, about 200 at 10:00, about 390 at 14:00 in #17's run) and never exceeds 400.
-- **Events:** `STAGE.events` fires each event once at its time (`eventsFired` counts them, 0 → 17). Every minute from 1:00 through 14:00 has an elite or boss. The 1:00 carrier is an elite bat with a red marker. `bosses` lists `reaper5` after 5:00 and `reaper10` after 10:00 until defeated. The 6:30 ring of bats, 12:00 line of wisps and 13:30 pair of elite wraiths remain. At 12:00 both a swarm and an elite event fire. A boss or a scheduled elite at the 400 cap takes the farthest normal enemy’s slot.
+- **Wave table:** `STAGE.waves` in `packages/shared/src/content/stage.ts`, 15 waves (minute 0–14), `minAlive` 12 → 230 and a live cap `maxAlive` of 2 × `minAlive`, at most 400 (the periodic batch is skipped at or above it, #148), a batch of 3 → 16 every 2.2 → 0.7 s, the mix moving from bats and ghouls to skeletons (from 3:00), wisps (5:00), brutes (7:00) and wraiths (10:00). Initial values, tuned for playability with the balance probe (#148), not against the original. `enemies` rises over the run and never exceeds 400 (#17's run before the retune: 15 at 0:00, about 90 at 5:00, about 200 at 10:00, about 390 at 14:00).
+- **Events:** `STAGE.events` fires each event once at its time (`eventsFired` counts them, 0 → 17). Every minute from 1:00 through 14:00 has an elite or boss. The 1:00 carrier is an elite bat with a red marker. `bosses` lists `reaper5` after 5:00 and `reaper10` after 10:00 until defeated. The 6:30 ring of bats, 12:00 line of wisps and 13:30 pair of elite wraiths remain. At 12:00 both a swarm and an elite event fire. A boss or a scheduled elite at the 400 cap takes the farthest normal enemy’s slot. Since #148 the ring has 30 bats and the line 45 wisps; elites (the chest carriers included) neither count toward nor are held back by the wave's `maxAlive`.
 - **Clear and Death (single player):** at 15:00 `cleared` turns true, every normal enemy disappears without gems or kills, the spawner and the events stop, and Death (`boss.death`, speed 200, contact 65535, ignores armor) spawns; bosses still alive stay. `enemies` equals `bosses.length`. The run goes on until Death (or anything else) kills the player.
 - **Versus finale (`startRun.finale: 'end'`, #20):** the run ends at 15:00 with `cleared: true` and no Death (ADR 0005); a `'versus'` run always uses it (#20); driven at level 5 in `versus-match.md` journey 3.
 - **Results:** heading "Stage cleared" when the run reached 15:00 (even if Death killed the player afterwards), otherwise "Game over"; Survived (`mm:ss`), Kills, Level, Character (display name), then Weapons (`<name> Lv n`, `<damage> dmg`, most damage first; damage counts only up to each enemy's remaining HP) and Passives (`<name>`, `Lv n`) side by side; Retry and Title as in `run-flow.md`.
@@ -155,13 +155,13 @@ test('stage 1+2: density, events, bosses, clear at 15:00, Death and "Stage clear
 test('stage 3: dying early shows "Game over" with the survived time', async ({
   page,
 }, testInfo) => {
-  test.setTimeout(180_000);
+  test.setTimeout(360_000); // a standing Warden can live over 2 minutes since #148
   const ev = startEvidence(page, 'stage-3-early-death');
   noteEvidence(testInfo, ev);
   try {
     await startRun(page);
     const stop = answerLevelUps(page);
-    const over = await waitForSnapshot(page, (s) => s.state === 'results', 150_000);
+    const over = await waitForSnapshot(page, (s) => s.state === 'results', 300_000);
     await stop();
     const heading = page.getByRole('heading', { level: 2 });
     await expect(heading).toHaveText('Game over');
@@ -184,4 +184,6 @@ test('stage 3: dying early shows "Game over" with the survived time', async ({
 - A fast-forward stops at the first pending level-up or chest, so `]` advances less than 60 s when a dialog opens; `forwardTo` answers and presses again, and its samples are per press, not per exact minute. It overshoots its target by up to 60 s, so the cleared screenshot is taken some seconds after 15:00 (2026-11-08, #17).
 - `reaper5` is usually killed within seconds of 5:00 by the weapons an invulnerable, levelled player has, so it shows in only one or two samples; `reaper10` lasted until the finale in #17's runs. The journey checks that each was present after its time, not that it lives (2026-11-08, #17).
 - The weapon damage totals are large in a fast-forwarded invulnerable run (the Cross dealt about 1.3 million over 15:45 in #17's run, about 15 000 kills), because the crowd stays packed around the player; they are untuned (2026-11-08, #17).
-- The wave densities and event times are the issue's initial values; the owner decided not to tune them against footage, so `gameplay.md` § Enemies and waves records them as untuned (2026-11-08, #17).
+- The wave densities and event times are the issue's initial values; the owner decided not to tune them against footage, so `gameplay.md` § Enemies and waves records them as untuned (2026-11-08, #17). #148 retuned them for playability against the headless balance probe, still not against footage (2026-11-09, #148).
+- Since #148 a Warden standing still dies in about 1–2 minutes (balance probe, seeds 1–30: 39–206 s, over 2 minutes in 2 of 30; 0:14–0:16 before), so journey 3's standing-still death ("stage 3") can take over 3 real minutes with the dialogs; so it waits up to 300 s (2026-11-10, #148).
+- Since #148 the batches stop while `maxAlive` normal enemies live, so an invulnerable fast-forwarded run with few kills holds a smaller crowd than #17's samples; bosses and elites do not count toward the cap (2026-11-09, #148).

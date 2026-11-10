@@ -15,7 +15,7 @@ Single-player runs leave a record in the browser (#143, ADR 0022): bests per cha
 
 ## How to get to it (user POV)
 
-Open the game URL; the Records button is the title's third button. A run ends when the player dies (stand still for about 15–40 s as Warden). Debug keys used only for preconditions: `I` (invulnerable) and `]` (fast-forward 60 s) to reach a long run or 15:00 (`stage-and-finale.md`). Journey 6 needs the server (`cp -n .env.example .env`, `pnpm verify:launch --with-server`) and two browser contexts as in `versus-match.md` journey 1.
+Open the game URL; the Records button is the title's third button. A run ends when the player dies (stand still for about 1–2 minutes as Warden since #148, sometimes longer). Debug keys used only for preconditions: `I` (invulnerable) and `]` (fast-forward 60 s) to reach a long run or 15:00 (`stage-and-finale.md`). Journey 6 needs the server (`cp -n .env.example .env`, `pnpm verify:launch --with-server`) and two browser contexts as in `versus-match.md` journey 1.
 
 ## Driving it
 

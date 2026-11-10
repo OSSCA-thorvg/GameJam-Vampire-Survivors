@@ -28,15 +28,23 @@ it('defines the four characters with unique ids, distinct starting weapons and c
   }
 });
 
-it('starts every character faster than a bat, so an attentive player can outrun bats (#105)', () => {
-  for (const c of CHARACTERS) {
+it('starts every character faster than every normal enemy, so an attentive player can kite (#105, #148)', () => {
+  const speeds = CHARACTERS.map((c) => {
     const factor = c.modifiers
       .filter((m) => m.stat === 'moveSpeed')
       .reduce((sum, m) => sum + m.add, BASE_STATS.moveSpeed);
-    expect(BASE_MOVE_SPEED * factor, c.id).toBeGreaterThan(ENEMIES.bat.speed);
+    return BASE_MOVE_SPEED * factor;
+  });
+  // The slowest character, Warden, moves 133.
+  const slowest = Math.min(...speeds);
+  expect(slowest).toBeCloseTo(133, 6);
+  for (const e of Object.values(ENEMIES)) {
+    if (e.boss) continue;
+    expect(e.speed, e.id).toBeLessThan(slowest);
   }
-  // 0.85 × BASE_MOVE_SPEED (initial value, untuned); the slowest character, Warden, moves 133.
+  // 0.85 × BASE_MOVE_SPEED (#105) and 0.9 × the Warden (#148); initial values, tuned for playability.
   expect(ENEMIES.bat.speed).toBe(Math.round(0.85 * BASE_MOVE_SPEED));
+  expect(ENEMIES.wisp.speed).toBe(125);
 });
 
 it('finds a character by id and returns undefined for an unknown id', () => {

@@ -108,7 +108,7 @@ it('scales the HP fill by hp / maxHp under the player and keeps the frame 6 unit
   const { view, world, byId } = setup();
   world.player.x = 100;
   world.player.y = 50;
-  world.player.hp = 25;
+  world.player.hp = world.player.maxHp / 4;
   view.render(world);
   const fill = hpFill(byId)?.matrix;
   expect(fill?.e11).toBe(0.25);
@@ -149,7 +149,8 @@ it('blinks the player between 255 and 100 every 0.08 s while invulnerable, writi
   }
   view.render(world);
   expect(new Set(seen)).toEqual(new Set([100, 255]));
-  expect(seen[0]).toBe(100);
+  // The phase of the first frame follows HIT_INVULN_SEC: dim when floor(HIT_INVULN_SEC / 0.08) is even.
+  expect(seen[0]).toBe(Math.floor(HIT_INVULN_SEC / 0.08) % 2 === 0 ? 100 : 255);
   // 0.08 s is 4.8 steps: no phase lasts longer than 5 steps while invulnerable.
   let run = 1;
   for (let i = 1; i < 30; i++) {

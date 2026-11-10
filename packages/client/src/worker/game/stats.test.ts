@@ -1,4 +1,13 @@
-import { BASE_MOVE_SPEED, BASE_STATS, PLAYER_RADIUS, WEAPONS, type PassiveId } from '@vs/shared';
+import {
+  BASE_MAX_HP,
+  BASE_MOVE_SPEED,
+  BASE_STATS,
+  ENEMIES,
+  PLAYER_RADIUS,
+  WEAPONS,
+  type PassiveId,
+  type StatBlock,
+} from '@vs/shared';
 import { describe, expect, it } from 'vitest';
 import { cleanupSystem } from './combat';
 import { hpByUid, indexEnemies, quietWorld, target } from './combat-test-helpers';
@@ -13,6 +22,7 @@ import type { World } from './world';
 import { createBaseWorld } from './base-world';
 
 const DT = 1 / 60;
+const WHIP_L1 = WEAPONS.whip.levels[0]?.damage ?? NaN;
 
 function withPassive(world: World, id: PassiveId, level: number): World {
   addPassive(world, id);
@@ -25,20 +35,20 @@ describe('recomputeStats', () => {
   it('starts every world at BASE_STATS with the #7/#9 base fields', () => {
     const world = createBaseWorld({ seed: 1 });
     expect(world.player.stats).toEqual(BASE_STATS);
-    expect(world.player.maxHp).toBe(100);
-    expect(world.player.hp).toBe(100);
-    expect(world.player.armor).toBe(0);
+    expect(world.player.maxHp).toBe(BASE_MAX_HP);
+    expect(world.player.hp).toBe(BASE_MAX_HP);
+    expect(world.player.armor).toBe(BASE_STATS.armor);
     expect(world.player.moveSpeed).toBe(BASE_MOVE_SPEED);
   });
 
-  it('adds perLevel × level: Spinach Lv3 gives might 1.3, Empty Tome Lv5 gives cooldown 0.6', () => {
+  it('adds perLevel × level to BASE_STATS: Spinach Lv3 gives might +0.3, Empty Tome Lv5 gives cooldown -0.4', () => {
     expect(withPassive(createBaseWorld({ seed: 1 }), 'spinach', 3).player.stats.might).toBeCloseTo(
-      1.3,
+      BASE_STATS.might + 0.3,
       10,
     );
     expect(
       withPassive(createBaseWorld({ seed: 1 }), 'emptyTome', 5).player.stats.cooldown,
-    ).toBeCloseTo(0.6, 10);
+    ).toBeCloseTo(BASE_STATS.cooldown - 0.4, 10);
   });
 
   it('applies character and run modifiers, and derives armor and move speed', () => {
@@ -46,7 +56,7 @@ describe('recomputeStats', () => {
     world.player.characterModifiers.push({ stat: 'moveSpeed', add: 0.2 });
     world.player.runModifiers.push({ stat: 'armor', add: 2 });
     recomputeStats(world);
-    expect(world.player.armor).toBe(2);
+    expect(world.player.armor).toBe(BASE_STATS.armor + 2);
     expect(world.player.moveSpeed).toBeCloseTo(BASE_MOVE_SPEED * 1.2, 10);
   });
 
@@ -54,13 +64,13 @@ describe('recomputeStats', () => {
     const world = createBaseWorld({ seed: 1 });
     world.player.hp = 50;
     withPassive(world, 'hollowHeart', 1);
-    expect(world.player.maxHp).toBe(120);
+    expect(world.player.maxHp).toBe(BASE_MAX_HP + 20);
     expect(world.player.hp).toBe(70);
-    world.player.hp = 120;
+    world.player.hp = BASE_MAX_HP + 20;
     world.passives.length = 0;
     recomputeStats(world);
-    expect(world.player.maxHp).toBe(100);
-    expect(world.player.hp).toBe(100);
+    expect(world.player.maxHp).toBe(BASE_MAX_HP);
+    expect(world.player.hp).toBe(BASE_MAX_HP);
   });
 
   it('keeps the same stats object and is idempotent', () => {
@@ -71,7 +81,7 @@ describe('recomputeStats', () => {
     recomputeStats(world);
     expect(world.player.stats).toBe(stats);
     expect(world.player.stats).toEqual(before);
-    expect(world.player.maxHp).toBe(100);
+    expect(world.player.maxHp).toBe(BASE_MAX_HP);
   });
 
   it('armor from the stats never reduces a hit below 1', () => {
@@ -83,7 +93,7 @@ describe('recomputeStats', () => {
     const { x, y } = world.enemies.cols;
     world.enemyGrid.rebuild(x, y, world.enemies.count);
     contactDamageSystem(world, DT);
-    expect(world.player.hp).toBe(99);
+    expect(world.player.hp).toBe(BASE_MAX_HP - 1);
   });
 });
 
@@ -120,9 +130,19 @@ describe('passive inventory', () => {
 });
 
 describe('weapons read the stats', () => {
-  it('passes every WeaponLevel value through the helpers, unchanged at BASE_STATS', () => {
+  it('passes every WeaponLevel value through the helpers, unchanged at identity stats', () => {
+    // Identity factors, not BASE_STATS: since #148 BASE_STATS carries the built-in PowerUps (might 1.1, cooldown 0.95).
+    const identity: StatBlock = {
+      ...BASE_STATS,
+      might: 1,
+      area: 1,
+      cooldown: 1,
+      amount: 0,
+      speed: 1,
+      duration: 1,
+    };
     for (const def of Object.values(WEAPONS))
-      for (const lv of def.levels) expect(applyStats(lv, BASE_STATS, { ...lv })).toEqual(lv);
+      for (const lv of def.levels) expect(applyStats(lv, identity, { ...lv })).toEqual(lv);
     const lv = WEAPONS.magicWand.levels[0];
     if (!lv) throw new Error('no wand L1');
     const s = {
@@ -145,7 +165,7 @@ describe('weapons read the stats', () => {
     });
   });
 
-  it('Spinach Lv5 makes a level-1 Whip strike deal 15, and Candelabrador reaches farther', () => {
+  it('Spinach Lv5 adds 50% to a level-1 Whip strike, and Candelabrador reaches farther', () => {
     const strike = (passive: PassiveId | null, level: number, x: number): number | undefined => {
       const world = quietWorld();
       if (passive) withPassive(world, passive, level);
@@ -157,17 +177,17 @@ describe('weapons read the stats', () => {
       weaponSystem(world, DT);
       return 1000 - (hpByUid(world).get(uid) ?? 1000);
     };
-    expect(strike(null, 0, 40)).toBe(10);
-    expect(strike('spinach', 5, 40)).toBeCloseTo(15, 10);
+    expect(strike(null, 0, 40)).toBeCloseTo(WHIP_L1 * BASE_STATS.might, 10);
+    expect(strike('spinach', 5, 40)).toBeCloseTo(WHIP_L1 * (BASE_STATS.might + 0.5), 10);
     // A bat (radius 12) 20 units past the area-1 box is out of reach, and in reach with area 1.3.
     const beyond = WHIP_WIDTH + 12 + 20;
     expect(strike(null, 0, beyond)).toBe(0);
-    expect(strike('candelabrador', 3, beyond)).toBe(10);
+    expect(strike('candelabrador', 3, beyond)).toBeCloseTo(WHIP_L1 * BASE_STATS.might, 10);
   });
 });
 
 describe('Spinach and kill time (#12)', () => {
-  /** Whip L1 strikes on one real ghoul (15 HP) until it dies; returns the strikes and `damageDealt`. */
+  /** Whip L1 strikes on one real ghoul until it dies; returns the strikes and `damageDealt`. */
   function strikesToKillGhoul(spinachLevel: number) {
     const world = quietWorld();
     if (spinachLevel > 0) withPassive(world, 'spinach', spinachLevel);
@@ -191,11 +211,19 @@ describe('Spinach and kill time (#12)', () => {
     return { strikes, dealt: { ...world.damageDealt } };
   }
 
-  it('a ghoul needs two level-1 Whip strikes, and one with Spinach Lv5 (10 × 1.5 = 15)', () => {
-    expect(strikesToKillGhoul(0)).toEqual({ strikes: 2, dealt: { hits: 2, total: 20 } });
+  it('a ghoul needs two level-1 Whip strikes, and one with Spinach Lv5', () => {
+    const plain = WHIP_L1 * BASE_STATS.might;
+    const boosted = WHIP_L1 * (BASE_STATS.might + 0.5);
+    // The premise: one plain strike leaves the ghoul alive, one boosted strike kills it.
+    expect(plain).toBeLessThan(ENEMIES.ghoul.maxHp);
+    expect(boosted).toBeGreaterThanOrEqual(ENEMIES.ghoul.maxHp);
+    const base = strikesToKillGhoul(0);
+    expect(base.strikes).toBe(2);
+    expect(base.dealt.hits).toBe(2);
+    expect(base.dealt.total).toBeCloseTo(2 * plain, 10);
     const spinach = strikesToKillGhoul(5);
     expect(spinach.strikes).toBe(1);
     expect(spinach.dealt.hits).toBe(1);
-    expect(spinach.dealt.total).toBeCloseTo(15, 10);
+    expect(spinach.dealt.total).toBeCloseTo(boosted, 10);
   });
 });
