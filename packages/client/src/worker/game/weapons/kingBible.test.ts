@@ -24,16 +24,16 @@ describe('king bible', () => {
           `step ${String(i)}`,
         ).toBeCloseTo(75 * 1.2, 3);
     }
-    // First out after the raw 3 s cooldown (180 steps), out for 3 s, then the cooldown counts 3 s × BASE_STATS.cooldown
-    // (2.85 s since #148) with no books; float drift in `activeLeft` adds one step to each activation, and the cooldown
-    // starts counting in the step the books go away.
+    // Every cooldown, the first included (#154), counts 3 s × BASE_STATS.cooldown (2.85 s since #148) with no books; the
+    // books are then out for 3 s. Float drift in `activeLeft` adds one step to each activation, and the cooldown starts
+    // counting in the step the books go away.
     const cooldown = Math.round(3 * BASE_STATS.cooldown * 60);
     const changes = counts.flatMap((c, i) => (c !== (counts[i - 1] ?? 0) ? [[i, c]] : []));
     expect(changes).toEqual([
-      [180, 2],
-      [361, 0],
-      [360 + cooldown, 2],
-      [360 + cooldown + 181, 0],
+      [cooldown, 2],
+      [cooldown + 181, 0],
+      [2 * cooldown + 180, 2],
+      [2 * cooldown + 180 + 181, 0],
     ]);
   });
 

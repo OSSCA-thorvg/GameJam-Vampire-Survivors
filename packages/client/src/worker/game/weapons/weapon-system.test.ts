@@ -1,4 +1,4 @@
-import { BASE_STATS, MAX_WEAPON_SLOTS, WEAPONS } from '@vs/shared';
+import { BASE_STATS, MAX_WEAPON_SLOTS, MIN_COOLDOWN_SEC, WEAPONS } from '@vs/shared';
 import { describe, expect, it } from 'vitest';
 import { quietWorld } from '../combat-test-helpers';
 import { addWeapon, grantNextWeapon, levelUpWeapon } from './owned';
@@ -18,9 +18,10 @@ describe('weapon system', () => {
       if (world.fx.count > before) fireSteps.push(i);
     }
     // No enemies: each strike adds only its `weapon.whip` effect, and nothing expires without the fx system.
-    // The first strike comes after the raw 1.35 s (81 steps); each later one after 1.35 s × BASE_STATS.cooldown (#148).
+    // Every strike, the first included (#154), comes 1.35 s × BASE_STATS.cooldown (#148) after the last: 77 steps.
     const every = Math.ceil(1.35 * BASE_STATS.cooldown * 60);
-    expect(fireSteps).toEqual([81, 81 + every, 81 + 2 * every, 81 + 3 * every]);
+    expect(every).toBe(77);
+    expect(fireSteps).toEqual([every, 2 * every, 3 * every, 4 * every]);
   });
 
   it('fires a burst of amount 3 as 3 projectiles 0.1 s apart', () => {
@@ -81,5 +82,29 @@ describe('weapon system', () => {
       if (world.fx.count > before) fires++;
     }
     expect(fires).toBe(12);
+  });
+
+  it("waits a new weapon's first burst after the cooldown stat, like every later burst (#154)", () => {
+    const world = quietWorld();
+    world.player.stats.cooldown = 0.8;
+    addWeapon(world, 'whip');
+    expect(world.weapons[0]?.cooldownLeft).toBeCloseTo(1.35 * 0.8, 10);
+    const fireSteps: number[] = [];
+    for (let i = 1; i <= 120; i++) {
+      const before = world.fx.count;
+      weaponSystem(world, DT);
+      if (world.fx.count > before) fireSteps.push(i);
+    }
+    // 1.35 s × 0.8 = 1.08 s, 64.8 steps: the first strike lands on step 65, not the raw 1.35 s (step 81).
+    const every = Math.ceil(1.35 * 0.8 * 60);
+    expect(every).toBe(65);
+    expect(fireSteps).toEqual([every]);
+  });
+
+  it('never waits less than MIN_COOLDOWN_SEC for a first burst', () => {
+    const world = quietWorld();
+    world.player.stats.cooldown = 0;
+    addWeapon(world, 'whip');
+    expect(world.weapons[0]?.cooldownLeft).toBe(MIN_COOLDOWN_SEC);
   });
 });

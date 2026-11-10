@@ -1,4 +1,12 @@
-import { MAX_WEAPON_SLOTS, WEAPONS, WEAPON_LIST, type WeaponDef, type WeaponId } from '@vs/shared';
+import {
+  MAX_WEAPON_SLOTS,
+  WEAPONS,
+  WEAPON_LIST,
+  effCooldown,
+  type StatBlock,
+  type WeaponDef,
+  type WeaponId,
+} from '@vs/shared';
 import { PATTERNS } from './patterns/registry';
 
 /** A weapon the player holds (#10); its index in `world.weapons` is its slot. */
@@ -33,11 +41,15 @@ export interface WeaponsState {
   weapons: OwnedWeapon[];
 }
 
+/** What `addWeapon` reads: the weapons and the player's current stats, for the first burst's cooldown (#154). */
+export type WeaponsOwner = WeaponsState & { player: { readonly stats: Readonly<StatBlock> } };
+
 /**
- * Adds `id` at level 1 in the next slot; its first burst comes after one cooldown. False when it is already owned or
- * all `MAX_WEAPON_SLOTS` are taken. Used by `createWorld`, the `G` debug key and #11's level-up choices.
+ * Adds `id` at level 1 in the next slot; its first burst comes after one cooldown after `player.stats`
+ * (`effCooldown`, #154), like every later burst. False when it is already owned or all `MAX_WEAPON_SLOTS` are taken.
+ * Used by `createWorld`, the `G` debug key and #11's level-up choices.
  */
-export function addWeapon(world: WeaponsState, id: WeaponId): boolean {
+export function addWeapon(world: WeaponsOwner, id: WeaponId): boolean {
   if (world.weapons.length >= MAX_WEAPON_SLOTS) return false;
   if (world.weapons.some((w) => w.def.id === id)) return false;
   const def = WEAPONS[id];
@@ -47,7 +59,7 @@ export function addWeapon(world: WeaponsState, id: WeaponId): boolean {
     def,
     slot: world.weapons.length,
     level: 1,
-    cooldownLeft: def.levels[0]?.cooldownSec ?? 0,
+    cooldownLeft: effCooldown(def.levels[0]?.cooldownSec ?? 0, world.player.stats),
     burstLeft: 0,
     burstTimer: 0,
     shot: 0,
@@ -81,7 +93,7 @@ export function levelUpWeapon(world: WeaponsState, id: WeaponId): boolean {
 }
 
 /** The `G` debug key (dev builds): adds the first weapon of `WEAPON_LIST` not owned yet. Returns its ID, or null. */
-export function grantNextWeapon(world: WeaponsState): WeaponId | null {
+export function grantNextWeapon(world: WeaponsOwner): WeaponId | null {
   for (const id of WEAPON_LIST) if (addWeapon(world, id)) return id;
   return null;
 }

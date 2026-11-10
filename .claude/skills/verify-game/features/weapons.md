@@ -5,7 +5,7 @@ The weapon system (#10, #13, ADR 0008): owned weapons fire on their own cooldown
 ## Sub-features
 
 - **Attack origin (#157):** attacks launch from or center on the player's torso, 19.2 world units above `player.y` (the feet). Whip strikes and projectiles begin there. King Bible and Garlic follow the moving torso. This also applies to evolutions.
-- **Starting Whip:** at run start `snapshot().weapons` is `[{ id: 'whip', level: 1 }]`. Standing still, the Whip strikes every 1.35 s of run time (first at 1.35 s): a white-and-yellow arc (`weapon.whip`, 160×40 at area 1) from the torso toward the facing side, shown for 0.15 s. The player starts facing right (`player.facingX: 1`).
+- **Starting Whip:** at run start `snapshot().weapons` is `[{ id: 'whip', level: 1 }]`. Standing still, the Whip strikes every 1.2825 s of run time, the first included (1.35 s × the cooldown stat, `BASE_STATS.cooldown` 0.95 since #148; the first burst follows the stat since #154): a white-and-yellow arc (`weapon.whip`, 160×40 at area 1) from the torso toward the facing side, shown for 0.15 s. The player starts facing right (`player.facingX: 1`).
 - **Facing side:** after a tap of ArrowLeft (`player.facingX: -1`) the next arc is on the left, mirrored. Whip L2+ adds a second strike on the opposite side 0.1 s later (reach it only through #11's level-ups; unit-tested in `whip.test.ts`).
 - **Hits and kills:** every enemy whose circle overlaps the strike box loses the strike's damage once per strike. Bats (5 HP) die from one L1 strike (10 damage): they disappear with a grey puff (`fx.enemyDeath`) and `snapshot().kills` rises; the HUD skull counter shows the same number.
 - **Flash and knockback:** a hit enemy shows a star spark (`fx.hit`) and is dimmed (opacity 140) for 0.1 s, then back to full; it is pushed away from the attack origin at 200 units/s × `1 - knockbackResist` for 0.12 s (about 24 units for a bat). Observable on enemies that survive, so drive it with journey 5 (Whip L1 damage 1).
@@ -32,7 +32,7 @@ Open the game URL, press Enter on "Start" and Enter on the character select (the
 
 1. `tabs_context_mcp` `{ createIfEmpty: true }`, use the group's new empty tab; `gif_creator` `start_recording`.
 2. `navigate` to `http://localhost:5180/`; `javascript_tool` `await window.__vsTest.waitFor((s) => s.state === 'title', 30000)`; `computer` `key` `Enter` twice (Start, then Warden on the character select, #14); `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).weapons)` → `[{"id":"whip","level":1}]`.
-3. Wait about 6 s; take `screenshot`s in quick succession until one shows the arc to the right of the player (it shows for 0.15 s of every 1.35 s); `javascript_tool` `(await window.__vsTest.snapshot()).kills` → above 0 and equal to the HUD's skull counter on the screenshot (`zoom` the top right).
+3. Wait about 6 s; take `screenshot`s in quick succession until one shows the arc to the right of the player (it shows for 0.15 s of every 1.2825 s); `javascript_tool` `(await window.__vsTest.snapshot()).kills` → above 0 and equal to the HUD's skull counter on the screenshot (`zoom` the top right).
 4. `computer` `key` `ArrowLeft`; `javascript_tool` `(await window.__vsTest.snapshot()).player.facingX` → `-1`; `screenshot`s until one shows the arc on the left.
 5. `computer` `key` `g`; `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).weapons)` → whip and magicWand at level 1; `screenshot`s → a cyan bolt leaving the torso toward the nearest bat, which disappears with a puff; read `projectiles` a few times → at most 600.
 6. `javascript_tool` `JSON.stringify(await window.__vsTest.waitFor((s) => s.state === 'results', 90000))`; `get_page_text` → Kills equal to that snapshot's `kills`; `screenshot` (the HUD counter shows the same number behind the dialog).
@@ -75,8 +75,11 @@ const torsoY = (p: PlayerSnap) => p.y - 19.2;
 const rows = (s: GameSnapshot) => s.enemyPositions as EnemyRow[];
 const weapons = (s: GameSnapshot) => s.weapons as { id: string; level: number }[];
 
-/** Whip L1 strikes every 1.35 s of run time, first at 1.35 s; its arc shows for 0.15 s (`weapons.ts`). */
-const WHIP_COOLDOWN = 1.35;
+/**
+ * Whip L1 strikes every 1.35 s × the cooldown stat (Warden 0.95, `BASE_STATS` since #148) of run time, the first
+ * included (#154); its arc shows for 0.15 s (`weapons.ts`).
+ */
+const WHIP_COOLDOWN = 1.35 * 0.95;
 const WHIP_SHOWN = 0.15;
 const sinceStrike = (t: number) => t - Math.floor(t / WHIP_COOLDOWN + 1e-9) * WHIP_COOLDOWN;
 /** Whip L1 damage in the data; journey 5 sets it to 1 and runs with `VERIFY_WHIP_DAMAGE=1`. */
@@ -1190,7 +1193,7 @@ for (const target of [1, 1.5]) {
 
 ## Gotchas
 
-- The arc shows for only 0.15 s, so journey 1 waits in the page for the step a strike happens (run time a multiple of 1.35 s), screenshots at once, then checks that the snapshot taken after the screenshot is still inside the 0.15 s; otherwise it retries the next strike. Pausing with Escape to freeze the arc does not help: the pause dialog covers the player (2026-11-08, #10).
+- The arc shows for only 0.15 s, so journey 1 waits in the page for the step a strike happens (run time a multiple of `WHIP_COOLDOWN`, 1.35 s × 0.95 since #148 and #154), screenshots at once, then checks that the snapshot taken after the screenshot is still inside the 0.15 s; otherwise it retries the next strike. Pausing with Escape to freeze the arc does not help: the pause dialog covers the player (2026-11-08, #10).
 - Bats have 5 HP and the Whip L1 deals 10, so hit bats die in the same step: their flash and knockback are only observable on survivors, hence journey 5 (damage 1). The `moves` in `strikes.json` show bats in the box about 23 units farther from the player after the strike (200 units/s for 0.12 s) (2026-11-08, #10).
 - A bolt reaches a bat about 100 units away in 0.25 s; single screenshots often miss it, so journey 3 takes a burst of four (2026-11-08, #10).
 - The player still dies in about 15 s standing still at minute 0 (about 1–2 minutes (balance probe seeds 1–30: 39–206 s, over 2 minutes in 2 of 30) since #148), since the Whip covers only one side: long journeys need #17's invulnerability (`KeyI`), as in `enemies.md` (2026-11-08, #10).

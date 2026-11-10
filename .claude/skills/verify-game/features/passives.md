@@ -191,8 +191,11 @@ const keepsTen = (c: Card) =>
 const whipL1Only: Avoid = (c) =>
   (c.kind === 'newWeapon' || c.kind === 'upgradeWeapon') && !keepsTen(c);
 
-/** Whip L1 strikes every 1.35 s of run time; its arc shows for 0.15 s (`weapons.md`). */
-const WHIP_COOLDOWN = 1.35;
+/**
+ * Whip L1 strikes every 1.35 s × 0.95 (the Warden's cooldown stat) of run time, the first included; its arc shows
+ * for 0.15 s (`weapons.md`).
+ */
+const WHIP_COOLDOWN = 1.35 * 0.95;
 const WHIP_SHOWN = 0.15;
 const sinceStrike = (t: number) => t - Math.floor(t / WHIP_COOLDOWN + 1e-9) * WHIP_COOLDOWN;
 
