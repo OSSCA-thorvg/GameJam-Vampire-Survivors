@@ -72,6 +72,11 @@ export const ENEMY_KNOCKBACK_RESIST = Float32Array.from(
   (id) => ENEMIES[id].knockbackResist,
 );
 
+/** True for a type that takes no damage from any source (Death, #174), indexed like `type`. */
+export const ENEMY_INVULNERABLE: readonly boolean[] = ENEMY_LIST.map(
+  (id) => ENEMIES[id].invulnerable === true,
+);
+
 /** The collision radius of the enemy in `slot`: its type's radius times its `scale` (1.5 for an elite, #15). */
 export function enemyRadius(cols: EnemyStore['cols'], slot: number): number {
   return (ENEMY_RADIUS[cols.type[slot] ?? 0] ?? 0) * (cols.scale[slot] ?? 1);
