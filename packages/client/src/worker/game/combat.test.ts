@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { cleanupSystem, damageEnemy, HIT_FLASH_SEC, KNOCKBACK_SEC } from './combat';
 import { indexEnemies, quietWorld, target } from './combat-test-helpers';
 import { ENEMY_FLAG_DEAD } from './enemies';
+import { spawnBoss } from './systems/bosses';
 import { enemyMovementSystem } from './systems/enemy-movement';
 
 const DT = 1 / 60;
@@ -102,5 +103,36 @@ describe('combat', () => {
     const before = world.fx.count;
     cleanupSystem(world, DT);
     expect(world.fx.count).toBe(before + 1);
+  });
+
+  it('never lowers the HP of an invulnerable enemy (Death, #174), but still flashes it', () => {
+    const world = quietWorld();
+    const death = spawnBoss(world, 'death');
+    expect(death).toBeGreaterThanOrEqual(0);
+    const { hp, flash, flags, kbTime } = world.enemies.cols;
+    for (let i = 0; i < 10_000; i++) {
+      damageEnemy(world, death, 1e6, 1, 0, 500, 0);
+      damageEnemy(world, death, 1e6, 0, 1, 0, -1);
+      if (i === 0) {
+        expect(flash[death]).toBeCloseTo(HIT_FLASH_SEC, 6);
+        expect(world.fx.count).toBeGreaterThan(0);
+      }
+      cleanupSystem(world, DT);
+    }
+    expect(hp[death]).toBe(ENEMIES.death.maxHp);
+    expect((flags[death] ?? 0) & ENEMY_FLAG_DEAD).toBe(0);
+    expect(kbTime[death]).toBe(0);
+    expect(world.enemies.count).toBe(1);
+    expect(world.stats.kills).toBe(0);
+    expect(world.runStats.damageBySlot[0]).toBe(0);
+    expect(world.damageDealt).toEqual({ hits: 0, total: 0 });
+
+    // A normal enemy next to it still takes damage and dies.
+    const bat = target(world, 'bat', 50, 0, 10);
+    damageEnemy(world, bat, 4, 1, 0, 0, 0);
+    expect(hp[bat]).toBe(6);
+    damageEnemy(world, bat, 6, 1, 0, 0, 0);
+    expect((flags[bat] ?? 0) & ENEMY_FLAG_DEAD).toBe(ENEMY_FLAG_DEAD);
+    expect(world.runStats.damageBySlot[0]).toBe(10);
   });
 });

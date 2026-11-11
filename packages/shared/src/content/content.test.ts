@@ -23,3 +23,7 @@ it('makes reaper5, reaper10 and Death bosses that always drop a chest', () => {
   expect(ENEMIES.bat.boss).toBeUndefined();
   expect(ENEMIES.ghoul.boss).toBeUndefined();
 });
+
+it('makes only Death invulnerable (#174)', () => {
+  expect(ENEMY_LIST.filter((id) => ENEMIES[id].invulnerable)).toEqual(['death']);
+});

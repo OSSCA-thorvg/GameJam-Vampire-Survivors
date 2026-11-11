@@ -1,5 +1,5 @@
 import { ENEMIES, ENEMY_LIST } from '@vs/shared';
-import { ENEMY_FLAG_DEAD, ENEMY_KNOCKBACK_RESIST } from './enemies';
+import { ENEMY_FLAG_DEAD, ENEMY_INVULNERABLE, ENEMY_KNOCKBACK_RESIST } from './enemies';
 import { spawnFx } from './fx';
 import { cueHit, cueSfx } from './sfx';
 import type { World } from './world';
@@ -26,7 +26,8 @@ export function isDead(world: Pick<World, 'enemies'>, slot: number): boolean {
  * marks the enemy dead (flag bit 1); `cleanupSystem` removes it at the end of the step, so slots never shift while
  * systems iterate, and further hits on a dead enemy in the same step do nothing. Counts the hit in `world.damageDealt`
  * (#12). `source` is the weapon slot that dealt it, or -1 for other damage (Rosary, #16); a weapon's damage, up to the
- * enemy's remaining HP, is added to `world.runStats.damageBySlot` (#17).
+ * enemy's remaining HP, is added to `world.runStats.damageBySlot` (#17). An invulnerable type (Death, #174) only
+ * flashes and shows `fx.hit`: its HP, the damage totals, knockback and the dead flag stay unchanged.
  */
 export function damageEnemy(
   world: World,
@@ -38,9 +39,14 @@ export function damageEnemy(
   source: number,
 ): void {
   if (isDead(world, slot)) return;
+  const { cols } = world.enemies;
+  if (ENEMY_INVULNERABLE[cols.type[slot] ?? 0] === true) {
+    cols.flash[slot] = HIT_FLASH_SEC;
+    spawnFx(world, 'fx.hit', cols.x[slot] ?? 0, cols.y[slot] ?? 0, 0, false, HIT_FLASH_SEC);
+    return;
+  }
   world.damageDealt.hits++;
   world.damageDealt.total += amount;
-  const { cols } = world.enemies;
   const before = cols.hp[slot] ?? 0;
   if (source >= 0) {
     const { damageBySlot } = world.runStats;

@@ -22,6 +22,8 @@ export interface EnemyDef {
   boss?: { tether: true; dropsChest: 'always' };
   /** Contact damage ignores the player's armor; used by Death in #17. */
   ignoresArmor?: true;
+  /** Takes no damage from any source: hits only flash it, so it can never be killed; Death at the time limit, #174. */
+  invulnerable?: true;
 }
 
 /** Initial values, tune against footage (docs/reference/gameplay.md § Enemies and waves). */
@@ -111,7 +113,7 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
     knockbackResist: 0.6,
     xp: 10,
   },
-  // Death (#17): appears at the time limit in single player and cannot realistically be killed.
+  // Death (#17): appears at the time limit in single player and cannot be damaged (#174).
   death: {
     id: 'death',
     assetId: 'boss.death',
@@ -123,6 +125,7 @@ export const ENEMIES: Readonly<Record<EnemyId, EnemyDef>> = {
     xp: 0,
     boss: { tether: true, dropsChest: 'always' },
     ignoresArmor: true,
+    invulnerable: true,
   },
 };
 

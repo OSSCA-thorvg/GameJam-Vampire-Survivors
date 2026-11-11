@@ -63,19 +63,23 @@ export function readGemPositions(world: World): [number, number, number, number,
 }
 
 /**
- * The `bosses` snapshot field (test bridge, #15): each live boss's enemy ID and its distance from the player, rounded
- * to whole units. Built only when a snapshot is taken.
+ * The `bosses` snapshot field (test bridge, #15): each live boss's enemy ID, its distance from the player, rounded
+ * to whole units, and its current `hp` (#174). Built only when a snapshot is taken.
  */
-export function readBosses(world: World): { id: string; distance: number }[] {
+export function readBosses(world: World): { id: string; distance: number; hp: number }[] {
   const { count, cols } = world.enemies;
-  const out: { id: string; distance: number }[] = [];
+  const out: { id: string; distance: number; hp: number }[] = [];
   for (let i = 0; i < count; i++) {
     if (((cols.flags[i] ?? 0) & ENEMY_FLAG_BOSS) === 0) continue;
     const distance = Math.hypot(
       (cols.x[i] ?? 0) - world.player.x,
       (cols.y[i] ?? 0) - world.player.y,
     );
-    out.push({ id: ENEMY_LIST[cols.type[i] ?? 0] ?? '?', distance: Math.round(distance) });
+    out.push({
+      id: ENEMY_LIST[cols.type[i] ?? 0] ?? '?',
+      distance: Math.round(distance),
+      hp: cols.hp[i] ?? 0,
+    });
   }
   return out;
 }
