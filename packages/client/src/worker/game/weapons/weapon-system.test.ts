@@ -18,9 +18,10 @@ describe('weapon system', () => {
       if (world.fx.count > before) fireSteps.push(i);
     }
     // No enemies: each strike adds only its `weapon.whip` effect, and nothing expires without the fx system.
-    // Every strike, the first included (#154), comes 1.35 s × BASE_STATS.cooldown (#148) after the last: 77 steps.
+    // Every strike, the first included (#154), comes 1.35 s × BASE_STATS.cooldown (1 since #173) after the last: 81
+    // steps.
     const every = Math.ceil(1.35 * BASE_STATS.cooldown * 60);
-    expect(every).toBe(77);
+    expect(every).toBe(81);
     expect(fireSteps).toEqual([every, 2 * every, 3 * every, 4 * every]);
   });
 

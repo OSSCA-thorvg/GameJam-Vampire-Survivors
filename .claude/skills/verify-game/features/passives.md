@@ -539,7 +539,7 @@ test('passives 5: Hollow Heart raises maxHp and HP by 20 each and the bar keeps 
     });
     expect(player(after).maxHp).toBe(player(open).maxHp + 20);
     expect(player(after).hp).toBeCloseTo(player(open).hp + 20, 6);
-    expect(stats(after).maxHp).toBe(140); // Warden's 120 (#14) + 20
+    expect(stats(after).maxHp).toBe(150); // Warden's 130 (#14, #173) + 20
     expect(pageErrors(ev)).toEqual([]);
   } finally {
     ev.flush();

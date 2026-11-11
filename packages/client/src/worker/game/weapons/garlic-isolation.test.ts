@@ -60,8 +60,11 @@ const minimum = 3;
 // 1–40, 2, 6, 10, 11, 18, 30, 33 and 34 then fail a control.
 // Seed 8 replaced by 9 in #154, when a new weapon's first burst started following the cooldown stat: of seeds 1–40,
 // 5, 8, 18, 21, 25 and 33 then fail a control.
-const SEEDS = [7, 9, 3, 731, 4];
-// One Garlic L1 hit after the build's might, which is `BASE_STATS.might` (1.1 since #148; no build raises it).
+// Seed 9 replaced by 10 in #173, when the built-in might fell to 1.05 and the cooldown to 1: of seeds 1–40, 2, 8, 9,
+// 11, 26 and 38 then fail a control.
+const SEEDS = [7, 10, 3, 731, 4];
+// One Garlic L1 hit after the build's might, which is `BASE_STATS.might` (1.1 in #148, 1.05 since #173; no build
+// raises it).
 const GARLIC_HIT = (WEAPONS.garlic.levels[0]?.damage ?? NaN) * BASE_STATS.might;
 
 /** The historical chooser is used only in these controls to reproduce their sample starvation. */

@@ -155,7 +155,7 @@ test('stage 1+2: density, events, bosses, clear at 15:00, Death and "Stage clear
 test('stage 3: dying early shows "Game over" with the survived time', async ({
   page,
 }, testInfo) => {
-  test.setTimeout(360_000); // a standing Warden can live over 2 minutes since #148
+  test.setTimeout(360_000); // a standing Warden could live over 2 minutes in #148
   const ev = startEvidence(page, 'stage-3-early-death');
   noteEvidence(testInfo, ev);
   try {
@@ -185,5 +185,5 @@ test('stage 3: dying early shows "Game over" with the survived time', async ({
 - `reaper5` is usually killed within seconds of 5:00 by the weapons an invulnerable, levelled player has, so it shows in only one or two samples; `reaper10` lasted until the finale in #17's runs. The journey checks that each was present after its time, not that it lives (2026-11-08, #17).
 - The weapon damage totals are large in a fast-forwarded invulnerable run (the Cross dealt about 1.3 million over 15:45 in #17's run, about 15 000 kills), because the crowd stays packed around the player; they are untuned (2026-11-08, #17).
 - The wave densities and event times are the issue's initial values; the owner decided not to tune them against footage, so `gameplay.md` § Enemies and waves records them as untuned (2026-11-08, #17). #148 retuned them for playability against the headless balance probe, still not against footage (2026-11-09, #148).
-- Since #148 a Warden standing still dies in about 1–2 minutes (balance probe, seeds 1–30: 39–206 s, over 2 minutes in 2 of 30; 0:14–0:16 before), so journey 3's standing-still death ("stage 3") can take over 3 real minutes with the dialogs; so it waits up to 300 s (2026-11-10, #148).
+- Since #148 a Warden standing still dies in about 1–2 minutes (balance probe, seeds 1–30: 39–206 s, over 2 minutes in 2 of 30; 0:14–0:16 before), so journey 3's standing-still death ("stage 3") can take over 3 real minutes with the dialogs; so it waits up to 300 s (2026-11-10, #148). Since #173 a standing Warden dies at about 0:15 again (balance probe, seeds 1–3: 14.7–14.9 s); the 300 s wait stays as headroom (2026-11-10, #173).
 - Since #148 the batches stop while `maxAlive` normal enemies live, so an invulnerable fast-forwarded run with few kills holds a smaller crowd than #17's samples; bosses and elites do not count toward the cap (2026-11-09, #148).
