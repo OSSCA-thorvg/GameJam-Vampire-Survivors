@@ -13,17 +13,17 @@ export const GEM_CAP = 400;
 export const BASE_MOVE_SPEED = 140;
 
 /**
- * Player HP at the start of a run, before the character's modifiers: 100, plus 20 of the built-in PowerUp equivalent in
- * `BASE_STATS` (#148; initial value, tuned for playability). Passives raise it in #12.
+ * Player HP at the start of a run, before the character's modifiers: 100, plus 10 of the built-in PowerUp equivalent in
+ * `BASE_STATS` (20 in #148, trimmed in #173; initial value, tuned for playability). Passives raise it in #12.
  */
-export const BASE_MAX_HP = 120;
+export const BASE_MAX_HP = 110;
 /** Player collision radius in world units for contact damage (initial value, tune against footage). */
 export const PLAYER_RADIUS = 14;
 /**
- * Seconds of invulnerability after a hit, so a crowd lands at most one hit per window (initial value, untuned;
- * docs/reference/gameplay.md § Core loop).
+ * Seconds of invulnerability after a hit, so a crowd lands at most one hit per window (0.6 in #148, 0.5 again since
+ * #173; initial value, tuned for playability; docs/reference/gameplay.md § Core loop).
  */
-export const HIT_INVULN_SEC = 0.6;
+export const HIT_INVULN_SEC = 0.5;
 /**
  * The largest collision radius any enemy can have (#15): `radius × ELITE.scale` over normal enemies (any of them can
  * be an elite) and `radius` over bosses (never elites). The contact query reaches `PLAYER_RADIUS + MAX_ENEMY_RADIUS`

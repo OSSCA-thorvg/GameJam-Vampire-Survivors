@@ -56,9 +56,9 @@ describe('fire wand', () => {
       weaponSystem(world, DT);
       if (world.projectiles.count > 0) first = i;
     }
-    // Every burst, the first included (#154), comes 3 s × (BASE_STATS.cooldown - 0.5) after the last: 1.35 s, 81 steps.
+    // Every burst, the first included (#154), comes 3 s × (BASE_STATS.cooldown - 0.5) after the last: 1.5 s, 90 steps.
     expect(first).toBe(Math.ceil(3 * (BASE_STATS.cooldown - 0.5) * 60));
-    expect(first).toBe(81);
+    expect(first).toBe(90);
     expect(world.projectiles.cols.ttl[0]).toBe(3);
     const w = world.weapons[0];
     expect(w?.cooldownLeft).toBeCloseTo(3 * (BASE_STATS.cooldown - 0.5), 6);

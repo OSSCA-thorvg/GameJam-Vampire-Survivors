@@ -67,6 +67,50 @@ function finger(cdp: CDPSession) {
   };
 }
 
+/** Answers any level-up or chest that a real pickup opened, until the run is `playing` again. */
+async function settleRun(page: Page): Promise<void> {
+  const deadline = Date.now() + 10_000;
+  let s = await snapshot(page);
+  while (s.state !== 'playing' && Date.now() < deadline) {
+    if (s.state === 'levelUp')
+      await page.locator('[role="dialog"][aria-label="Level up"] button.card').first().tap();
+    await page.waitForTimeout(100);
+    s = await snapshot(page);
+  }
+  expect(s.state).toBe('playing');
+}
+
+/**
+ * Drags one finger from `from` to `to` (still down from `from` when `held`), waits for `axis` and holds for `holdMs`.
+ * A real level-up or chest during the hold deactivates the stick, so it is answered and the drag is repeated from a
+ * fresh touch (at most 3 times). Returns the snapshots at the start and the end of the hold; the finger stays down.
+ */
+async function steer(
+  page: Page,
+  f: ReturnType<typeof finger>,
+  from: [number, number],
+  to: [number, number],
+  axis: [number, number],
+  holdMs: number,
+  held = false,
+): Promise<{ start: GameSnapshot; end: GameSnapshot }> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (!held || attempt > 0) await f.down(...from);
+    await f.move(...from, ...to);
+    const start = await waitForSnapshot(
+      page,
+      (s) => touchOf(s).axis[0] === axis[0] && touchOf(s).axis[1] === axis[1],
+      2_000,
+    );
+    await page.waitForTimeout(holdMs);
+    const end = await snapshot(page);
+    if (end.state === 'playing' && start.state === 'playing') return { start, end };
+    await f.up();
+    await settleRun(page);
+  }
+  throw new Error(`steer ${String(axis)}: interrupted by a dialog 3 times`);
+}
+
 type Rgb = number[];
 const count = (pixels: Rgb[], test: (r: number, g: number, b: number) => boolean): number =>
   pixels.filter(([r = 0, g = 0, b = 0]) => test(r, g, b)).length;
@@ -223,25 +267,29 @@ test('touch 1: taps start a run, the joystick moves in 8 directions, level-up, p
     const cdp = await page.context().newCDPSession(page);
     const f = finger(cdp);
 
+    // Precondition only (a dev key, not a movement key, so the mode stays touch): invulnerable, so the harder stage
+    // (#173) cannot end the run before the journey does. Real level-ups during a hold are answered by `steer`.
+    await page.keyboard.press('i');
+
     // Right by 60 px, held 2 s: axis [1, 0] and the player moves right.
-    await f.down(300, 200);
-    await f.move(300, 200, 360, 200);
-    const start = await waitForSnapshot(page, (s) => touchOf(s).axis[0] === 1, 2_000);
-    expect(touchOf(start).axis).toEqual([1, 0]);
+    const { start, end: right } = await steer(page, f, [300, 200], [360, 200], [1, 0], 2_000);
     await ev.shot('joystick-right');
-    await page.waitForTimeout(2_000);
-    const right = await snapshot(page);
     ev.json('snapshot-joystick-right', { start, right });
     expect(touchOf(right).axis).toEqual([1, 0]);
     expect(playerOf(right).x - playerOf(start).x).toBeGreaterThanOrEqual(200);
     expect(playerOf(right).y).toBe(playerOf(start).y);
 
     // Up-left (from the same finger), then release.
-    await f.move(360, 200, 250, 150);
-    const upLeft = await waitForSnapshot(page, (s) => touchOf(s).axis[0] === -1, 2_000);
+    const { start: upLeft, end: movedUpLeft } = await steer(
+      page,
+      f,
+      [300, 200],
+      [250, 150],
+      [-1, -1],
+      500,
+      true,
+    );
     expect(touchOf(upLeft).axis).toEqual([-1, -1]);
-    await page.waitForTimeout(500);
-    const movedUpLeft = await snapshot(page);
     expect(playerOf(movedUpLeft).x).toBeLessThan(playerOf(upLeft).x);
     expect(playerOf(movedUpLeft).y).toBeLessThan(playerOf(upLeft).y);
     await ev.shot('joystick-up-left');

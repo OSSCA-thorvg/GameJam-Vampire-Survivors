@@ -56,6 +56,7 @@ Each row is one GitHub issue, and the issue is the source of truth for scope and
 | R12                                             | #149  | Play on phones and tablets with touch controls                         | —              | high     |
 | R13                                             | #150  | Show the versus opponent as picture-in-picture on touch devices        | R12            | medium   |
 | R14                                             | #171  | Fill the screen with a cropped view on touch devices                   | —              | high     |
+| R15                                             | #173  | Raise difficulty halfway back toward before the #148 retune            | R10            | high     |
 
 ## Assets
 

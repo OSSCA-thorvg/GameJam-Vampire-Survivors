@@ -131,7 +131,7 @@ describe('passive inventory', () => {
 
 describe('weapons read the stats', () => {
   it('passes every WeaponLevel value through the helpers, unchanged at identity stats', () => {
-    // Identity factors, not BASE_STATS: since #148 BASE_STATS carries the built-in PowerUps (might 1.1, cooldown 0.95).
+    // Identity factors, not BASE_STATS: since #148 BASE_STATS carries the built-in PowerUps (might 1.05 since #173).
     const identity: StatBlock = {
       ...BASE_STATS,
       might: 1,
