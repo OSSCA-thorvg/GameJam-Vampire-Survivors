@@ -7,6 +7,7 @@ import {
   INTERFERENCE,
   interferenceIndex,
   MATCH_DEADLINE_GRACE_S,
+  MATCH_DEADLINE_S,
   MATCH_TIME_LIMIT_S,
   STATUS_MIN_INTERVAL_MS,
   VIEW_MIN_INTERVAL_MS,
@@ -30,7 +31,7 @@ import type { NetClient } from '../net/client';
 import type { AssetUrl } from '../ui/asset-url';
 import { h } from '../ui/dom';
 import { mount as mountBanners, type InterferenceBanner } from '../ui/interference-banner';
-import type { RoomState } from '../ui/lobby';
+import { MAX_COUNTDOWN_MS, type RoomState } from '../ui/lobby';
 import { mount as mountPanel, type OpponentPanel } from '../ui/opponent-panel';
 import type { VersusResult } from '../ui/versus-result';
 
@@ -52,6 +53,17 @@ export const SELF_DEADLINE_NOTE =
   'Time ran out on the server: you were counted as survived with your last reported kills.';
 export const PEER_DEADLINE_NOTE =
   'Time ran out on the server: players who had not finished were counted as survived with their last reported kills.';
+/** #177, ADR 0026: the result of a first clear names who cleared (the nickname is rendered with `textContent`). */
+export function clearedFirstNote(nickname: string): string {
+  return `${nickname} cleared the stage first.`;
+}
+/**
+ * A player who is alive in a `matchResult` without a clear was counted as survived by the server's deadline (ADR 0026:
+ * deaths no longer end the match). A clear by another player is told apart from that by the clock: it needs
+ * `MATCH_TIME_LIMIT_S` of game time, which never runs ahead of real time, or a relayed `status` at most this far short
+ * of it (the dev fast-forward outruns real time; a test-only short server deadline comes long before either).
+ */
+export const CLEAR_EVIDENCE_SLACK_MS = 5_000;
 
 /** What a versus match starts from (#19's `startVersus`): the `matchStart`, the room and this player's character. */
 export interface VersusStart {
@@ -136,6 +148,13 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
     });
   const { selfId } = start;
   const opponentId = start.players.find((p) => p.id !== selfId)?.id ?? null;
+  /**
+   * #177: the match start on this page's clock, clamped as the lobby's countdown is (`startAt` is server time), so the
+   * HUD clock and the deadline check never trust the two clocks to agree.
+   */
+  const localStartAt = now() + Math.min(MAX_COUNTDOWN_MS, Math.max(0, start.startAt - now()));
+  /** The largest `elapsedMs` each opponent relayed (`peerStatus`): evidence that a winner really cleared (#177). */
+  const relayedElapsed = new Map<string, number>();
 
   /** No more messages to the server: the result arrived, or the socket left `open`. */
   let finished = false;
@@ -249,6 +268,10 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
     }),
     net.on('peerStatus', (m) => {
       panel.status(m.playerId, m.status);
+      relayedElapsed.set(
+        m.playerId,
+        Math.max(relayedElapsed.get(m.playerId) ?? 0, m.status.elapsedMs),
+      );
     }),
     // #114: only the first opponent's world view reaches the worker, as display data.
     net.on('peerView', (m) => {
@@ -284,14 +307,7 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
     }),
     net.on('matchResult', (m) => {
       if (offline) return;
-      const alive = m.ranking.filter((e) => e.alive);
-      const deadlinePassed =
-        now() >= start.startAt + (MATCH_TIME_LIMIT_S + MATCH_DEADLINE_GRACE_S) * 1000 - 1000;
-      let note: string | null = null;
-      // Several alive is a kills decision; without this player's own `survived` the server's deadline made it (#60).
-      if (alive.length >= 2 && alive.some((e) => e.playerId === selfId) && localOver === null)
-        note = SELF_DEADLINE_NOTE;
-      else if (alive.length >= 2 && deadlinePassed) note = PEER_DEADLINE_NOTE;
+      const note = noteFor(m);
       // Stop the local world on its last frame before the result covers it.
       post({ type: 'forceEnd', reason: 'matchOver' });
       finish({
@@ -308,6 +324,31 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
   ];
   doc.addEventListener('visibilitychange', onVisibility);
 
+  /**
+   * The result's note (#60, ADR 0026). Since deaths never end a match while someone is alive, a result with a player
+   * alive is either a first clear or the server's deadline: the clearer is named, or the time-ran-out note shows
+   * (this player's own when it was counted as survived).
+   */
+  function noteFor(m: MatchResult): string | null {
+    const alive = m.ranking.filter((e) => e.alive);
+    if (alive.length === 0) return null;
+    const t = now();
+    const deadlinePassed =
+      t >= localStartAt + (MATCH_DEADLINE_S + MATCH_DEADLINE_GRACE_S) * 1000 - 1000;
+    const winner = m.ranking.find((e) => e.playerId === m.winnerId);
+    const clearMs = MATCH_TIME_LIMIT_S * 1000 - CLEAR_EVIDENCE_SLACK_MS;
+    const cleared =
+      !deadlinePassed &&
+      m.outcome === 'win' &&
+      winner !== undefined &&
+      winner.alive &&
+      (winner.playerId === selfId
+        ? localOver === 'survived'
+        : t - localStartAt >= clearMs || (relayedElapsed.get(winner.playerId) ?? 0) >= clearMs);
+    if (cleared) return clearedFirstNote(winner.nickname);
+    return alive.some((e) => e.playerId === selfId) ? SELF_DEADLINE_NOTE : PEER_DEADLINE_NOTE;
+  }
+
   post({ type: 'setBackgroundPolicy', policy: 'simulate' });
   post({
     type: 'startRun',
@@ -315,6 +356,11 @@ export function createVersusController(opts: VersusControllerOptions): VersusCon
     seed: start.seed,
     characterId: start.characterId,
     finale: 'end',
+  });
+  // #177: the real time left to the server's deadline, which the worker's HUD counts down.
+  post({
+    type: 'matchClock',
+    remainingMs: Math.max(0, localStartAt + MATCH_DEADLINE_S * 1000 - now()),
   });
   if (offline) {
     banner.textContent = OFFLINE_BANNER;

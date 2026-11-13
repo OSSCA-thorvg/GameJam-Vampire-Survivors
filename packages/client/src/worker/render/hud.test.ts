@@ -1,7 +1,7 @@
-import { expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { fakeGameView, type FakePaint } from '../game/view-test-helpers';
 import { FULL_VIEW, PIP_TOP, pipRect, type VisibleRect } from '../constants';
-import { createHud, hudAnchors, HUD_TOP_RIGHT_BOTTOM, TIMER_Y } from './hud';
+import { createHud, hudAnchors, HUD_TOP_RIGHT_BOTTOM, MATCH_CLOCK_Y, TIMER_Y } from './hud';
 import { PIP_BACKDROP } from './panes';
 import { createSentToast } from './sent-toast';
 
@@ -149,4 +149,68 @@ it('anchors the sent toast to the top centre of the visible area without creatin
   toast.layout(TABLET);
   expect(fake.paints.every((p) => p.translate?.[0] === 640 && p.translate[1] === 64)).toBe(true);
   expect(fake.paints).toHaveLength(created);
+});
+
+// #177, ADR 0026: the versus match clock.
+describe('the match clock', () => {
+  const clockPaint = (t: ReturnType<typeof setup>): FakePaint => {
+    const found = t.fake.paints.find((p) => p.id === 'Text' && p.text?.startsWith('MATCH '));
+    if (!found) throw new Error('no match clock');
+    return found;
+  };
+
+  it('stays hidden in single player', () => {
+    const t = setup();
+    t.hud.setVisible(true);
+    t.hud.sync(t.input);
+    t.hud.sync({ ...t.input, matchRemainingMs: null });
+    expect(clockPaint(t).visible).toBe(false);
+    expect(t.hud.matchClockText()).toBeNull();
+  });
+
+  it('counts down whole seconds rounded up, never below 00:00, writing the text only when the second changes', () => {
+    const t = setup();
+    t.hud.setVisible(true);
+    const clock = clockPaint(t);
+    t.hud.sync({ ...t.input, matchRemainingMs: 1_500_000 });
+    expect(clock.visible).toBe(true);
+    expect(clock.text).toBe('MATCH 25:00');
+    expect(t.hud.matchClockText()).toBe('MATCH 25:00');
+    const writes = clock.textWrites;
+    t.hud.sync({ ...t.input, matchRemainingMs: 1_499_200 });
+    expect(clock.text).toBe('MATCH 25:00');
+    expect(clock.textWrites).toBe(writes);
+    t.hud.sync({ ...t.input, matchRemainingMs: 1_499_000 });
+    expect(clock.text).toBe('MATCH 24:59');
+    t.hud.sync({ ...t.input, matchRemainingMs: 400 });
+    expect(clock.text).toBe('MATCH 00:01');
+    t.hud.sync({ ...t.input, matchRemainingMs: -5000 });
+    expect(clock.text).toBe('MATCH 00:00');
+    t.hud.sync({ ...t.input, matchRemainingMs: null });
+    expect(clock.visible).toBe(false);
+  });
+
+  it('is hidden again by a new run and creates no paint per frame', () => {
+    const t = setup();
+    t.hud.setVisible(true);
+    const created = t.fake.paints.length;
+    for (let ms = 60_000; ms > 0; ms -= 16) t.hud.sync({ ...t.input, matchRemainingMs: ms });
+    expect(t.fake.paints).toHaveLength(created);
+    t.hud.setVisible(false);
+    expect(t.hud.matchClockText()).toBeNull();
+    t.hud.setVisible(true);
+    expect(clockPaint(t).visible).toBe(false);
+    t.hud.sync(t.input);
+    expect(clockPaint(t).visible).toBe(false);
+  });
+
+  it('is anchored to the top centre of the visible area, below the sent toast', () => {
+    const t = setup();
+    expect(clockPaint(t).translate).toEqual([640, MATCH_CLOCK_Y]);
+    t.hud.layout(PHONE);
+    expect(clockPaint(t).translate).toEqual([640, MATCH_CLOCK_Y + PHONE.y]);
+    t.hud.layout(TABLET);
+    expect(clockPaint(t).translate).toEqual([TABLET.x + TABLET.width / 2, MATCH_CLOCK_Y]);
+    expect(MATCH_CLOCK_Y).toBeGreaterThan(64 + 22);
+  });
 });

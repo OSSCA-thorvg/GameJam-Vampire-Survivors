@@ -1,6 +1,6 @@
 # 0005. Multiplayer: each player survives in a separate world, linked by interference items
 
-- Status: Partly superseded by [0018](0018-show-the-opponent-world-from-a-relayed-view-stream.md) (only the "no live view of the opponent's world" line; separate worlds, interference and the win rule retained)
+- Status: Partly superseded by [0018](0018-show-the-opponent-world-from-a-relayed-view-stream.md) (only the "no live view of the opponent's world" line; separate worlds, interference and the win rule retained) and [0026](0026-versus-first-clear-wins-under-a-real-time-deadline.md) (the time-limit lines and when the last-survivor rule ends a match: the first to clear the stage wins, deaths no longer end a match while someone is alive, a 25-minute real-time deadline)
 - Date: 2026-11-07
 
 ## Context

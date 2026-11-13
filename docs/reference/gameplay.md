@@ -141,6 +141,14 @@ Pickups come from breakable light sources (braziers and candles) on the map. Hig
 
 Local co-op arrived in version 1.6 (August 2023), for up to 4 players, without split screen. This game deliberately differs: separate worlds and interference items (ADR 0005). **[news coverage, 2023]**
 
+### This game's versus rules (#177, ADR 0026)
+
+Owner decisions of 2026-11-13, not observations of the original (which has no versus mode):
+
+- The first player whose own world reaches 15:00 of game time alive wins at once, whatever the kills. Game clocks stop during level-up and chest dialogs, so 15:00 of game time comes well after 15 minutes of real time (the owner's match of 2026-11-13 was at 12:06 when the old 15-minute real-time limit ended it).
+- A death, an AFK forfeit or a disconnect does not end the match while another player is alive: the survivor plays on. If everyone dies, the player who lasted longest (died last by server time) wins; deaths within 100 ms of each other draw. Example: A dies at 8:00 with 500 kills, B at 12:00 with 300 kills: B wins.
+- The server ends every match at 25 minutes of real time (+10 s grace); then the most kills win among the players still alive, and a tie is a draw. The versus HUD shows the real time left as `MATCH mm:ss` under the timer.
+
 ## Sources
 
 - Namu Wiki, [Vampire Survivors/아이템](https://namu.wiki/w/Vampire%20Survivors/%EC%95%84%EC%9D%B4%ED%85%9C), §6–§9

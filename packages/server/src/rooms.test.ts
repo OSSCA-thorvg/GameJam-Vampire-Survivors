@@ -4,6 +4,7 @@ import {
   INTERFERENCE_RULES,
   INTERFERENCE_SEND_LIMIT,
   MATCH_DEADLINE_GRACE_S,
+  MATCH_DEADLINE_S,
   MATCH_TIME_LIMIT_S,
   START_DELAY_MS,
   type PlayerStatus,
@@ -260,8 +261,7 @@ describe('phases', () => {
     timers.advance(1);
     expect(lastState('b').phase).toBe('playing');
 
-    registry.died('b', 3);
-    timers.advance(100);
+    registry.survived('a', 3);
     expect(lastState('a').phase).toBe('finished');
     timers.advance(REMATCH_DELAY_MS);
     const lobby = lastState('a');
@@ -272,8 +272,8 @@ describe('phases', () => {
 
   it('allows a rematch with a fresh seed', () => {
     startedRoom(['a', 'b']);
-    registry.died('b', 0);
-    timers.advance(100 + REMATCH_DELAY_MS);
+    registry.survived('a', 0);
+    timers.advance(REMATCH_DELAY_MS);
     seeds.push(42);
     registry.setReady('a', true);
     registry.setReady('b', true);
@@ -366,8 +366,7 @@ describe('view relay (#114, ADR 0018)', () => {
     timers.advance(200);
     expect(registry.relayView('c', view)).toBeNull();
     expect(ofType('a', 'peerView')).toEqual([]);
-    registry.died('b', 0);
-    timers.advance(200);
+    registry.survived('a', 0);
     expect(result('a')).toBeDefined();
     expect(registry.relayView('a', view)).toBeNull();
     expect(ofType('b', 'peerView')).toEqual([]);
@@ -383,7 +382,7 @@ describe('view relay (#114, ADR 0018)', () => {
     startedRoom(['a', 'b']);
     registry.relayView('a', viewAt(1));
     const stamp = timers.now;
-    registry.died('b', 0);
+    registry.survived('a', 0);
     timers.advance(REMATCH_DELAY_MS + 200);
     expect(lastState('a').phase).toBe('lobby');
     for (const id of ['a', 'b']) expect(registry.setReady(id, true)).toBeNull();
@@ -457,64 +456,140 @@ describe('interference', () => {
   });
 });
 
-describe('win rule (ADR 0005)', () => {
-  it('last alive wins', () => {
+describe('win rule (ADR 0005, ADR 0026)', () => {
+  it('a death leaves the survivor playing; the survivor then clears and wins', () => {
     startedRoom(['a', 'b']);
     registry.died('b', 5);
     expect(ofType('b', 'playerEliminated')).toEqual([
       { type: 'playerEliminated', playerId: 'b', reason: 'died' },
     ]);
-    expect(result('a')).toBeUndefined(); // decided after the 100 ms window
-    timers.advance(100);
+    timers.advance(60_000);
+    expect(result('a')).toBeUndefined();
+    expect(lastState('a').phase).toBe('playing');
+    registry.survived('a', 3);
     expect(result('a')).toEqual({
       type: 'matchResult',
       outcome: 'win',
       winnerId: 'a',
       ranking: [
-        { playerId: 'a', nickname: 'a', alive: true, kills: 0 },
+        { playerId: 'a', nickname: 'a', alive: true, kills: 3 },
         { playerId: 'b', nickname: 'b', alive: false, kills: 5 },
       ],
     });
     expect(result('b')).toEqual(result('a'));
   });
 
-  it('last alive wins among 3 players', () => {
+  it('the survivor who dies later still wins: the last one out (owner example)', () => {
+    startedRoom(['a', 'b']);
+    timers.advance(480_000);
+    registry.died('a', 500); // 8:00
+    timers.advance(240_000);
+    expect(result('b')).toBeUndefined();
+    registry.died('b', 300); // 12:00
+    expect(result('b')).toBeUndefined(); // decided after the 100 ms window
+    timers.advance(100);
+    expect(result('b')).toMatchObject({ outcome: 'win', winnerId: 'b' });
+    expect(result('b')?.ranking.map((r) => [r.playerId, r.alive, r.kills])).toEqual([
+      ['b', false, 300],
+      ['a', false, 500],
+    ]);
+  });
+
+  it('b dies, a dies 5 s later: a wins, ranked first', () => {
+    startedRoom(['a', 'b']);
+    registry.died('b', 9);
+    timers.advance(5000);
+    registry.died('a', 1);
+    timers.advance(100);
+    expect(result('a')).toMatchObject({ outcome: 'win', winnerId: 'a' });
+    expect(result('a')?.ranking.map((r) => r.playerId)).toEqual(['a', 'b']);
+  });
+
+  it('the last one out wins among 3 players; the others are ranked by elimination time', () => {
     setup(3);
     startedRoom(['a', 'b', 'c']);
     registry.died('a', 1);
     timers.advance(5000);
-    expect(result('b')).toBeUndefined();
     registry.died('c', 2);
+    timers.advance(100);
+    expect(result('b')).toBeUndefined(); // b is still alive
+    timers.advance(5000);
+    registry.died('b', 0);
     timers.advance(100);
     expect(result('b')?.winnerId).toBe('b');
     expect(result('b')?.ranking.map((r) => r.playerId)).toEqual(['b', 'c', 'a']);
   });
 
-  it('survived with more kills wins', () => {
+  it('a clear ranks the alive by kills, then the eliminated by elimination time, latest first (3 players)', () => {
+    setup(3);
+    startedRoom(['a', 'b', 'c']);
+    registry.died('b', 50);
+    timers.advance(1000);
+    registry.died('c', 10);
+    registry.survived('a', 0);
+    expect(result('a')?.ranking.map((r) => r.playerId)).toEqual(['a', 'c', 'b']);
+  });
+
+  it('the first clear wins at once, ranked first even with fewer kills (ADR 0026)', () => {
     startedRoom(['a', 'b']);
+    registry.status('b', { ...baseStatus, kills: 40 });
     registry.survived('a', 10);
-    expect(result('a')).toBeUndefined();
-    registry.survived('b', 12);
-    expect(result('a')).toMatchObject({ outcome: 'win', winnerId: 'b' });
-    expect(result('a')?.ranking.map((r) => [r.playerId, r.alive, r.kills])).toEqual([
-      ['b', true, 12],
-      ['a', true, 10],
+    expect(ofType('a', 'playerEliminated')).toHaveLength(0);
+    expect(result('a')).toEqual({
+      type: 'matchResult',
+      outcome: 'win',
+      winnerId: 'a',
+      ranking: [
+        { playerId: 'a', nickname: 'a', alive: true, kills: 10 },
+        { playerId: 'b', nickname: 'b', alive: true, kills: 40 },
+      ],
+    });
+    expect(result('b')).toEqual(result('a'));
+    expect(lastState('a').phase).toBe('finished');
+    expect(timers.count).toBe(1); // only the rematch reset: the deadline timer is cleared
+  });
+
+  it("a second player's clear after the first is dropped", () => {
+    startedRoom(['a', 'b']);
+    registry.survived('a', 1);
+    expect(registry.survived('b', 99)).toBeNull();
+    expect(ofType('a', 'matchResult')).toHaveLength(1);
+    expect(result('a')).toMatchObject({ outcome: 'win', winnerId: 'a' });
+  });
+
+  it('a clear within 100 ms of the other player dying still wins', () => {
+    startedRoom(['a', 'b']);
+    registry.died('a', 30);
+    timers.advance(50); // inside the simultaneous-death window
+    registry.survived('b', 2);
+    expect(result('b')).toMatchObject({ outcome: 'win', winnerId: 'b' });
+    expect(result('b')?.ranking.map((r) => [r.playerId, r.alive])).toEqual([
+      ['b', true],
+      ['a', false],
+    ]);
+    timers.advance(100); // the cleared decision timer never decides a second time
+    expect(ofType('b', 'matchResult')).toHaveLength(1);
+  });
+
+  it('a clear from an eliminated player is ignored (3 players)', () => {
+    setup(3);
+    startedRoom(['a', 'b', 'c']);
+    registry.died('a', 5);
+    expect(registry.survived('a', 5)).toBeNull();
+    expect(result('b')).toBeUndefined();
+    registry.survived('c', 1);
+    expect(result('b')).toMatchObject({ outcome: 'win', winnerId: 'c' });
+    expect(result('b')?.ranking.map((r) => [r.playerId, r.alive])).toEqual([
+      ['c', true],
+      ['b', true],
+      ['a', false],
     ]);
   });
 
-  it('survived with equal kills is a draw', () => {
-    startedRoom(['a', 'b']);
-    registry.survived('a', 7);
-    registry.survived('b', 7);
-    expect(result('a')).toMatchObject({ outcome: 'draw', winnerId: null });
-  });
-
-  it('a survivor wins over a player who dies after the time limit', () => {
-    startedRoom(['a', 'b']);
-    registry.survived('a', 1);
-    registry.died('b', 50);
-    timers.advance(100);
-    expect(result('a')).toMatchObject({ outcome: 'win', winnerId: 'a' });
+  it('a clear during the countdown is dropped', () => {
+    startedRoom(['a', 'b'], { play: false });
+    expect(registry.survived('a', 0)).toBeNull();
+    expect(result('a')).toBeUndefined();
   });
 
   it('deaths 50 ms apart are a draw', () => {
@@ -531,7 +606,7 @@ describe('win rule (ADR 0005)', () => {
     startedRoom(['a', 'b']);
     registry.died('a', 3);
     timers.advance(150);
-    registry.died('b', 4); // arrives after the result: dropped
+    registry.died('b', 4); // the last one out, more than 100 ms after a
     timers.advance(100);
     expect(ofType('a', 'matchResult')).toHaveLength(1);
     expect(result('a')).toMatchObject({ outcome: 'win', winnerId: 'b' });
@@ -548,6 +623,8 @@ describe('win rule (ADR 0005)', () => {
       { type: 'playerEliminated', playerId: 'b', reason: 'disconnected' },
     ]);
     timers.advance(100);
+    expect(result('a')).toBeUndefined(); // ADR 0026: a keeps playing
+    registry.survived('a', 1);
     expect(result('a')).toMatchObject({ outcome: 'win', winnerId: 'a' });
     expect(ofType('b', 'matchResult')).toHaveLength(0);
   });
@@ -558,6 +635,9 @@ describe('win rule (ADR 0005)', () => {
     expect(ofType('a', 'playerEliminated')).toEqual([
       { type: 'playerEliminated', playerId: 'b', reason: 'disconnected' },
     ]);
+    timers.advance(100);
+    expect(result('a')).toBeUndefined();
+    registry.died('a', 0);
     timers.advance(100);
     expect(result('a')?.winnerId).toBe('a');
   });
@@ -573,7 +653,9 @@ describe('win rule (ADR 0005)', () => {
   it('a disconnected player is pruned when the room returns to the lobby', () => {
     startedRoom(['a', 'b']);
     registry.disconnect('b');
-    timers.advance(DISCONNECT_GRACE_MS + 100 + REMATCH_DELAY_MS);
+    timers.advance(DISCONNECT_GRACE_MS);
+    registry.survived('a', 0);
+    timers.advance(REMATCH_DELAY_MS);
     const lobby = lastState('a');
     expect(lobby.phase).toBe('lobby');
     expect(lobby.players.map((p) => p.id)).toEqual(['a']);
@@ -592,7 +674,23 @@ describe('away from keyboard (ADR 0005)', () => {
       { type: 'playerEliminated', playerId: 'b', reason: 'afk' },
     ]);
     timers.advance(100);
-    expect(result('a')?.winnerId).toBe('a');
+    expect(result('a')).toBeUndefined(); // ADR 0026: a keeps playing
+  });
+
+  it('a player who forfeits by AFK loses to the player alive at the deadline', () => {
+    startedRoom(['a', 'b']);
+    registry.status('b', { ...baseStatus, kills: 80 });
+    registry.visibility('b', true);
+    timers.advance(AFK_FORFEIT_MS);
+    registry.status('a', { ...baseStatus, kills: 2 });
+    timers.advance((MATCH_DEADLINE_S + MATCH_DEADLINE_GRACE_S) * 1000 - AFK_FORFEIT_MS - 1);
+    expect(result('a')).toBeUndefined();
+    timers.advance(1);
+    expect(result('a')).toMatchObject({ outcome: 'win', winnerId: 'a' });
+    expect(result('a')?.ranking.map((r) => [r.playerId, r.alive])).toEqual([
+      ['a', true],
+      ['b', false],
+    ]);
   });
 
   it('showing the tab again at 29 s cancels the forfeit', () => {
@@ -625,8 +723,10 @@ describe('away from keyboard (ADR 0005)', () => {
   it('starts during the countdown too', () => {
     startedRoom(['a', 'b'], { play: false });
     registry.visibility('a', true);
-    timers.advance(AFK_FORFEIT_MS + 100);
-    expect(result('b')?.winnerId).toBe('b');
+    timers.advance(AFK_FORFEIT_MS);
+    expect(ofType('b', 'playerEliminated')).toEqual([
+      { type: 'playerEliminated', playerId: 'a', reason: 'afk' },
+    ]);
   });
 
   it('a disconnect replaces the AFK timer with the grace timer', () => {
@@ -652,8 +752,7 @@ describe('away from keyboard (ADR 0005)', () => {
 describe('late in-match messages', () => {
   it('are dropped after the result without counting a violation', () => {
     startedRoom(['a', 'b']);
-    registry.died('b', 0);
-    timers.advance(100);
+    registry.survived('b', 0);
     expect(registry.status('a', baseStatus)).toBeNull();
     expect(registry.died('a', 1)).toBeNull();
     expect(registry.survived('a', 1)).toBeNull();
@@ -670,27 +769,34 @@ describe('late in-match messages', () => {
   });
 });
 
-describe('match deadline (#60)', () => {
-  /** From `startAt` (where `startedRoom` leaves the clock) to the deadline: 910 s. */
-  const DEADLINE_MS = (MATCH_TIME_LIMIT_S + MATCH_DEADLINE_GRACE_S) * 1000;
+describe('match deadline (#60, ADR 0026)', () => {
+  /** From `startAt` (where `startedRoom` leaves the clock) to the deadline: 1510 s. */
+  const DEADLINE_MS = (MATCH_DEADLINE_S + MATCH_DEADLINE_GRACE_S) * 1000;
 
-  it('is 900 s plus 10 s', () => {
-    expect(MATCH_TIME_LIMIT_S).toBe(900);
+  it('is 1500 s plus 10 s', () => {
+    expect(MATCH_DEADLINE_S).toBe(1500);
     expect(MATCH_DEADLINE_GRACE_S).toBe(10);
-    expect(DEADLINE_MS).toBe(910_000);
+    expect(DEADLINE_MS).toBe(1_510_000);
   });
 
-  it('a silent opponent: the result arrives at 910 s, decided by kills from the last status', () => {
+  it('nothing ends a match with both alive at the old 910 s', () => {
+    startedRoom(['a', 'b']);
+    timers.advance((MATCH_TIME_LIMIT_S + MATCH_DEADLINE_GRACE_S) * 1000 + 60_000);
+    expect(result('a')).toBeUndefined();
+    expect(lastState('a').phase).toBe('playing');
+  });
+
+  it('silent players: the result arrives at 1510 s, decided by kills from the last status', () => {
     startedRoom(['a', 'b']);
     const startAt = timers.now;
     timers.advance(60_000);
     registry.status('b', { ...baseStatus, kills: 5 }); // b's last report, then silence
-    timers.advance(MATCH_TIME_LIMIT_S * 1000 - 60_000);
-    registry.survived('a', 8);
+    timers.advance(MATCH_DEADLINE_S * 1000 - 60_000);
+    registry.status('a', { ...baseStatus, kills: 8 });
     timers.advance(MATCH_DEADLINE_GRACE_S * 1000 - 1);
     expect(result('a')).toBeUndefined();
     timers.advance(1);
-    expect(timers.now - startAt).toBe(910_000);
+    expect(timers.now - startAt).toBe(1_510_000);
     expect(result('a')).toEqual({
       type: 'matchResult',
       outcome: 'win',
@@ -705,13 +811,17 @@ describe('match deadline (#60)', () => {
     expect(lastState('a').phase).toBe('finished');
   });
 
-  it('the silent player wins when their last relayed kills are higher', () => {
+  it('the player with more last relayed kills wins at the deadline', () => {
     startedRoom(['a', 'b']);
     registry.status('b', { ...baseStatus, kills: 30 });
-    timers.advance(MATCH_TIME_LIMIT_S * 1000);
-    registry.survived('a', 8);
+    timers.advance(MATCH_DEADLINE_S * 1000);
+    registry.status('a', { ...baseStatus, kills: 8 });
     timers.advance(MATCH_DEADLINE_GRACE_S * 1000);
     expect(result('a')).toMatchObject({ outcome: 'win', winnerId: 'b' });
+    expect(result('a')?.ranking.map((r) => [r.playerId, r.kills])).toEqual([
+      ['b', 30],
+      ['a', 8],
+    ]);
   });
 
   it('both players silent with equal kills: a draw at the deadline', () => {
@@ -744,8 +854,9 @@ describe('match deadline (#60)', () => {
   it('an earlier normal end clears the deadline timer', () => {
     startedRoom(['a', 'b']);
     registry.died('b', 1);
+    registry.died('a', 1);
     timers.advance(100);
-    expect(result('a')?.winnerId).toBe('a');
+    expect(result('a')).toMatchObject({ outcome: 'draw' });
     expect(timers.count).toBe(1); // only the rematch reset
     timers.advance(DEADLINE_MS);
     expect(ofType('a', 'matchResult')).toHaveLength(1);
@@ -754,54 +865,56 @@ describe('match deadline (#60)', () => {
   it("the first match's deadline never ends a rematch early", () => {
     startedRoom(['a', 'b']);
     registry.survived('a', 1);
-    registry.survived('b', 2);
-    expect(result('a')?.winnerId).toBe('b');
+    expect(result('a')?.winnerId).toBe('a');
     timers.advance(REMATCH_DELAY_MS);
     expect(lastState('a').phase).toBe('lobby');
     registry.setReady('a', true);
     registry.setReady('b', true);
     expect(registry.startMatch('a')).toBeNull();
     timers.advance(START_DELAY_MS);
-    // The first match's deadline (≈ 5 s ago + 910 s) passes without ending the rematch.
+    // The first match's deadline (≈ 5 s ago + 1510 s) passes without ending the rematch.
     timers.advance(DEADLINE_MS - 1);
     expect(ofType('a', 'matchResult')).toHaveLength(1);
     timers.advance(1);
     expect(ofType('a', 'matchResult')).toHaveLength(2);
   });
 
-  it('a disconnect more than 10 s before the deadline follows the 10 s rule and ends the match first', () => {
+  it('a disconnect more than 10 s before the deadline follows the 10 s rule; the survivor wins at the deadline', () => {
     startedRoom(['a', 'b']);
-    timers.advance(DEADLINE_MS - 15_000); // 895 s
+    registry.status('b', { ...baseStatus, kills: 70 });
+    timers.advance(DEADLINE_MS - 15_000); // 1495 s
     registry.disconnect('b');
-    timers.advance(DISCONNECT_GRACE_MS); // 905 s
+    timers.advance(DISCONNECT_GRACE_MS); // 1505 s
     expect(ofType('a', 'playerEliminated')).toEqual([
       { type: 'playerEliminated', playerId: 'b', reason: 'disconnected' },
     ]);
     timers.advance(100);
+    expect(result('a')).toBeUndefined(); // ADR 0026: a keeps playing
+    timers.advance(5000 - 100); // the deadline: a, the one left alive, wins
     expect(result('a')).toMatchObject({ outcome: 'win', winnerId: 'a' });
-    timers.advance(5000);
     expect(ofType('a', 'matchResult')).toHaveLength(1);
   });
 
-  it('a death decision pending at the deadline still decides last alive', () => {
+  it('a death just before the deadline: the one left alive wins at the deadline instant', () => {
     startedRoom(['a', 'b']);
+    registry.status('b', { ...baseStatus, kills: 99 });
     timers.advance(DEADLINE_MS - 50);
     registry.died('b', 99);
-    timers.advance(50); // deadline fires inside the 100 ms window
     expect(result('a')).toBeUndefined();
     timers.advance(50);
     expect(ofType('a', 'matchResult')).toHaveLength(1);
     expect(result('a')).toMatchObject({ outcome: 'win', winnerId: 'a' });
   });
 
-  it('a death decision pending at the deadline with the opponent disconnected: deaths 50 ms apart draw', () => {
+  it('a death 50 ms before the deadline with the opponent disconnected: the two eliminations draw', () => {
     startedRoom(['a', 'b']);
     timers.advance(DEADLINE_MS - 5000);
     registry.disconnect('b');
     timers.advance(4950);
-    registry.died('a', 3); // b is still inside the grace, so a last-alive decision is pending
+    registry.died('a', 3); // b is still alive inside the grace, so nothing is decided
     timers.advance(50); // deadline: b dies now, 50 ms after a
-    timers.advance(50);
+    expect(result('a')).toBeUndefined();
+    timers.advance(100); // the last-out window after b's death
     expect(result('a')).toMatchObject({ outcome: 'draw', winnerId: null });
   });
 
@@ -824,17 +937,17 @@ describe('match deadline (#60)', () => {
 });
 
 describe('disconnected at the match deadline (ADR 0014, #64)', () => {
-  const DEADLINE_MS = (MATCH_TIME_LIMIT_S + MATCH_DEADLINE_GRACE_S) * 1000;
+  const DEADLINE_MS = (MATCH_DEADLINE_S + MATCH_DEADLINE_GRACE_S) * 1000;
 
   it('a player disconnected 5 s before the deadline with more kills loses to the connected player', () => {
     startedRoom(['a', 'b']);
     registry.status('b', { ...baseStatus, kills: 11 });
-    timers.advance(DEADLINE_MS - 5000); // 905 s
+    timers.advance(DEADLINE_MS - 5000); // 1505 s
     registry.status('a', { ...baseStatus, kills: 7 });
-    registry.disconnect('b'); // the grace would end at 915 s
+    registry.disconnect('b'); // the grace would end at 1515 s
     timers.advance(4999);
     expect(ofType('a', 'playerEliminated')).toHaveLength(0);
-    timers.advance(1); // 910 s: b dies at the deadline instant
+    timers.advance(1); // 1510 s: b dies at the deadline instant
     expect(ofType('a', 'playerEliminated')).toEqual([
       { type: 'playerEliminated', playerId: 'b', reason: 'disconnected' },
     ]);
@@ -854,16 +967,15 @@ describe('disconnected at the match deadline (ADR 0014, #64)', () => {
     expect(ofType('a', 'matchResult')).toHaveLength(1);
   });
 
-  it('a player who reported survived and then disconnected still loses', () => {
+  it('the kills leader who disconnects inside the grace still loses (3 players)', () => {
     setup(3);
     startedRoom(['a', 'b', 'c']);
-    timers.advance(MATCH_TIME_LIMIT_S * 1000);
-    registry.survived('b', 40);
-    registry.survived('a', 2);
-    timers.advance(5000);
-    registry.disconnect('b'); // c never reports, so the match waits for the deadline
+    registry.status('b', { ...baseStatus, kills: 40 });
+    registry.status('a', { ...baseStatus, kills: 2 });
+    timers.advance(DEADLINE_MS - 5000);
+    registry.disconnect('b'); // nobody clears, so the match waits for the deadline
     registry.status('c', { ...baseStatus, kills: 1 });
-    timers.advance(MATCH_DEADLINE_GRACE_S * 1000 - 5000);
+    timers.advance(5000);
     expect(result('a')).toMatchObject({ outcome: 'win', winnerId: 'a' });
     expect(result('a')?.ranking.map((r) => [r.playerId, r.alive])).toEqual([
       ['a', true],

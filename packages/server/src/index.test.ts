@@ -263,7 +263,7 @@ describe('handshake', () => {
 });
 
 describe('match flow', () => {
-  it('create, join, ready, start: both get matchStart with the same seed; died gives matchResult', async () => {
+  it('create, join, ready, start: both get matchStart with the same seed; the last died gives matchResult', async () => {
     const { a, b, aId, bId, code } = await readyPair();
     expect(code).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/);
     a.send({ type: 'startMatch' });
@@ -276,6 +276,10 @@ describe('match flow', () => {
     b.send({ type: 'died', kills: 4, elapsedMs: 1000 });
     const eliminated = await a.next('playerEliminated');
     expect(eliminated).toEqual({ type: 'playerEliminated', playerId: bId, reason: 'died' });
+    // ADR 0026: a death leaves the other player playing; the last one out wins.
+    await new Promise((r) => setTimeout(r, 300));
+    expect(a.count('matchResult')).toBe(0);
+    a.send({ type: 'died', kills: 1, elapsedMs: 2000 });
     const [resultA, resultB] = await Promise.all([a.next('matchResult'), b.next('matchResult')]);
     expect(resultA).toEqual(resultB);
     expect(resultA.outcome).toBe('win');

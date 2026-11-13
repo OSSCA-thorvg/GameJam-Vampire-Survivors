@@ -74,7 +74,7 @@ it('creates every paint once: ground, garlic, gem, chest, elite marker, enemy, p
   expect(byId('ui.hpBar')).toHaveLength(1);
   expect(byId('ui.skull')).toHaveLength(1);
   // The 16 elite markers (#15), the inventory backing, HP fill and XP fill; the level, the timer, the kill counter and the three
-  // "Sent <label>" toasts (#21), plus two inventory headings and 12 slots (#156).
+  // "Sent <label>" toasts (#21), plus two inventory headings and 12 slots (#156), and the hidden match clock (#177).
   expect(byId('Shape')).toHaveLength(19);
   expect(
     byId('Text')
@@ -83,6 +83,7 @@ it('creates every paint once: ground, garlic, gem, chest, elite marker, enemy, p
   ).toEqual([
     'Lv 1',
     '00:00',
+    'MATCH 00:00',
     '0',
     'Weapons',
     'Passives',
@@ -91,7 +92,7 @@ it('creates every paint once: ground, garlic, gem, chest, elite marker, enemy, p
     'Sent Elite Call',
   ]);
   expect(view.countPaints()).toBe(3666);
-  expect(paints).toHaveLength(3705);
+  expect(paints).toHaveLength(3706);
 });
 
 it('follows the camera, snapped to device pixels', () => {

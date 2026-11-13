@@ -242,7 +242,7 @@ function render(): void {
     stress?.render();
     sharedLottie?.render();
   }
-  session?.render();
+  session?.render(performance.now());
   if (opponentView && panes?.opponentVisible) {
     opponentView.render(
       opponentFeed,
@@ -488,6 +488,7 @@ async function boot(message: Extract<MainToWorker, { type: 'init' }>): Promise<v
         if (spawnLog) registerSnapshotField('spawnLog', () => spawnLog.read());
         registerSnapshotField('mode', () => runs.world?.mode ?? null);
         registerSnapshotField('defeated', () => overlay.visible);
+        registerSnapshotField('matchClock', () => gameView.matchClockText());
         registerSnapshotField('timeS', () => runs.world?.time ?? 0);
         registerSnapshotField('player', () => (runs.world ? readPlayerSnapshot(runs.world) : null));
         registerSnapshotField('enemies', () => runs.world?.enemies.count ?? 0);
@@ -701,6 +702,8 @@ function startRun(seed: number, characterId: string, finale: Finale, mode: RunMo
   opponentHud?.setState('live');
   matchEnded = false;
   defeat?.setVisible(false);
+  // #177: a single-player run has no match clock; a versus run gets its own `matchClock` right after `startRun`.
+  if (mode !== 'versus') session.matchEndsAt = null;
   const run = session.start(seed, characterId, finale, mode);
   run.input.dx = inputX;
   run.input.dy = inputY;
@@ -731,6 +734,7 @@ function endRun(): void {
 /** The versus match is decided (#20): stop stepping and rendering, so the last frame stays on the canvas. */
 function forceEnd(): void {
   matchEnded = true;
+  if (session) session.matchEndsAt = null;
   opponentView?.suspendPlayback();
   paused = true;
   loop?.pause();
@@ -823,6 +827,11 @@ function handle(message: GameMainToWorker): void {
       break;
     case 'opponentView':
       if (session?.world?.mode === 'versus') opponentFeed.push(message.view, performance.now());
+      break;
+    case 'matchClock':
+      // #177, ADR 0026: anchored on this worker's clock; the HUD counts down to it while the versus run lasts.
+      if (session?.world?.mode === 'versus')
+        session.matchEndsAt = performance.now() + Math.max(0, message.remainingMs);
       break;
     case 'opponentState':
       opponentHud?.setState(message.state);

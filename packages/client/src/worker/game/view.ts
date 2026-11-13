@@ -77,8 +77,10 @@ export interface GameView {
   clear(): void;
   /** Shows the ground, `characterId`'s player sprite (#14) and the HUD for a new run, from the existing paints. */
   begin(characterId: CharacterId): void;
-  /** Syncs the camera, ground, garlic aura, lights, gems, pickups, chests, elite markers, enemies (with their hit flash and scale), projectiles, books, player, effects, the frost overlay, HUD and the sender's interference toast (#21) from `world`. No `canvas.update()`/`render()`. */
-  render(world: World): void;
+  /** Syncs the camera, ground, garlic aura, lights, gems, pickups, chests, elite markers, enemies (with their hit flash and scale), projectiles, books, player, effects, the frost overlay, HUD and the sender's interference toast (#21) from `world`, and the versus match clock from `matchRemainingMs` (#177, hidden when `null`). No `canvas.update()`/`render()`. */
+  render(world: World, matchRemainingMs?: number | null): void;
+  /** #177: the HUD's match clock text while it shows, else `null` (the `matchClock` snapshot field). */
+  matchClockText(): string | null;
   /**
    * #171, ADR 0025: anchors the HUD and the sent toast to the `visible` part of the view. Called on a layout change,
    * never per frame; presentation only (the world, its camera and the ground keep the full view) and creates nothing.
@@ -205,7 +207,10 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
       hud.layout(visible);
       sentToast.layout(visible);
     },
-    render(world) {
+    matchClockText() {
+      return hud.matchClockText();
+    },
+    render(world, matchRemainingMs = null) {
       const s = scale();
       const { camera, player: p, enemies, projectiles, fx, gems } = world;
       layers.world.translate(
@@ -279,6 +284,7 @@ export function createGameView({ TVG, library, layers, scale }: GameViewOptions)
         level: p.level,
         weapons: world.weapons,
         passives: world.passives,
+        matchRemainingMs,
       });
     },
   };
