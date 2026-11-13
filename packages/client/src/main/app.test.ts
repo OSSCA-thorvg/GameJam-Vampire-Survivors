@@ -861,6 +861,8 @@ describe('createApp versus flow (happy-dom, fake socket and worker port)', () =>
     expect(t.posted).toEqual([
       { type: 'setBackgroundPolicy', policy: 'simulate' },
       { type: 'startRun', mode: 'versus', seed: 9, characterId: 'warden', finale: 'end' },
+      // #177: about 25 minutes left, on the real clock this test runs on.
+      { type: 'matchClock', remainingMs: expect.closeTo(1_500_000, -3) as number },
     ]);
     expect(t.root.querySelector('.opponent-name')?.textContent).toBe('Bob');
     // Escape does not pause a versus match.
@@ -897,7 +899,7 @@ describe('createApp versus flow (happy-dom, fake socket and worker port)', () =>
     expect(t.panes).toEqual([2]);
     expect(t.root.querySelector('h2')?.textContent).toBe('Lose');
     expect(t.root.querySelector('.opponent-panel')).toBeNull();
-    expect(t.posted.slice(2)).toEqual([
+    expect(t.posted.slice(3)).toEqual([
       { type: 'forceEnd', reason: 'matchOver' },
       { type: 'setBackgroundPolicy', policy: 'pause' },
     ]);

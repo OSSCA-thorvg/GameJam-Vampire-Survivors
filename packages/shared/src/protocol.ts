@@ -33,13 +33,21 @@ export const SIMULTANEOUS_DEATH_WINDOW_MS = 100;
 /** A tab hidden this long during a match forfeits (ADR 0005). */
 export const AFK_FORFEIT_MS = 30_000;
 /**
- * Versus match time limit in seconds (ADR 0005: 15 minutes). At the limit every player still alive survives and
- * kills decide. #17 sources the limit from content data and keeps this constant equal to it through a test.
+ * The stage clear time in seconds (ADR 0005: 15 minutes of the player's own game time), equal to `STAGE.durationSec`
+ * through a test. A versus world that reaches it alive reports `survived`, and the first such report the server
+ * accepts wins the match (ADR 0026).
  */
 export const MATCH_TIME_LIMIT_S = 900;
 /**
- * The server ends a match by itself this long after the time limit (#60): every player who has reported neither
- * `died` nor `survived` by `startAt + (MATCH_TIME_LIMIT_S + MATCH_DEADLINE_GRACE_S) s` is treated as survived.
+ * The server's real-time limit of a versus match in seconds (ADR 0026: 25 minutes from `startAt`). Game clocks stop
+ * during level-up and chest dialogs, so it is longer than `MATCH_TIME_LIMIT_S`, which it must exceed (a test keeps
+ * it so). The versus HUD counts down to `startAt + MATCH_DEADLINE_S`.
+ */
+export const MATCH_DEADLINE_S = 1500;
+/**
+ * The server ends a match by itself this long after the real-time limit (#60, ADR 0014): every player who has
+ * reported neither `died` nor `survived` by `startAt + (MATCH_DEADLINE_S + MATCH_DEADLINE_GRACE_S) s` is treated as
+ * survived, and kills decide.
  */
 export const MATCH_DEADLINE_GRACE_S = 10;
 /** Longest raw `nickname` string the validator accepts before normalization; bounds the work done on it. */

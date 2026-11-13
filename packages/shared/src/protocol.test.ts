@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  MATCH_DEADLINE_GRACE_S,
+  MATCH_DEADLINE_S,
+  MATCH_TIME_LIMIT_S,
   MAX_MESSAGE_BYTES,
   NICKNAME_MAX,
   PROTOCOL_VERSION,
@@ -140,6 +143,15 @@ const clientCases: Record<string, { valid: unknown; invalid: unknown[] }> = {
     ],
   },
 };
+
+describe('match timing (ADR 0026)', () => {
+  it('keeps the real-time deadline beyond the stage clear time', () => {
+    expect(MATCH_TIME_LIMIT_S).toBe(900);
+    expect(MATCH_DEADLINE_S).toBe(1500);
+    expect(MATCH_DEADLINE_S).toBeGreaterThan(MATCH_TIME_LIMIT_S);
+    expect(MATCH_DEADLINE_GRACE_S).toBe(10);
+  });
+});
 
 describe('parseClientMessage', () => {
   for (const [type, { valid, invalid }] of Object.entries(clientCases)) {

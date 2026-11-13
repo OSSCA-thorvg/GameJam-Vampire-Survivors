@@ -19,10 +19,15 @@ export interface Session {
     mode?: RunMode,
     capacity?: StoreCapacity,
   ): World;
-  /** Clears the run and hides everything: the empty frame of the screens between runs. */
+  /** Clears the run and hides everything: the empty frame of the screens between runs. Clears `matchEndsAt`. */
   end(): void;
-  /** Syncs the view to the current run; nothing outside a run. */
-  render(): void;
+  /**
+   * #177, ADR 0026: when the versus match's server deadline falls on the worker's `performance.now()` clock, or `null`
+   * (single player, or the match is over): the HUD's match clock counts down to it.
+   */
+  matchEndsAt: number | null;
+  /** Syncs the view to the current run at `now` (worker `performance.now()` ms, for the match clock); nothing outside a run. */
+  render(now?: number): void;
 }
 
 /** `spawnLog` (#20, dev and e2e builds) is cleared and handed to every new world. */
@@ -32,9 +37,16 @@ export function createSession(
   spawnLog?: SpawnLog,
 ): Session {
   let world: World | null = null;
+  let matchEndsAt: number | null = null;
   return {
     get world() {
       return world;
+    },
+    get matchEndsAt() {
+      return matchEndsAt;
+    },
+    set matchEndsAt(at: number | null) {
+      matchEndsAt = at;
     },
     start(seed, characterId, finale, mode, capacity) {
       if (world) clearWorld(world);
@@ -63,9 +75,11 @@ export function createSession(
       if (world) clearWorld(world);
       view.clear();
       world = null;
+      matchEndsAt = null;
     },
-    render() {
-      if (world) view.render(world);
+    render(now) {
+      if (!world) return;
+      view.render(world, matchEndsAt === null || now === undefined ? null : matchEndsAt - now);
     },
   };
 }

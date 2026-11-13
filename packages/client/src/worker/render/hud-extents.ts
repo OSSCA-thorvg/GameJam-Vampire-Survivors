@@ -3,7 +3,7 @@
 // constant is not the width derived here, or when any pair below comes closer than `HUD_PAIR_GAP` at it.
 import { INTERFERENCE, PASSIVES, WEAPONS } from '@vs/shared';
 import { PIP_MARGIN, PIP_SCALE, VIEW_WIDTH } from '../constants';
-import { HUD_METRICS } from './hud';
+import { HUD_METRICS, MATCH_CLOCK_PREFIX } from './hud';
 import { PIP_BACKDROP } from './panes';
 import { TOAST_SIZE } from './sent-toast';
 
@@ -21,6 +21,8 @@ export const HUD_WIDTH_STEP = 20;
 export const LONGEST_LEVEL_SUFFIX = ' Lv 8';
 /** The timer shows `mm:ss`. */
 export const TIMER_GLYPHS = 5;
+/** The versus match clock shows `MATCH mm:ss` (#177). */
+export const MATCH_CLOCK_GLYPHS = MATCH_CLOCK_PREFIX.length + TIMER_GLYPHS;
 
 const longest = (names: readonly string[]): number => Math.max(...names.map((n) => n.length));
 /** Glyphs of the longest inventory row of each column: the longest display name (evolutions included) and a level. */
@@ -42,6 +44,8 @@ export const TIMER_HALF_WIDTH =
   (TIMER_GLYPHS * HUD_METRICS.timerSize * HUD_GLYPH_ADVANCE) / 2 + HUD_METRICS.outline;
 export const TOAST_HALF_WIDTH =
   (LONGEST_TOAST * TOAST_SIZE * HUD_GLYPH_ADVANCE) / 2 + HUD_METRICS.outline;
+export const MATCH_CLOCK_HALF_WIDTH =
+  (MATCH_CLOCK_GLYPHS * HUD_METRICS.matchClockSize * HUD_GLYPH_ADVANCE) / 2 + HUD_METRICS.outline;
 /** Width the picture-in-picture inset takes from the visible right edge, its backdrop included. */
 export const INSET_FROM_RIGHT = PIP_MARGIN + VIEW_WIDTH * PIP_SCALE + PIP_BACKDROP;
 
@@ -55,6 +59,10 @@ export interface HudClearances {
   timerToInset: number;
   /** `pip`: the widest sent toast to the inset's backdrop. */
   toastToInset: number;
+  /** Versus (#177): the inventory to the match clock. */
+  inventoryToMatchClock: number;
+  /** `pip` (#177): the match clock to the inset's backdrop. */
+  matchClockToInset: number;
 }
 
 export function hudClearances(visibleWidth: number): HudClearances {
@@ -65,6 +73,8 @@ export function hudClearances(visibleWidth: number): HudClearances {
     inventoryToToast: centre - TOAST_HALF_WIDTH - INVENTORY_RIGHT,
     timerToInset: insetLeft - (centre + TIMER_HALF_WIDTH),
     toastToInset: insetLeft - (centre + TOAST_HALF_WIDTH),
+    inventoryToMatchClock: centre - MATCH_CLOCK_HALF_WIDTH - INVENTORY_RIGHT,
+    matchClockToInset: insetLeft - (centre + MATCH_CLOCK_HALF_WIDTH),
   };
 }
 

@@ -8,11 +8,12 @@ A 2-player versus match (#20, ADRs 0004, 0005, 0006, 0009, 0011): after the lobb
 - **Same seed:** with no movement for the first 10 s of simulated time, the two pages' `spawnLog` entries (`{ enemyId, timeS }`, the first 64 spawner spawns) with `timeS < 10` are identical. After that the worlds diverge with input; they are never synchronized.
 - **Status relay:** each page sends `status { hp, maxHp, level, kills, alive, elapsedMs }` 2–4 times per second (never two within 250 ms: the client waits 260 ms) and receives the opponent's `peerStatus` at the same rate. The panel (`aside` "Opponents", top right; since #115 at the opponent pane's top left, as its label strip) shows one row per opponent: nickname (`.opponent-name`), an HP bar (`role="meter"` "HP", `aria-valuetext` `hp / maxHp`), `Lv n` and `Kills n`; the values change while the other player plays, and HP falls while the other is hit.
 - **Badges** (`data-badge` on `.opponent`): `away` while the opponent's tab is hidden (`peerAway`), `disconnected` when their socket closed (`roomState.connected: false`), `dead` and `forfeited` (`playerEliminated` `died`/`afk`); an eliminated row is greyed and struck through (`data-out="true"`).
-- **Death:** the dead player's world freezes, dimmed to 40%, under the ThorVG line "You were defeated - waiting for the match to end" (snapshot `defeated: true`); it sends `died { kills, elapsedMs }`. When the result arrives the survivor sees "Win", the dead player "Lose" (`.versus-result h2`), without a reload. The ranking table lists nickname (" (you)" on this player), "alive" or why the player is out ("dead", "disconnected", "forfeited"), and kills. On `matchResult` the worker gets `forceEnd`: its `steps` stop and the last frame stays under the result.
-- **Disconnect:** closing one page mid-match shows `disconnected` on the other's panel at once; about 10 s later (`DISCONNECT_GRACE_MS`) the other gets `playerEliminated { reason: 'disconnected' }` and "Win".
-- **Hidden tab (AFK):** hiding a page sends `visibility { hidden: true }`; its world keeps simulating (`timeS` advances by about the hidden time) and the opponent's row shows `away` within a second. Back within 30 s clears it. Hidden for 30 s (`AFK_FORFEIT_MS`) forfeits: the opponent gets "Win" and the ranking shows the forfeited player as "forfeited"; the forfeited page shows "Lose" when it returns.
-- **Time limit:** a versus run never spawns Death. At 15:00 each world ends with `cleared: true`, sends `survived { kills }` and shows "Survived! Waiting for others" (`.versus-banner`); when both survived the most kills win, equal kills draw.
-- **Server deadline (#60):** a `matchResult` that arrives at `startAt` + limit + 10 s while this world is still playing (behind the wall clock after level-ups) ends the match the same way, with the note "Time ran out on the server: you were counted as survived with your last reported kills." (`.versus-result .note`); a player who survived and waited until the deadline sees the note about players who had not finished.
+- **Death (ADR 0026, #177):** the dead player's world freezes, dimmed to 40%, under the ThorVG line "You were defeated - waiting for the match to end" (snapshot `defeated: true`); it sends `died { kills, elapsedMs }` and the other page gets `playerEliminated { reason: 'died' }` (badge `dead`), but **no result while the other player is alive**: the survivor keeps playing (`state` stays `versusPlaying`, `timeS` advances) and the dead page keeps its opponent pane live (`opponentFeed.received` keeps rising) and the panel. The result comes when the survivor clears ("Win" for the survivor, "Lose" for the dead player, note "<survivor> cleared the stage first."), when the survivor dies too (the last one out wins; within 100 ms of each other a draw) or at the server deadline. The ranking table lists nickname (" (you)" on this player), "alive" or why the player is out ("dead", "disconnected", "forfeited"), and kills. On `matchResult` the worker gets `forceEnd`: its `steps` stop and the last frame stays under the result. A dead player cannot leave the match screen before the result except by closing the page.
+- **Disconnect:** closing one page mid-match shows `disconnected` on the other's panel at once; about 10 s later (`DISCONNECT_GRACE_MS`) the other gets `playerEliminated { reason: 'disconnected' }` and keeps playing (ADR 0026); it wins when it clears, dies (the last one out) or at the deadline.
+- **Hidden tab (AFK):** hiding a page sends `visibility { hidden: true }`; its world keeps simulating (`timeS` advances by about the hidden time) and the opponent's row shows `away` within a second. Back within 30 s clears it. Hidden for 30 s (`AFK_FORFEIT_MS`) forfeits: the opponent gets `playerEliminated { reason: 'afk' }` (badge `forfeited`) and keeps playing (ADR 0026); its later "Win" ranks the forfeited player as "forfeited", and the forfeited page shows "Lose" when the result arrives.
+- **First clear (#177, ADR 0026):** a versus run never spawns Death. At 15:00 of its own game time a world ends with `cleared: true` and sends `survived { kills }` (banner "Survived! Waiting for others", `.versus-banner`, until the result); the first `survived` the server accepts wins the match at once, whatever the kills: both pages show the result, the clearer "Win" and ranked first, the other "Lose", both with the note "<clearer> cleared the stage first." (`.versus-result .note`).
+- **Match clock (#177):** the versus HUD shows `MATCH mm:ss` (gold, size 16, centred under the sent toast at y 96), the real time left to the server's deadline `startAt + 1500 s`, starting at `MATCH 25:00`; it counts real time, also while a level-up or chest dialog stops the game clock, and keeps counting on a dead player's page. Snapshot `matchClock` (worker) is the shown text, `null` in single player and outside a run.
+- **Server deadline (#60, ADR 0026):** a `matchResult` at `startAt` + 1500 s + 10 s ends the match with every player still alive counted as survived and ranked by kills; the note is "Time ran out on the server: you were counted as survived with your last reported kills." on a page still playing, and the note about players who had not finished on a page whose player had died. A test-only short limit (`MATCH_TIME_LIMIT_S_OVERRIDE`) ends it earlier with the same note; the HUD clock still shows the production deadline.
 - **Server lost:** when the socket leaves `open` during the match the banner says "Disconnected from server — result unavailable", nothing more is sent, the world plays on, and the local end shows "Unofficial result" with the local time, kills and level and only "Leave". Snapshot `versus.offline: true`.
 - **Rematch and Leave:** Rematch returns both to the same room's lobby (`state: 'lobby'`, same `.room-code`), showing "Waiting for the room to reset" until the server's reset 5 s after the result, then every row `data-ready="false"` and Ready enabled. Leave sends `leaveRoom` and returns to the title.
 - **Dialogs:** level-ups and chests still open over the versus world and pause only it (`versus.overlay` is `'levelUp'` or `'chest'`; `state` stays `'versusPlaying'`); while one is open no `status` is sent.
@@ -25,7 +26,7 @@ A 2-player versus match (#20, ADRs 0004, 0005, 0006, 0009, 0011): after the lobb
 - **Opponent native motion (#84, ADR 0019):** the live pane uses adjacent player positions for idle or locomotion and displays relayed enemies with locomotion poses. Its native clock runs during local level-up, chest or defeat pauses while fresh views arrive. Check that peer away/out, exhausted feed, local tab hide and leaving the pane stop native progression or release the leases. A fresh view resumes playback without catch-up.
 - **Interference (#21):** enemy kills drop Swarm, Gem Thief and Elite Call pickups from 1:00; collecting one sends it to the opponent's world, whose banner names the sender. Journeys in `interference.md`.
 - **View stream (#114, ADR 0018):** each page sends `view { view }` (a quantized `PlayerView` of its own world: player position, facing, character, HP permille and `[kind, dx, dy]` triples of nearby enemies, idle gems and pickups) 9–10 times per second, never two within 110 ms, never while its tab is hidden, after its death or after the result; each body is at most 3072 bytes. The server relays it unchanged as `peerView { playerId, view }`; the worker keeps the opponent's last 3 (`opponentFeed`). Swarm, Gem Thief and Elite Call sent to the opponent show up in the sender's `opponentFeed` (enemies, gems 0, elites ≥ 1). Single player sends none (`viewOut` stays `null`). The opponent pane draws the feed (#115, below).
-- Snapshot fields: `spawnLog`, `mode`, `defeated`, `panes` (`{ layout, opponentVisible, youLabel }`), `opponentPane` (`{ cameraX, cameraY, enemiesShown, gemsShown, pickupsShown, state: 'live' | 'away' | 'out', paintsCreated }`), `viewOut` (`{ t, x, y, enemies, elites, gems, pickups, sent }` of the last view posted, or `null`) and `opponentFeed` (`{ t, x, y, facing, character, hpPermille, enemies, elites, gems, pickups, received }` of the newest received, or `null`) (worker), `versus` (`{ overlay, offline }` or `null`, main), `layout` (`{ layout, panes }`, main) and `state` (`'versusPlaying'`, `'versusResult'`).
+- Snapshot fields: `spawnLog`, `mode`, `defeated`, `matchClock` (#177), `panes` (`{ layout, opponentVisible, youLabel }`), `opponentPane` (`{ cameraX, cameraY, enemiesShown, gemsShown, pickupsShown, state: 'live' | 'away' | 'out', paintsCreated }`), `viewOut` (`{ t, x, y, enemies, elites, gems, pickups, sent }` of the last view posted, or `null`) and `opponentFeed` (`{ t, x, y, facing, character, hpPermille, enemies, elites, gems, pickups, received }` of the newest received, or `null`) (worker), `versus` (`{ overlay, offline }` or `null`, main), `layout` (`{ layout, panes }`, main) and `state` (`'versusPlaying'`, `'versusResult'`).
 
 ## How to get to it (user POV)
 
@@ -40,11 +41,11 @@ The extension drives one Chrome profile; two tabs are two players (`lobby.md`).
 1. Reach the countdown in tabs A and B as in `lobby.md` steps 1–4; `javascript_tool` `(await window.__vsTest.waitFor((s) => s.state === 'versusPlaying', 10000)).mode` → `"versus"` in both.
 2. Same seed: press nothing for 12 s (press `1` on a level-up dialog in both tabs); `javascript_tool` `JSON.stringify((await window.__vsTest.snapshot()).spawnLog.filter((e) => e.timeS < 10))` in each → equal strings.
 3. Panel: in B press `i`, hold ArrowRight a few seconds; `read_page` in A → the "Opponents" row for Bob changes `Lv`/`Kills`; `read_network_requests` is not enough for WebSocket frames, so count the rate with the Playwright journey.
-4. Death: A stands still → `screenshot` of the dimmed world with the defeat line, then "Lose" in A and "Win" in B (`find` the heading).
+4. Death: A stands still → `screenshot` of the dimmed world with the defeat line; B (invulnerable) keeps playing and no result shows in either tab for as long as you wait (#177). Then in B `]` repeatedly (answer dialogs) to 14:00 and let the last minute run: "Lose" in A and "Win" in B (`find` the heading), both with "Bob cleared the stage first.".
 5. Rematch in both (`find` "Rematch button", `left_click`) → both lobbies with the same code, ready cleared after about 5 s.
-6. Disconnect: start again, close tab A (`tabs_close_mcp`); B shows "disconnected" at once and "Win" about 10 s later.
+6. Disconnect: start again, close tab A (`tabs_close_mcp`); B shows "disconnected" at once, the `forfeited`/`disconnected` elimination about 10 s later, and keeps playing (#177).
 7. Hidden tab: the extension cannot hide its own tab natively; ask the person to switch away from tab A for 20 s and back, then for 35 s, and record B's badges and result (`hidden-tab.md`). The Playwright native journey is the automated level-5 proof.
-8. 15:00: start again; in both tabs `i`, then `]` repeatedly (answer dialogs with `1`/Enter) until 15:00; neither world shows Death (`(await __vsTest.snapshot()).bosses` has no `death`); both show the result decided by kills.
+8. 15:00: start again; in both tabs `i`, and read `(await __vsTest.snapshot()).matchClock` twice a few seconds apart (`MATCH 24:5x`, falling with real time, also while a level-up dialog is open); then in A `]` repeatedly (answer dialogs with `1`/Enter) until 14:00 and let the last minute run; A's world shows no Death (`bosses` has no `death`) and the first clear decides: "Win" in A, "Lose" in B, both noting "Alice cleared the stage first.".
 
 ### Playwright
 
@@ -58,6 +59,7 @@ Save these files under `verification/issue-<N>/journeys/` (the native spec in `j
 - Journey 9 (#115, split panes, headless): `VERIFY_JOURNEYS=verification/issue-<N>/journeys VERIFY_EVIDENCE_DIR=$PWD/verification/issue-<N> pnpm exec playwright test -c e2e/playwright.config.ts --project chromium -g "versus 9"` (needs `versus-helpers.ts` beside it).
 - Journey 11 (#150, picture-in-picture on touch devices) is checked in: `e2e/versus-pip.spec.ts`, run by `pnpm verify:e2e --with-server --project mobile-chromium` (or `VERIFY_URL=<url> VERIFY_EVIDENCE_DIR=$PWD/verification/issue-<N> pnpm exec playwright test -c e2e/playwright.config.ts e2e/versus-pip.spec.ts --project=mobile-chromium` against a running client and server). Match 1: a Pixel 7 page and a 1024×768 touch page (#171) tap through Multiplayer, Create room / Join room / Join, Ready and Start (the lobby shows the touch hint), press `I` (precondition), play 10 s and each checks layout `pip` in both threads, the cover fit (`expectCoverFit`), the inset rect against the screen's right and top edges, the panel under it and on screen, the kill count's pixels above the inset, the white frame (pixels sampled across the inset's top edge) and `opponentPane.enemiesShown > 0`. The touch pages close, then match 2: a desktop page (keys) beside a phone; the desktop shows `columns` with "YOU" and equal panes, the phone `pip`; a CDP touch on the desktop page switches it to `pip` and `ArrowRight` back to `columns`, three times, with `opponentPane.paintsCreated` unchanged. Evidence in `versus-11-pip/a-phone|b-tablet|c-desktop|d-phone/` with `pip.json` (in `a-phone/`).
 - Journey 10 (#115, render rate and paint counts) and 10b (single player at 1600 × 900): the same command with `-g "versus 10"`, still in the headless `chromium` project: the spec launches its own headed Chromium for the two measured pages with `--window-position=-2400,-2400 --window-size=1600,1000`, never brings it to the front and closes it at once; player B stays headless. Do not run it with `VERIFY_HEADED=1`. Record the load average with each run and rerun when it is above 20.
+- Journeys 12–15 (#177, ADR 0026: the match clock, the first clear, a death that leaves the match running, no clock in single player, the short-limit deadline): `VERIFY_JOURNEYS=verification/issue-<N>/journeys VERIFY_EVIDENCE_DIR=$PWD/verification/issue-<N> pnpm exec playwright test -c e2e/playwright.config.ts --project=chromium -g "177-"` (needs `versus-helpers.ts` beside it); journey 15 (`177-4`) runs only with `VERIFY_DEADLINE=1` against the short-limit server (`room-server.md` § Deadline journey, `MATCH_TIME_LIMIT_S_OVERRIDE: '20'`), after `verify:cleanup` of the shared server and a client-only `verify:launch`. Evidence in `c177-1-clear-first/`, `c177-2-death-plays-on/`, `c177-3-single/` and `c177-4-deadline/`.
 
 Evidence per journey and player: `versus-<n>-<name>/<a|b>/` with screenshots, `page-console.log`, `worker-console.log`, `ws-frames.log` and JSON (`spawn-logs.json`, `panel-rate.json`, `hp-seen-by-b.json`, `death.json`, `disconnect.json`, `time-limit.json`, `single.json`, `hidden-20s.json`, `hidden-35s.json`, `deadline.json`, `offline.json`, `view-rate.json`, `view-interference.json`, `single-view.json`, `view-hidden.json`, `split-panes.json`, `perf.json`, `single-view.json`).
 
@@ -281,10 +283,10 @@ import {
   statusFrames,
 } from './versus-helpers';
 
-test('versus 1: same seed, panel rate, death → Lose/Win without reload, Rematch → the same lobby', async ({
+test('versus 1: same seed, panel rate, a death leaves the match running, a clear → Lose/Win without reload, Rematch → the same lobby', async ({
   browser,
 }, testInfo) => {
-  test.setTimeout(600_000);
+  test.setTimeout(1_200_000);
   const a = await player(browser, 'versus-1-match/a');
   const b = await player(browser, 'versus-1-match/b');
   noteEvidence(testInfo, a.ev);
@@ -371,8 +373,23 @@ test('versus 1: same seed, panel rate, death → Lose/Win without reload, Rematc
     expect(new Set(hpSeenByB.map((x) => (x as { hp: string }).hp)).size).toBeGreaterThan(1);
     const dead = await waitForSnapshot(a.page, (s) => s.defeated === true, 420_000);
     await a.ev.shot('a-defeated-dimmed');
-    await expect(a.page.getByRole('heading', { name: 'Lose' })).toBeVisible({ timeout: 5_000 });
+    // ADR 0026 (#177): the death leaves B playing; B's clear decides the match.
+    await b.page.waitForTimeout(5_000);
+    expect([a, b].map((p) => p.frames.filter((f) => f.type === 'matchResult').length)).toEqual([
+      0, 0,
+    ]);
+    expect((await snapshot(b.page)).state).toBe('versusPlaying');
+    await stopB();
+    await forwardVersus(b.page, 840); // never past 900: the last minute runs live
+    const stopB2 = answerDialogs(b.page);
+    await waitForSnapshot(
+      b.page,
+      (s) => s.state !== 'versusPlaying' || s.cleared === true,
+      400_000,
+    );
+    await expect(a.page.getByRole('heading', { name: 'Lose' })).toBeVisible({ timeout: 30_000 });
     await expect(b.page.getByRole('heading', { name: 'Win' })).toBeVisible({ timeout: 5_000 });
+    await expect(a.page.locator('.versus-result .note')).toHaveText('Bob cleared the stage first.');
     await a.ev.shot('a-lose');
     await b.ev.shot('b-win');
     const after = await Promise.all([snapshot(a.page), snapshot(b.page)]);
@@ -393,7 +410,7 @@ test('versus 1: same seed, panel rate, death → Lose/Win without reload, Rematc
     await b.page.waitForTimeout(500);
     expect((await snapshot(b.page)).steps).toBe(bSteps);
     await stopA();
-    await stopB();
+    await stopB2();
     // Rematch: both return to the same lobby with ready flags cleared.
     for (const p of [a, b]) await p.page.getByRole('button', { name: 'Rematch' }).click();
     for (const p of [a, b]) {
@@ -413,7 +430,7 @@ test('versus 1: same seed, panel rate, death → Lose/Win without reload, Rematc
   }
 });
 
-test('versus 2: closing a page mid-match marks the player disconnected; the other wins about 10 s later', async ({
+test('versus 2: closing a page mid-match marks the player disconnected, eliminated about 10 s later; the other plays on', async ({
   browser,
 }, testInfo) => {
   test.setTimeout(120_000);
@@ -433,20 +450,29 @@ test('versus 2: closing a page mid-match marks the player disconnected; the othe
     });
     const badgeAt = Date.now();
     await b.ev.shot('b-disconnected-badge');
-    await expect(b.page.getByRole('heading', { name: 'Win' })).toBeVisible({ timeout: 20_000 });
-    const winAt = Date.now();
-    await b.ev.shot('b-win');
+    await expect(b.page.locator('.opponent[data-out="true"]')).toBeVisible({ timeout: 20_000 });
+    const outAt = Date.now();
+    // ADR 0026 (#177): B keeps playing after the elimination; no result.
+    const t0 = (await snapshot(b.page)).timeS;
+    await b.page.waitForTimeout(3_000);
+    const still = await snapshot(b.page);
+    await b.ev.shot('b-plays-on');
     await stopB();
     b.ev.json('disconnect', {
       badgeAfterMs: badgeAt - closedAt,
-      winAfterMs: winAt - closedAt,
+      outAfterMs: outAt - closedAt,
+      state: still.state,
+      timeS: [t0, still.timeS],
       eliminated: b.frames
         .filter((f) => f.type === 'playerEliminated')
         .map((f) => ({ t: f.t - closedAt, body: f.body })),
       result: b.frames.filter((f) => f.type === 'matchResult').map((f) => f.body),
     });
-    expect(winAt - closedAt).toBeGreaterThanOrEqual(9_000);
-    expect(winAt - closedAt).toBeLessThanOrEqual(13_000);
+    expect(outAt - closedAt).toBeGreaterThanOrEqual(9_000);
+    expect(outAt - closedAt).toBeLessThanOrEqual(13_000);
+    expect(still.state).toBe('versusPlaying');
+    expect(still.timeS).toBeGreaterThan(t0 + 1);
+    expect(b.frames.some((f) => f.type === 'matchResult')).toBe(false);
     expect(
       b.frames.some((f) => f.type === 'playerEliminated' && f.body.includes('"disconnected"')),
     ).toBe(true);
@@ -457,10 +483,10 @@ test('versus 2: closing a page mid-match marks the player disconnected; the othe
   }
 });
 
-test('versus 3: no Death at 15:00; the match is decided by kills', async ({
+test('versus 3: no Death at 15:00; the first clear wins at once (#177)', async ({
   browser,
 }, testInfo) => {
-  test.setTimeout(900_000);
+  test.setTimeout(1_200_000);
   const a = await player(browser, 'versus-3-time-limit/a');
   const b = await player(browser, 'versus-3-time-limit/b');
   noteEvidence(testInfo, a.ev);
@@ -471,29 +497,28 @@ test('versus 3: no Death at 15:00; the match is decided by kills', async ({
       await p.page.keyboard.press('i');
       await waitForSnapshot(p.page, (s) => s.debugInvulnerable === true, 2_000);
     }
-    // B walks for 3 s first, so the two worlds (same seed) diverge and the kills differ.
-    await b.page.keyboard.down('ArrowRight');
-    await b.page.waitForTimeout(3_000);
-    await b.page.keyboard.up('ArrowRight');
-    const bosses: unknown[] = [];
-    for (const p of [a, b]) {
-      await forwardVersus(p.page, 899);
-      bosses.push((await snapshot(p.page)).bosses);
-    }
+    const stopB = answerDialogs(b.page);
+    await forwardVersus(a.page, 840); // never past 900: the last minute runs live
+    const bossesBefore = (await snapshot(a.page)).bosses;
     await a.ev.shot('a-before-limit');
-    // The last second runs live in both worlds.
-    await Promise.all(
-      [a, b].map((p) =>
-        waitForSnapshot(p.page, (s) => s.state !== 'versusPlaying' || s.cleared === true, 30_000),
-      ),
+    const stopA = answerDialogs(a.page);
+    await waitForSnapshot(
+      a.page,
+      (s) => s.state !== 'versusPlaying' || s.cleared === true,
+      180_000,
     );
     const ends = await Promise.all([a, b].map((p) => snapshot(p.page)));
     for (const p of [a, b])
       await expect(p.page.locator('.versus-result h2')).toBeVisible({ timeout: 15_000 });
+    await stopA();
+    await stopB();
     await a.ev.shot('a-result');
     await b.ev.shot('b-result');
     const headlines = await Promise.all(
       [a, b].map((p) => p.page.locator('.versus-result h2').textContent()),
+    );
+    const notes = await Promise.all(
+      [a, b].map((p) => p.page.locator('.versus-result .note').textContent()),
     );
     const survived = [a, b].map((p) =>
       p.frames.filter((f) => f.dir === '→' && f.type === 'survived').map((f) => f.body),
@@ -504,31 +529,32 @@ test('versus 3: no Death at 15:00; the match is decided by kills', async ({
         timeS: s.timeS,
         cleared: s.cleared,
         bosses: s.bosses,
-        enemies: s.enemies,
         state: s.state,
       })),
-      bossesBefore: bosses,
+      bossesBefore,
       survived,
       result,
       headlines,
+      notes,
     });
-    for (const s of ends) {
-      expect(s.cleared).toBe(true);
-      expect(
-        (s.bosses as { enemyId?: string; id?: string }[]).some(
-          (x) => (x.enemyId ?? x.id) === 'death',
-        ),
-      ).toBe(false);
-    }
-    expect(survived.every((s) => s.length === 1)).toBe(true);
+    expect(ends[0]?.cleared).toBe(true);
+    expect(
+      ((ends[0]?.bosses ?? []) as { enemyId?: string; id?: string }[]).some(
+        (x) => (x.enemyId ?? x.id) === 'death',
+      ),
+    ).toBe(false);
+    expect(survived.map((x) => x.length)).toEqual([1, 0]);
     const parsed = JSON.parse(result) as {
       outcome: string;
-      winnerId: string | null;
-      ranking: { kills: number; alive: boolean }[];
+      ranking: { nickname: string; alive: boolean }[];
     };
-    expect(parsed.ranking.every((r) => r.alive)).toBe(true);
-    const [k0, k1] = parsed.ranking.map((r) => r.kills);
-    expect(parsed.outcome).toBe(k0 === k1 ? 'draw' : 'win');
+    expect(parsed.outcome).toBe('win');
+    expect(parsed.ranking.map((r) => [r.nickname, r.alive])).toEqual([
+      ['Alice', true],
+      ['Bob', true],
+    ]);
+    expect(headlines).toEqual(['Win', 'Lose']);
+    expect(notes).toEqual(['Alice cleared the stage first.', 'Alice cleared the stage first.']);
     expect([...pageErrors(a.ev), ...pageErrors(b.ev)]).toEqual([]);
   } finally {
     await a.close();
@@ -716,7 +742,7 @@ test('versus 5 (native hidden tab): hidden 20 s keeps simulating and shows away;
 ```ts
 // versus-match.md journey 6 (#20, #60): a server with the test-only short limit (NODE_ENV=test,
 // MATCH_TIME_LIMIT_S_OVERRIDE=20) ends the match at startAt + 30 s while both worlds are still playing; both pages show
-// the result with the deadline note. Runs only with VERIFY_DEADLINE=1 against that server.
+// the result with the deadline note (#177: the client tells it from a first clear, since nobody can have cleared then). Runs only with VERIFY_DEADLINE=1 against that server.
 import { expect, test } from '@playwright/test';
 import { noteEvidence, pageErrors, snapshot } from '../../../e2e/helpers';
 import { answerDialogs, meet, player, startMatch } from './versus-helpers';
@@ -1873,6 +1899,309 @@ test('versus 10b: single player at 1600 x 900 keeps one full view with no YOU la
 });
 ```
 
+`clear-first.spec.ts` (journeys 12–15, #177):
+
+```ts
+// versus-match.md journeys 12–15: #177 (ADR 0026) journeys against the Docker server on :8787: the versus HUD's match clock, the first clear wins, a
+// death does not end the match while the other player is alive, and single player has no clock. Debug keys reach
+// preconditions only: `I` (invulnerable) and `]` (fast-forward).
+import { expect, test } from '@playwright/test';
+import { noteEvidence, pageErrors, snapshot, waitForSnapshot } from '../../../e2e/helpers';
+import { answerDialogs, forwardVersus, meet, player, startMatch, versusOf } from './versus-helpers';
+
+const clockSeconds = (text: unknown): number => {
+  const m = /^MATCH (\d\d):(\d\d)$/.exec(String(text));
+  if (!m) throw new Error(`not a match clock: ${String(text)}`);
+  return Number(m[1]) * 60 + Number(m[2]);
+};
+
+test('177-1: the match clock counts real time, through a level-up dialog; the first clear wins', async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(1_200_000);
+  const a = await player(browser, 'c177-1-clear-first/a');
+  const b = await player(browser, 'c177-1-clear-first/b');
+  noteEvidence(testInfo, a.ev);
+  try {
+    await meet(a, b);
+    await startMatch(a, b);
+    for (const p of [a, b]) {
+      await p.page.keyboard.press('i');
+      await waitForSnapshot(p.page, (s) => s.debugInvulnerable === true, 2_000);
+    }
+    // The clock: two snapshots about 3 s apart on both pages.
+    const t0 = Date.now();
+    const first = await Promise.all([a, b].map((p) => snapshot(p.page)));
+    await a.page.waitForTimeout(3_000);
+    const second = await Promise.all([a, b].map((p) => snapshot(p.page)));
+    const t1 = Date.now();
+    await a.ev.shot('a-clock');
+    await b.ev.shot('b-clock');
+    const clock = {
+      wallMs: t1 - t0,
+      first: first.map((s) => s.matchClock),
+      second: second.map((s) => s.matchClock),
+    };
+    for (let i = 0; i < 2; i++) {
+      const s0 = clockSeconds(first[i]?.matchClock);
+      const s1 = clockSeconds(second[i]?.matchClock);
+      expect(s0).toBeGreaterThanOrEqual(24 * 60 + 50);
+      expect(s0).toBeLessThanOrEqual(25 * 60);
+      expect(s0 - s1).toBeGreaterThanOrEqual(2);
+      expect(s0 - s1).toBeLessThanOrEqual(5);
+    }
+    // A level-up dialog freezes A's game clock, not the match clock.
+    const dialog = await waitForSnapshot(
+      a.page,
+      (s) => versusOf(s)?.overlay === 'levelUp',
+      120_000,
+    );
+    await a.page.waitForTimeout(3_000);
+    const during = await snapshot(a.page);
+    await a.ev.shot('a-clock-during-level-up');
+    const dialogClock = {
+      overlay: versusOf(during)?.overlay,
+      timeS: [dialog.timeS, during.timeS],
+      matchClock: [dialog.matchClock, during.matchClock],
+    };
+    expect(versusOf(during)?.overlay).toBe('levelUp');
+    expect(during.timeS).toBe(dialog.timeS);
+    expect(
+      clockSeconds(dialog.matchClock) - clockSeconds(during.matchClock),
+    ).toBeGreaterThanOrEqual(2);
+    a.ev.json('clock', { ...clock, dialogClock });
+    // First clear: A forwards to 14:00 and plays the last minute live; B keeps playing (dialogs answered).
+    const stopB = answerDialogs(b.page);
+    await forwardVersus(a.page, 840); // never past 900: the last minute runs live
+    const stopA = answerDialogs(a.page);
+    await waitForSnapshot(
+      a.page,
+      (s) => s.state !== 'versusPlaying' || s.cleared === true,
+      400_000,
+    );
+    for (const p of [a, b])
+      await expect(p.page.locator('.versus-result h2')).toBeVisible({ timeout: 30_000 });
+    await stopA();
+    await stopB();
+    await a.ev.shot('a-result');
+    await b.ev.shot('b-result');
+    const headlines = await Promise.all(
+      [a, b].map((p) => p.page.locator('.versus-result h2').textContent()),
+    );
+    const notes = await Promise.all(
+      [a, b].map((p) =>
+        p.page
+          .locator('.versus-result .note')
+          .textContent()
+          .catch(() => null),
+      ),
+    );
+    const ranking = await b.page.locator('.ranking tbody tr').allTextContents();
+    const result = b.frames.find((f) => f.type === 'matchResult')?.body ?? '';
+    const bState = await snapshot(b.page);
+    a.ev.json('clear-first', {
+      headlines,
+      notes,
+      ranking,
+      result,
+      survivedFromA: a.frames
+        .filter((f) => f.dir === '→' && f.type === 'survived')
+        .map((f) => f.body),
+      survivedFromB: b.frames.filter((f) => f.dir === '→' && f.type === 'survived').length,
+      bTimeS: bState.timeS,
+    });
+    expect(headlines).toEqual(['Win', 'Lose']);
+    expect(notes).toEqual(['Alice cleared the stage first.', 'Alice cleared the stage first.']);
+    expect(ranking[0]).toContain('Alice');
+    const parsed = JSON.parse(result) as {
+      outcome: string;
+      ranking: { nickname: string; alive: boolean }[];
+    };
+    expect(parsed.outcome).toBe('win');
+    expect(parsed.ranking.map((r) => [r.nickname, r.alive])).toEqual([
+      ['Alice', true],
+      ['Bob', true],
+    ]);
+    expect(bState.timeS).toBeLessThan(900);
+    expect([...pageErrors(a.ev), ...pageErrors(b.ev)]).toEqual([]);
+  } finally {
+    await a.close();
+    await b.close();
+  }
+});
+
+test('177-2: a death does not end the match; the survivor plays on and then clears', async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(1_200_000);
+  const a = await player(browser, 'c177-2-death-plays-on/a');
+  const b = await player(browser, 'c177-2-death-plays-on/b');
+  noteEvidence(testInfo, b.ev);
+  try {
+    await meet(a, b);
+    await startMatch(a, b);
+    // B invulnerable; A stands still with invulnerability off until it dies.
+    await b.page.keyboard.press('i');
+    await waitForSnapshot(b.page, (s) => s.debugInvulnerable === true, 2_000);
+    const stopA = answerDialogs(a.page);
+    const stopB = answerDialogs(b.page);
+    const dead = await waitForSnapshot(a.page, (s) => s.defeated === true, 300_000);
+    const diedAt = Date.now();
+    await a.ev.shot('a-defeated');
+    const before = await Promise.all([a, b].map((p) => snapshot(p.page)));
+    await b.page.waitForTimeout(10_000);
+    const after = await Promise.all([a, b].map((p) => snapshot(p.page)));
+    await a.ev.shot('a-defeated-10s-later');
+    await b.ev.shot('b-playing-10s-later');
+    const results = [a, b].map((p) => p.frames.filter((f) => f.type === 'matchResult').length);
+    type Feed = { received?: number } | null;
+    const plays = {
+      aDiedTimeS: dead.timeS,
+      states: [before.map((s) => s.state), after.map((s) => s.state)],
+      bTimeS: [before[1]?.timeS, after[1]?.timeS],
+      aDefeated: after[0]?.defeated,
+      aOpponentPane: after[0]?.opponentPane,
+      aFeedReceived: [
+        (before[0]?.opponentFeed as Feed)?.received,
+        (after[0]?.opponentFeed as Feed)?.received,
+      ],
+      bMatchClock: [before[1]?.matchClock, after[1]?.matchClock],
+      matchResults: results,
+      eliminated: b.frames.filter((f) => f.type === 'playerEliminated').map((f) => f.body),
+      msSinceDeath: Date.now() - diedAt,
+    };
+    b.ev.json('plays-on', plays);
+    expect(results).toEqual([0, 0]);
+    expect(after.map((s) => s.state)).toEqual(['versusPlaying', 'versusPlaying']);
+    expect((after[1]?.timeS ?? 0) - (before[1]?.timeS ?? 0)).toBeGreaterThan(3);
+    expect(after[0]?.defeated).toBe(true);
+    expect(
+      ((after[0]?.opponentFeed as Feed)?.received ?? 0) -
+        ((before[0]?.opponentFeed as Feed)?.received ?? 0),
+    ).toBeGreaterThan(10);
+    expect(clockSeconds(after[1]?.matchClock)).toBeLessThan(clockSeconds(before[1]?.matchClock));
+    // The survivor clears: B wins, A loses, the note names B.
+    await stopB();
+    await forwardVersus(b.page, 840); // never past 900: the last minute runs live
+    const stopB2 = answerDialogs(b.page);
+    await waitForSnapshot(
+      b.page,
+      (s) => s.state !== 'versusPlaying' || s.cleared === true,
+      400_000,
+    );
+    for (const p of [a, b])
+      await expect(p.page.locator('.versus-result h2')).toBeVisible({ timeout: 30_000 });
+    await stopA();
+    await stopB2();
+    await a.ev.shot('a-result');
+    await b.ev.shot('b-result');
+    const headlines = await Promise.all(
+      [a, b].map((p) => p.page.locator('.versus-result h2').textContent()),
+    );
+    const notes = await Promise.all(
+      [a, b].map((p) =>
+        p.page
+          .locator('.versus-result .note')
+          .textContent()
+          .catch(() => null),
+      ),
+    );
+    const ranking = await a.page.locator('.ranking tbody tr').allTextContents();
+    b.ev.json('result', {
+      headlines,
+      notes,
+      ranking,
+      result: a.frames.find((f) => f.type === 'matchResult')?.body,
+    });
+    expect(headlines).toEqual(['Lose', 'Win']);
+    expect(notes).toEqual(['Bob cleared the stage first.', 'Bob cleared the stage first.']);
+    expect(ranking[0]).toContain('Bob');
+    expect([...pageErrors(a.ev), ...pageErrors(b.ev)]).toEqual([]);
+  } finally {
+    await a.close();
+    await b.close();
+  }
+});
+
+test('177-3: single player shows no match clock', async ({ browser }, testInfo) => {
+  test.setTimeout(120_000);
+  const solo = await player(browser, 'c177-3-single');
+  noteEvidence(testInfo, solo.ev);
+  try {
+    await solo.page.keyboard.press('Enter');
+    await waitForSnapshot(solo.page, (s) => s.state === 'characterSelect', 5_000);
+    await solo.page.keyboard.press('Enter');
+    await waitForSnapshot(solo.page, (s) => s.state === 'playing' && s.timeS > 2, 15_000);
+    const s = await snapshot(solo.page);
+    await solo.ev.shot('single-no-clock');
+    solo.ev.json('single', { mode: s.mode, matchClock: s.matchClock, sockets: solo.log });
+    expect(s.mode).toBe('single');
+    expect(s.matchClock).toBeNull();
+    expect(pageErrors(solo.ev)).toEqual([]);
+  } finally {
+    await solo.close();
+  }
+});
+
+test('177-4: the short-limit server deadline ends a match with both alive, by kills, with the deadline note', async ({
+  browser,
+}, testInfo) => {
+  test.skip(
+    process.env.VERIFY_DEADLINE !== '1',
+    'needs VERIFY_DEADLINE=1 and the short-limit server',
+  );
+  test.setTimeout(180_000);
+  const a = await player(browser, 'c177-4-deadline/a');
+  const b = await player(browser, 'c177-4-deadline/b');
+  noteEvidence(testInfo, a.ev);
+  try {
+    await meet(a, b);
+    await startMatch(a, b);
+    for (const p of [a, b]) await p.page.keyboard.press('i');
+    // B walks so the worlds and kills differ.
+    await b.page.keyboard.down('ArrowRight');
+    await b.page.waitForTimeout(3_000);
+    await b.page.keyboard.up('ArrowRight');
+    const stops = [answerDialogs(a.page), answerDialogs(b.page)];
+    for (const p of [a, b])
+      await expect(p.page.locator('.versus-result h2')).toBeVisible({ timeout: 90_000 });
+    for (const stop of stops) await stop();
+    await a.ev.shot('a-deadline-result');
+    await b.ev.shot('b-deadline-result');
+    const start = JSON.parse(a.frames.find((f) => f.type === 'matchStart')?.body ?? '{}') as {
+      startAt: number;
+    };
+    const result = a.frames.find((f) => f.type === 'matchResult');
+    const notes = await Promise.all(
+      [a, b].map((p) => p.page.locator('.versus-result .note').textContent()),
+    );
+    const headlines = await Promise.all(
+      [a, b].map((p) => p.page.locator('.versus-result h2').textContent()),
+    );
+    a.ev.json('deadline', {
+      resultAfterStartMs: (result?.t ?? 0) - start.startAt,
+      result: result?.body,
+      headlines,
+      notes,
+    });
+    const parsed = JSON.parse(result?.body ?? '{}') as {
+      outcome: string;
+      winnerId: string | null;
+      ranking: { alive: boolean; kills: number }[];
+    };
+    expect(parsed.ranking.every((r) => r.alive)).toBe(true);
+    const [k0, k1] = parsed.ranking.map((r) => r.kills);
+    expect(parsed.outcome).toBe(k0 === k1 ? 'draw' : 'win');
+    expect((k0 ?? 0) >= (k1 ?? 0)).toBe(true);
+    for (const note of notes) expect(note).toMatch(/^Time ran out on the server: you were counted/);
+    expect([...pageErrors(a.ev), ...pageErrors(b.ev)]).toEqual([]);
+  } finally {
+    await a.close();
+    await b.close();
+  }
+});
+```
+
 ## Gotchas
 
 - Journey 11 (#150): Playwright Test applies the project's `use` (in `mobile-chromium` a Pixel 7: touch, mobile, DPR 2.625) to every `browser.newContext()`, so the desktop page passes `devices['Desktop Chrome']` explicitly; without it the "desktop" page started in touch mode at 1280 × 720 and DPR 2.625, and the next page's worker never answered (2026-11-10, #150).
@@ -1887,7 +2216,9 @@ test('versus 10b: single player at 1600 x 900 keeps one full view with no YOU la
 - Hiding must be native: plain Playwright focus emulation (`bringToFront()` on a standard context) keeps pages visible. Journey 5 runs A in the task-owned browser and profile of `e2e/helpers/native-test.ts` (hidden by activating its owned blank target with `hidePage`) and B in a second, separately launched headless browser it closes itself. On a shared desktop the owned window can be covered by other windows, and Chrome then reports every tab hidden (occlusion), so `show()` never succeeds; journey 5 keeps `--disable-backgrounding-occluded-windows` (only occlusion tracking is off; the tab switch still hides the page natively). The checked-in `e2e/hidden-tab.spec.ts` failed the same way on that desktop (2026-11-09, #20).
 - While hidden, the main thread's timers are throttled to about once a second, so the trailing status send slows to about 1 per second; the world itself keeps simulating in the worker (measured 22 `status` frames in 21 s hidden, `timeS` +19.8 s) (2026-11-09, #20).
 - Measured against the local Docker server: 39 `status` sent and 39 `peerStatus` received per player in 10.3 s (3.8/s, minimum gap 260 ms); `away` seen 61 ms after hiding; disconnect → `disconnected` badge 109 ms, "Win" 10.5 s; AFK forfeit "Win" 30.5 s after hiding; deadline result 30.0 s after `startAt` with a 20 s limit (2026-11-09, #20).
-- The deadline journey needs `NODE_ENV=test` and `MATCH_TIME_LIMIT_S_OVERRIDE` (journey 6 used 20 s) through a compose override (`room-server.md` § Deadline journey); the 15:00 journey 3 never reaches the server deadline because both players report `survived` first (2026-11-09, #20).
+- The deadline journey needs `NODE_ENV=test` and `MATCH_TIME_LIMIT_S_OVERRIDE` (journey 6 used 20 s) through a compose override (`room-server.md` § Deadline journey); the 15:00 journey 3 never reaches the server deadline because the first `survived` ends the match (2026-11-09, #20; #177).
+- `]` jumps 60 s of game time and can carry a world past 15:00 inside one burst, whose statuses the controller drops at `gameOver`; the loser's page then has no relayed status near 15:00 and, with under 15 minutes of real time gone, shows the deadline note instead of "<name> cleared the stage first." Journeys forward the clearer only to 14:00 (`forwardVersus(page, 840)`) and let the last minute run live (2026-11-13, #177).
+- A dead player waits on the defeat overlay until the result, up to the 25-minute deadline; journeys that kill one page make the other clear (#177, ADR 0026).
 - In headless SwiftShader screenshots the ThorVG texts (the HUD timer and the defeat line alike) look dark with a light outline; judge their colour in a headed run (2026-11-09, #20).
 - Journey 8 compares `opponentFeed` with the sender's `viewOut` only when their `t` match: two snapshots of two pages are never taken at the same instant, and a level-up dialog in either world holds its views (no `view` while the world does not step), so the 10 s count can fall towards the low end of 80–100 (2026-11-09, #114).
 - Journey 8b measures the hidden window between the page's own `visibility` frames: `hidePage` resolves about 100 ms after the tab is really hidden, so a window from the call time counts a view sent while the tab was still visible (2026-11-09, #114).

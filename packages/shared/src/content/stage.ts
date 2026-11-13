@@ -29,7 +29,10 @@ export type StageEvent =
 
 export interface StageDef {
   id: 'forest';
-  /** The time limit (ADR 0005), equal to the protocol's `MATCH_TIME_LIMIT_S` (a test keeps them equal). */
+  /**
+   * The stage clear time (ADR 0005; in versus the first to reach it alive wins, ADR 0026), equal to the protocol's
+   * `MATCH_TIME_LIMIT_S` (a test keeps them equal).
+   */
   durationSec: number;
   waves: WaveDef[];
   /** Sorted by `at`, each before `durationSec`. */

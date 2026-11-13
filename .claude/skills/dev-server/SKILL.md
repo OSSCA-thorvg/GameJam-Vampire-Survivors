@@ -47,7 +47,7 @@ Source edits in `packages/server/src` and `packages/shared/src` hot-reload insid
 - **Dependency errors after a pull:** run `docker compose down -v server` to drop the dependency volume, then `pnpm server:up`.
 - **Unhealthy container:** run `docker compose ps` and `pnpm server:logs`. The health check calls `/healthz`.
 - **WebSocket upgrade rejected with 403:** the page's `Origin` is not in `ALLOWED_ORIGINS` in `.env`. Add it there (comma-separated) and run `pnpm server:up` again.
-- **The server exits with `config_invalid`:** `LOG_LEVEL` must be `info` or `debug`, `PORT` an integer, `TRUST_PROXY` `0` or `1`, and, under `NODE_ENV=test`, `MATCH_TIME_LIMIT_S_OVERRIDE` blank or an integer from 1 to 900 (outside `NODE_ENV=test` it is ignored and logged as `override_ignored`).
+- **The server exits with `config_invalid`:** `LOG_LEVEL` must be `info` or `debug`, `PORT` an integer, `TRUST_PROXY` `0` or `1`, and, under `NODE_ENV=test`, `MATCH_TIME_LIMIT_S_OVERRIDE` blank or an integer from 1 to 1500 (`MATCH_DEADLINE_S`, #177) (outside `NODE_ENV=test` it is ignored and logged as `override_ignored`).
 - **Upgrade refused with 429:** the client IP already has 10 connections (ADR 0011). Close stale sockets; behind a reverse proxy set `TRUST_PROXY=1` so the cap applies per client, not to the proxy.
 - **`curl` upgrade checks answer 400 `Missing or invalid Sec-WebSocket-Key`:** the key must be 16 bytes in base64, such as `dGhlIHNhbXBsZSBub25jZQ==`; a shorter one is refused before the Origin is checked.
 - **A different Node version is wanted:** change `.nvmrc` in a PR. The image follows it through `NODE_VERSION`.

@@ -1,4 +1,4 @@
-import { MATCH_TIME_LIMIT_S } from '@vs/shared';
+import { MATCH_DEADLINE_S } from '@vs/shared';
 
 /** Runtime configuration of the game server, read once from the environment at startup (ADR 0006, ADR 0011). */
 export interface ServerConfig {
@@ -18,8 +18,8 @@ export interface ServerConfig {
    */
   trustProxy: boolean;
   /**
-   * Versus time limit in seconds: always `MATCH_TIME_LIMIT_S` (900), except under `NODE_ENV=test`, where
-   * `MATCH_TIME_LIMIT_S_OVERRIDE` may shorten it for container journeys (#60).
+   * The real-time limit of a versus match in seconds: always `MATCH_DEADLINE_S` (1500, ADR 0026), except under
+   * `NODE_ENV=test`, where `MATCH_TIME_LIMIT_S_OVERRIDE` may shorten it for container journeys (#60).
    */
   matchTimeLimitS: number;
   /** `MATCH_TIME_LIMIT_S_OVERRIDE` was set but ignored because `NODE_ENV` is not `test`; logged at startup. */
@@ -37,17 +37,17 @@ function valueOf(raw: string | undefined): string | undefined {
 
 /**
  * `MATCH_TIME_LIMIT_S_OVERRIDE` is test-only: honoured only when `NODE_ENV` is exactly `test`, where it must be an
- * integer from 1 to `MATCH_TIME_LIMIT_S`. Anywhere else (the runtime image sets `NODE_ENV=production`) it is never
- * parsed and the limit stays `MATCH_TIME_LIMIT_S`.
+ * integer from 1 to `MATCH_DEADLINE_S`. Anywhere else (the runtime image sets `NODE_ENV=production`) it is never
+ * parsed and the limit stays `MATCH_DEADLINE_S`. The name is kept from #60, when the limit was `MATCH_TIME_LIMIT_S`.
  */
 function readMatchTimeLimit(env: NodeJS.ProcessEnv): { seconds: number; ignored: boolean } {
   const raw = valueOf(env.MATCH_TIME_LIMIT_S_OVERRIDE);
-  if (raw === undefined) return { seconds: MATCH_TIME_LIMIT_S, ignored: false };
-  if (env.NODE_ENV !== 'test') return { seconds: MATCH_TIME_LIMIT_S, ignored: true };
+  if (raw === undefined) return { seconds: MATCH_DEADLINE_S, ignored: false };
+  if (env.NODE_ENV !== 'test') return { seconds: MATCH_DEADLINE_S, ignored: true };
   const seconds = Number(raw);
-  if (!/^[0-9]+$/.test(raw) || seconds < 1 || seconds > MATCH_TIME_LIMIT_S) {
+  if (!/^[0-9]+$/.test(raw) || seconds < 1 || seconds > MATCH_DEADLINE_S) {
     throw new Error(
-      `MATCH_TIME_LIMIT_S_OVERRIDE must be an integer between 1 and ${String(MATCH_TIME_LIMIT_S)}, got "${raw}"`,
+      `MATCH_TIME_LIMIT_S_OVERRIDE must be an integer between 1 and ${String(MATCH_DEADLINE_S)}, got "${raw}"`,
     );
   }
   return { seconds, ignored: false };

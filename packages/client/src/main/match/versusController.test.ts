@@ -17,6 +17,7 @@ import {
   createVersusController,
   headlineOf,
   OFFLINE_BANNER,
+  clearedFirstNote,
   PEER_DEADLINE_NOTE,
   SELF_DEADLINE_NOTE,
   STATUS_SEND_INTERVAL_MS,
@@ -124,6 +125,7 @@ describe('versusController (#20)', () => {
     expect(t.posted).toEqual([
       { type: 'setBackgroundPolicy', policy: 'simulate' },
       { type: 'startRun', mode: 'versus', seed: 77, characterId: 'swift', finale: 'end' },
+      { type: 'matchClock', remainingMs: 1_500_000 },
     ]);
     expect([...t.root.querySelectorAll('.opponent-name')].map((n) => n.textContent)).toEqual([
       'Bob',
@@ -199,7 +201,7 @@ describe('versusController (#20)', () => {
       const t = setup();
       t.posted.length = 0;
       const ranking = [
-        { playerId: winnerId ?? 'a', nickname: 'W', alive: winnerId !== null, kills: 3 },
+        { playerId: winnerId ?? 'a', nickname: 'W', alive: false, kills: 3 },
         { playerId: winnerId === 'a' ? 'b' : 'a', nickname: 'L', alive: false, kills: 1 },
       ];
       t.emit({ type: 'matchResult', outcome, winnerId, ranking });
@@ -215,27 +217,135 @@ describe('versusController (#20)', () => {
     }
   });
 
-  it('a result at the server deadline notes who was counted as survived (#60)', () => {
+  it('a result at the server deadline notes who was counted as survived (#60, ADR 0026)', () => {
     const ranking = [
       { playerId: 'a', nickname: 'Alice', alive: true, kills: 9 },
       { playerId: 'b', nickname: 'Bob', alive: true, kills: 4 },
     ];
     // This world was still playing (behind wall time after its level-ups): the server counted it as survived.
     const behind = setup();
+    behind.setTime(10_000 + 1_510_000);
     behind.emit({ type: 'matchResult', outcome: 'win', winnerId: 'a', ranking });
     expect(behind.results[0]).toMatchObject({ headline: 'Win', note: SELF_DEADLINE_NOTE });
-    // This player survived; the result came at the deadline, so the opponent was counted as survived.
-    const waited = setup();
-    waited.controller.gameOver(stats(true));
-    waited.setTime(10_000 + 910_000);
-    waited.emit({ type: 'matchResult', outcome: 'win', winnerId: 'a', ranking });
-    expect(waited.results[0]).toMatchObject({ note: PEER_DEADLINE_NOTE });
-    // Both survived well before the deadline: no note.
-    const normal = setup();
-    normal.controller.gameOver(stats(true));
-    normal.setTime(10_000 + 300_000);
-    normal.emit({ type: 'matchResult', outcome: 'draw', winnerId: null, ranking });
-    expect(normal.results[0]).toMatchObject({ headline: 'Draw', note: null });
+    // This player had died; the deadline counted the opponent as survived.
+    const dead = setup();
+    dead.controller.gameOver(stats(false));
+    dead.setTime(10_000 + 1_510_000);
+    dead.emit({
+      type: 'matchResult',
+      outcome: 'win',
+      winnerId: 'b',
+      ranking: [
+        { playerId: 'b', nickname: 'Bob', alive: true, kills: 4 },
+        { playerId: 'a', nickname: 'Alice', alive: false, kills: 9 },
+      ],
+    });
+    expect(dead.results[0]).toMatchObject({ headline: 'Lose', note: PEER_DEADLINE_NOTE });
+    // A test-only short server limit: 30 s in, nobody can have cleared, so it is the deadline too.
+    const short = setup();
+    short.setTime(10_000 + 30_000);
+    short.emit({ type: 'matchResult', outcome: 'draw', winnerId: null, ranking });
+    expect(short.results[0]).toMatchObject({ headline: 'Draw', note: SELF_DEADLINE_NOTE });
+    // Everybody out: the last one out won, no note.
+    const out = setup();
+    out.controller.gameOver(stats(false));
+    out.setTime(10_000 + 300_000);
+    out.emit({
+      type: 'matchResult',
+      outcome: 'win',
+      winnerId: 'b',
+      ranking: ranking.map((r) => ({ ...r, alive: false })),
+    });
+    expect(out.results[0]).toMatchObject({ headline: 'Lose', note: null });
+  });
+
+  it('a first clear names the player who cleared, and never shows the deadline notes (#177)', () => {
+    const ranking = [
+      { playerId: 'a', nickname: 'Alice', alive: true, kills: 2 },
+      { playerId: 'b', nickname: 'Bob', alive: true, kills: 40 },
+    ];
+    // This player cleared first.
+    const self = setup();
+    self.setTime(10_000 + 960_000);
+    self.controller.gameOver(stats(true));
+    self.emit({ type: 'matchResult', outcome: 'win', winnerId: 'a', ranking });
+    expect(self.results[0]).toMatchObject({
+      headline: 'Win',
+      note: clearedFirstNote('Alice'),
+    });
+    // The opponent cleared after more than 15 minutes of real time.
+    const peer = setup();
+    peer.setTime(10_000 + 1_000_000);
+    peer.emit({
+      type: 'matchResult',
+      outcome: 'win',
+      winnerId: 'b',
+      ranking: [ranking[1], ranking[0]].filter((r) => r !== undefined),
+    });
+    expect(peer.results[0]).toMatchObject({
+      headline: 'Lose',
+      note: 'Bob cleared the stage first.',
+    });
+    // The opponent cleared early by real time (the dev fast-forward); its relayed status was at 14:59.
+    const fast = setup();
+    fast.emit({
+      type: 'peerStatus',
+      playerId: 'b',
+      status: { hp: 9, maxHp: 10, level: 20, kills: 40, alive: true, elapsedMs: 899_500 },
+    });
+    fast.setTime(10_000 + 120_000);
+    fast.emit({ type: 'matchResult', outcome: 'win', winnerId: 'b', ranking });
+    expect(fast.results[0]).toMatchObject({ note: 'Bob cleared the stage first.' });
+    // A dead player whose opponent then cleared.
+    const deadSelf = setup();
+    deadSelf.controller.gameOver(stats(false));
+    deadSelf.setTime(10_000 + 950_000);
+    deadSelf.emit({
+      type: 'matchResult',
+      outcome: 'win',
+      winnerId: 'b',
+      ranking: [
+        { playerId: 'b', nickname: 'Bob', alive: true, kills: 40 },
+        { playerId: 'a', nickname: 'Alice', alive: false, kills: 2 },
+      ],
+    });
+    expect(deadSelf.results[0]).toMatchObject({ note: 'Bob cleared the stage first.' });
+  });
+
+  it('anchors the match clock on the local clock, clamped like the lobby countdown (#177)', () => {
+    // startAt is now on this page's clock: 25 minutes left.
+    const same = setup();
+    expect(same.posted).toContainEqual({ type: 'matchClock', remainingMs: 1_500_000 });
+    // The server's startAt is 60 s ahead of this page's clock: clamped to the lobby's 5 s countdown.
+    document.body.replaceChildren();
+    const posted: MainToWorker[] = [];
+    const f = fakeNet('open');
+    createVersusController({
+      net: f.net,
+      post: (m) => posted.push(m),
+      root: document.body,
+      start: { ...start, startAt: 1_000_000 },
+      onResult: () => undefined,
+      onOffline: () => undefined,
+      now: () => 1_000_000 - 60_000,
+      raf: () => 0,
+      cancelRaf: () => undefined,
+    });
+    expect(posted).toContainEqual({ type: 'matchClock', remainingMs: 1_505_000 });
+    // startAt already passed on this clock: the match started now.
+    const behind: MainToWorker[] = [];
+    createVersusController({
+      net: fakeNet('open').net,
+      post: (m) => behind.push(m),
+      root: document.body,
+      start: { ...start, startAt: 0 },
+      onResult: () => undefined,
+      onOffline: () => undefined,
+      now: () => 50_000,
+      raf: () => 0,
+      cancelRaf: () => undefined,
+    });
+    expect(behind).toContainEqual({ type: 'matchClock', remainingMs: 1_500_000 });
   });
 
   it('the socket leaving open shows the banner, stops sending, and a local gameOver gives the unofficial result', () => {

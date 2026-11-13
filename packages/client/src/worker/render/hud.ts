@@ -34,6 +34,13 @@ const KILLS_X = VIEW_WIDTH - 100;
 const LEVEL_RIGHT = 2 * MARGIN;
 const SKULL_SCALE = 1.5;
 export { HUD_TOP_RIGHT_BOTTOM } from '../constants';
+/**
+ * #177, ADR 0026: the versus match clock (`MATCH mm:ss`, the real time left to the server's deadline), centred below
+ * the sent toast (`sent-toast.ts`, y 64, size 22).
+ */
+export const MATCH_CLOCK_SIZE = 16;
+export const MATCH_CLOCK_Y = 96;
+export const MATCH_CLOCK_PREFIX = 'MATCH ';
 const INVENTORY_SIZE = 14;
 const INVENTORY_LINE_HEIGHT = 20;
 const INVENTORY_PAD = 8;
@@ -49,6 +56,7 @@ export const HUD_METRICS = {
   /** Right edge of the inventory's backing, from the visible left. */
   backingRight: MARGIN - INVENTORY_PAD + INVENTORY_BACKING_W,
   timerSize: TIMER_SIZE,
+  matchClockSize: MATCH_CLOCK_SIZE,
   /** Width of the outline around the timer and the toast. */
   outline: 2,
 } as const;
@@ -163,6 +171,11 @@ export interface HudInput {
   level: number;
   weapons: readonly InventoryItem[];
   passives: readonly InventoryItem[];
+  /**
+   * #177: real ms left to the versus match's server deadline, or `null` (single player, no match clock): the clock is
+   * hidden then. Shown as whole seconds rounded up and never below `00:00`.
+   */
+  matchRemainingMs?: number | null;
 }
 
 export interface Hud {
@@ -175,6 +188,8 @@ export interface Hud {
    * never per frame; moves existing paints and creates nothing. The HP bar stays in world space under the player.
    */
   layout(visible: Readonly<VisibleRect>): void;
+  /** #177: the match clock's text while it shows, else `null` (the `matchClock` snapshot field). */
+  matchClockText(): string | null;
   /** The HUD's pooled paints (`ui.hpBar`, `ui.skull`, `ui.xpBar`), for the `paintsCreated` count. */
   readonly pools: readonly PaintPool[];
 }
@@ -216,6 +231,14 @@ export function createHud(
     .translate(VIEW_WIDTH / 2, TIMER_Y)
     .text(formatClock(0));
   layers.hud.add(timer);
+
+  const matchClock: Text = new TVG.Text();
+  matchClock.font(HUD_FONT).fontSize(MATCH_CLOCK_SIZE).fill(255, 214, 128).outline(2, 0, 0, 0);
+  matchClock
+    .align(0.5, 0)
+    .translate(VIEW_WIDTH / 2, MATCH_CLOCK_Y)
+    .text(`${MATCH_CLOCK_PREFIX}${formatClock(0)}`);
+  layers.hud.add(matchClock);
 
   const skullPool = new PaintPool(library, 'ui.skull', layers.hud, 1);
   const kills: Text = new TVG.Text();
@@ -266,6 +289,7 @@ export function createHud(
     const { left, top, rightCrop, centreX } = anchors;
     levelText.translate(VIEW_WIDTH - LEVEL_RIGHT - rightCrop, top - 1);
     timer.translate(centreX, TIMER_Y + top);
+    matchClock.translate(centreX, MATCH_CLOCK_Y + top);
     kills.translate(KILLS_X - rightCrop, MARGIN + 2 + top);
     weaponGroup.layout(left, top);
     passiveGroup.layout(left, top);
@@ -280,6 +304,8 @@ export function createHud(
   let shownSecond = 0;
   let shownKills = 0;
   let shownLevel = 1;
+  /** The match clock's shown second, or -1 while it is hidden. */
+  let shownMatchSecond = -1;
   let visible = true;
 
   const setVisible = (next: boolean): void => {
@@ -308,6 +334,9 @@ export function createHud(
     levelText.visible(next);
     timer.visible(next);
     kills.visible(next);
+    // Every run starts without a match clock; `sync` shows it once a versus run passes `matchRemainingMs`.
+    matchClock.visible(false);
+    shownMatchSecond = -1;
     inventoryBacking.visible(next && inventoryRows > 0);
     if (!next) inventoryRows = 0;
     weaponGroup.setVisible(next);
@@ -319,8 +348,38 @@ export function createHud(
     pools: [barPool, skullPool, xpBarPool],
     setVisible,
     layout,
-    sync({ x, y, hp, maxHp, timeSec, kills: killCount, xp, level, weapons, passives }) {
+    matchClockText() {
+      return visible && shownMatchSecond >= 0
+        ? `${MATCH_CLOCK_PREFIX}${formatClock(shownMatchSecond)}`
+        : null;
+    },
+    sync({
+      x,
+      y,
+      hp,
+      maxHp,
+      timeSec,
+      kills: killCount,
+      xp,
+      level,
+      weapons,
+      passives,
+      matchRemainingMs = null,
+    }) {
       if (!visible) return;
+      if (matchRemainingMs === null || !Number.isFinite(matchRemainingMs)) {
+        if (shownMatchSecond >= 0) {
+          shownMatchSecond = -1;
+          matchClock.visible(false);
+        }
+      } else {
+        const second = Math.max(0, Math.ceil(matchRemainingMs / 1000));
+        if (shownMatchSecond < 0) matchClock.visible(true);
+        if (second !== shownMatchSecond) {
+          shownMatchSecond = second;
+          matchClock.text(`${MATCH_CLOCK_PREFIX}${formatClock(second)}`);
+        }
+      }
       weaponGroup.sync(weapons);
       passiveGroup.sync(passives);
       const rows = Math.max(1, weapons.length, passives.length);

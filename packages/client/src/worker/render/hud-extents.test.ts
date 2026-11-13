@@ -10,6 +10,8 @@ import {
   LONGEST_PASSIVE_ROW,
   LONGEST_TOAST,
   LONGEST_WEAPON_ROW,
+  MATCH_CLOCK_GLYPHS,
+  MATCH_CLOCK_HALF_WIDTH,
   TIMER_HALF_WIDTH,
   TOAST_HALF_WIDTH,
 } from './hud-extents';
@@ -21,6 +23,8 @@ it('keeps every top-row pair at least 8 units apart at MIN_VISIBLE_WIDTH', () =>
   expect(gaps.inventoryToToast).toBeGreaterThanOrEqual(HUD_PAIR_GAP);
   expect(gaps.timerToInset).toBeGreaterThanOrEqual(HUD_PAIR_GAP);
   expect(gaps.toastToInset).toBeGreaterThanOrEqual(HUD_PAIR_GAP);
+  expect(gaps.inventoryToMatchClock).toBeGreaterThanOrEqual(HUD_PAIR_GAP);
+  expect(gaps.matchClockToInset).toBeGreaterThanOrEqual(HUD_PAIR_GAP);
   expect(HUD_PAIR_GAP).toBe(8);
 });
 
@@ -40,6 +44,10 @@ it('measures the inputs from the content data', () => {
   expect(INVENTORY_RIGHT).toBe(466);
   expect(TIMER_HALF_WIDTH).toBe(58);
   expect(TOAST_HALF_WIDTH).toBe(134);
+  // #177: "MATCH 25:00" at size 16 is narrower than the widest toast, so it leaves the floor unchanged.
+  expect(MATCH_CLOCK_GLYPHS).toBe(11);
+  expect(MATCH_CLOCK_HALF_WIDTH).toBeCloseTo(72.4);
+  expect(MATCH_CLOCK_HALF_WIDTH).toBeLessThan(TOAST_HALF_WIDTH);
   // A 4:3 tablet's uncapped cover (960 units) is what the floor exists for: three of the four pairs collide there.
   const tablet = hudClearances(960);
   expect(tablet.inventoryToTimer).toBeLessThan(HUD_PAIR_GAP);

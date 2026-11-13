@@ -1,4 +1,4 @@
-import { MATCH_TIME_LIMIT_S } from '@vs/shared';
+import { MATCH_DEADLINE_S } from '@vs/shared';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from './config.js';
 
@@ -9,7 +9,7 @@ describe('loadConfig', () => {
       logLevel: 'info',
       allowedOrigins: ['http://localhost:5173', 'http://localhost:5180'],
       trustProxy: false,
-      matchTimeLimitS: 900,
+      matchTimeLimitS: MATCH_DEADLINE_S,
       matchTimeLimitOverrideIgnored: false,
     });
   });
@@ -61,7 +61,7 @@ describe('loadConfig', () => {
     ]) {
       const env = nodeEnv === undefined ? {} : { NODE_ENV: nodeEnv };
       expect(loadConfig({ ...env, MATCH_TIME_LIMIT_S_OVERRIDE: '20' })).toMatchObject({
-        matchTimeLimitS: MATCH_TIME_LIMIT_S,
+        matchTimeLimitS: MATCH_DEADLINE_S,
         matchTimeLimitOverrideIgnored: true,
       });
     }
@@ -71,15 +71,24 @@ describe('loadConfig', () => {
     expect(
       loadConfig({ NODE_ENV: 'production', MATCH_TIME_LIMIT_S_OVERRIDE: 'nonsense' })
         .matchTimeLimitS,
-    ).toBe(MATCH_TIME_LIMIT_S);
+    ).toBe(MATCH_DEADLINE_S);
     expect(loadConfig({ NODE_ENV: 'test', MATCH_TIME_LIMIT_S_OVERRIDE: '' })).toMatchObject({
-      matchTimeLimitS: MATCH_TIME_LIMIT_S,
+      matchTimeLimitS: MATCH_DEADLINE_S,
       matchTimeLimitOverrideIgnored: false,
     });
   });
 
+  it('accepts an override up to MATCH_DEADLINE_S (ADR 0026)', () => {
+    expect(
+      loadConfig({ NODE_ENV: 'test', MATCH_TIME_LIMIT_S_OVERRIDE: '1500' }).matchTimeLimitS,
+    ).toBe(1500);
+    expect(
+      loadConfig({ NODE_ENV: 'test', MATCH_TIME_LIMIT_S_OVERRIDE: '901' }).matchTimeLimitS,
+    ).toBe(901);
+  });
+
   it('throws on an invalid override under NODE_ENV=test', () => {
-    for (const value of ['0', '-5', '1.5', '901', '1e2', 'abc', '0x10']) {
+    for (const value of ['0', '-5', '1.5', '1501', '1e2', 'abc', '0x10']) {
       expect(() => loadConfig({ NODE_ENV: 'test', MATCH_TIME_LIMIT_S_OVERRIDE: value })).toThrow(
         /MATCH_TIME_LIMIT_S_OVERRIDE/,
       );

@@ -41,7 +41,7 @@ On a phone or tablet (landscape), play by touch: drag anywhere on the game to mo
 
 - Survive until 15:00. Weapons attack on their own; you only move.
 - Killed enemies drop experience gems. Collect them to level up and pick a new or upgraded weapon or passive item.
-- In versus, outlive your opponent. If both are alive at 15:00, the one with more kills wins.
+- In versus, the first to reach 15:00 alive wins; a player who dies first keeps watching while the other plays on, and if both die, the one who lasted longer wins. The HUD's `MATCH mm:ss` counts down the server's 25-minute limit; when it runs out, the most kills win among those still alive.
 
 ## Current state
 
@@ -54,7 +54,7 @@ On a phone or tablet (landscape), play by touch: drag anywhere on the game to mo
 - Personal records saved in the browser for single-player runs: "New best!" on the results, each character's best time and clear on its card, and a Records screen with bests, totals, the last 10 runs and weapon bests (#143).
 - A stage tuned for playability with a headless balance probe: normal enemies are slower than every character, each wave caps its live crowd, contact damage is lower and every character starts with a built-in PowerUp equivalent, so an ordinary run survives well past the 5:00 boss (#148).
 - Touch controls for phones and tablets: a floating joystick, a Pause button, tappable screens, no page scroll or zoom, sound on the first tap, and a rotate hint in portrait (#149). The game fills the screen with a cropped view instead of black bars (#171).
-- Versus matches against the WebSocket server: lobby, countdown, interference items, split view, Win/Lose/Draw and Rematch.
+- Versus matches against the WebSocket server: lobby, countdown, interference items, split view, the first clear wins under a 25-minute deadline counted down in the HUD, Win/Lose/Draw and Rematch.
 - The client is published to GitHub Pages; the server is built and run on the owner's own host and has no public domain yet.
 
 Planned work: [`docs/roadmap.md`](docs/roadmap.md).

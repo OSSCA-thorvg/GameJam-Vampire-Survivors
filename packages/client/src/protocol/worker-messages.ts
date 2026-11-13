@@ -177,6 +177,12 @@ export type MainToWorker =
   | { type: 'opponentView'; view: PlayerView }
   /** #115: the opponent is away (hidden tab) or disconnected, back (`'live'`), or eliminated (`'out'`). */
   | { type: 'opponentState'; state: OpponentState }
+  /**
+   * #177, ADR 0026: the versus match's real time left until the server's deadline (`startAt + MATCH_DEADLINE_S`), as
+   * the main thread's clock sees it. The worker anchors it on its own clock and the HUD counts down `MATCH mm:ss`;
+   * a single-player `startRun`, `endRun` and `forceEnd` clear it.
+   */
+  | { type: 'matchClock'; remainingMs: number }
   | { type: 'debug'; command: DebugCommand }
   | TestSnapshotRequest;
 

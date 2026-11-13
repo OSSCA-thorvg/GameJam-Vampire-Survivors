@@ -3,7 +3,7 @@ import {
   DISCONNECT_GRACE_MS,
   INTERFERENCE_SEND_LIMIT,
   MATCH_DEADLINE_GRACE_S,
-  MATCH_TIME_LIMIT_S,
+  MATCH_DEADLINE_S,
   MAX_PLAYERS_DEFAULT,
   SIMULTANEOUS_DEATH_WINDOW_MS,
   START_DELAY_MS,
@@ -47,8 +47,8 @@ export interface RegistryDeps {
   randomSeed?: () => number;
   maxPlayers?: number;
   /**
-   * Match time limit in ms; `MATCH_TIME_LIMIT_S * 1000` by default. Only `NODE_ENV=test` deployments change it
-   * (`MATCH_TIME_LIMIT_S_OVERRIDE`, `config.ts`).
+   * Real-time match limit in ms; `MATCH_DEADLINE_S * 1000` by default (ADR 0026). Only `NODE_ENV=test` deployments
+   * change it (`MATCH_TIME_LIMIT_S_OVERRIDE`, `config.ts`).
    */
   matchTimeLimitMs?: number;
   /** Structured events for the log (room codes and counts only, never nicknames). */
@@ -95,8 +95,8 @@ interface Room {
   decideTimer: TimerHandle | null;
   resetTimer: TimerHandle | null;
   /**
-   * Ends the match at `startAt + time limit + MATCH_DEADLINE_GRACE_S` (#60), where disconnected players lose
-   * (ADR 0014); cleared by any earlier result.
+   * Ends the match at `startAt + real-time limit + MATCH_DEADLINE_GRACE_S` (#60, ADR 0026), where disconnected
+   * players lose (ADR 0014); cleared by any earlier result.
    */
   deadlineTimer: TimerHandle | null;
 }
@@ -143,7 +143,7 @@ export class RoomRegistry {
     this.randomInt = deps.randomInt ?? cryptoRandom;
     this.randomSeed = deps.randomSeed ?? (() => cryptoRandom(2 ** 32));
     this.maxPlayers = deps.maxPlayers ?? MAX_PLAYERS_DEFAULT;
-    this.matchTimeLimitMs = deps.matchTimeLimitMs ?? MATCH_TIME_LIMIT_S * 1000;
+    this.matchTimeLimitMs = deps.matchTimeLimitMs ?? MATCH_DEADLINE_S * 1000;
     this.onEvent =
       deps.onEvent ??
       (() => {
@@ -348,7 +348,12 @@ export class RoomRegistry {
     return null;
   }
 
-  /** The local time limit was reached; only during `playing`. */
+  /**
+   * The player's own world reached the stage clear time alive (ADR 0026): the first such report during `playing`, from
+   * a player not eliminated, wins the match at once, ranked first whatever the kills. Earlier deaths never ended the
+   * match (ADR 0026), so the others may be alive or out.
+   * Later reports find the room `finished` (or the sender eliminated) and are dropped by `inMatch`.
+   */
   survived(playerId: string, kills: number): Outcome {
     const found = this.inMatch(playerId);
     if (found === 'violation') return violation('wrongPhase');
@@ -357,7 +362,8 @@ export class RoomRegistry {
     if (room.phase !== 'playing') return null;
     player.kills = kills;
     player.survived = true;
-    this.evaluate(room);
+    this.onEvent('match_cleared', { code: room.code });
+    this.finish(room, player);
     return null;
   }
 
@@ -536,20 +542,22 @@ export class RoomRegistry {
   }
 
   /**
-   * Win rule (ADR 0005). When at most one player is left alive, the result waits `SIMULTANEOUS_DEATH_WINDOW_MS`
-   * after that death: if a player is still alive then, they win (the others died first, or more than the window
-   * earlier); if nobody is, every one of those last deaths arrived within the window of each other, a draw. When
-   * every living player has survived the time limit, the most kills win and a tie is a draw.
+   * Win rule (ADR 0026, refining ADR 0005). A death, AFK forfeit or disconnect never ends the match while another
+   * player is alive: the survivors keep playing. A player's own clear never comes here either (`survived` finishes the
+   * match at once). When nobody is left alive, the result waits `SIMULTANEOUS_DEATH_WINDOW_MS` and `decideLastOut`
+   * names the player eliminated last, or a draw when the last eliminations fall within the window of each other.
+   * Every living player is marked survived only by the real-time `deadline`; then the most kills win among them and a
+   * tie is a draw (one player left alive wins).
    */
   private evaluate(room: Room): void {
     if (room.phase !== 'countdown' && room.phase !== 'playing') return;
     if (room.decideTimer !== null) return;
     const alive = room.players.filter((p) => !p.eliminated);
-    if (alive.length <= 1) {
+    if (alive.length === 0) {
       room.decideTimer = this.timers.set(() => {
         room.decideTimer = null;
         if (this.rooms.get(room.code) !== room) return;
-        this.decideLastAlive(room);
+        this.decideLastOut(room);
       }, SIMULTANEOUS_DEATH_WINDOW_MS);
       return;
     }
@@ -564,11 +572,10 @@ export class RoomRegistry {
   /**
    * The match deadline passed (#60). First, every player still alive whose socket is closed, even inside the
    * `DISCONNECT_GRACE_MS` grace, dies at the deadline instant with reason `disconnected` (ADR 0014), so dropping
-   * the connection can never protect a lead. Then every remaining player who has not reported `survived` is treated
-   * as survived with the kills last relayed in `status`. All of this happens before one decision: the ADR 0005 rule
-   * then decides, including the 100 ms simultaneous-death window (disconnected players share one death time, so two
-   * of them as the last alive draw); a last-alive decision already pending (a death within the last 100 ms) runs and
-   * sees the new state.
+   * the connection can never protect a lead. Then every remaining player is treated as survived with the kills last
+   * relayed in `status` (nobody alive has reported `survived`, which ends the match at once, ADR 0026). All of this
+   * happens before one decision by `evaluate`: kills among the survivors, or, when the deadline left nobody alive, the
+   * last-out rule with its 100 ms window (disconnected players share one death time, so two of them draw).
    */
   private deadline(room: Room): void {
     if (room.phase !== 'countdown' && room.phase !== 'playing') return;
@@ -590,14 +597,21 @@ export class RoomRegistry {
     this.evaluate(room);
   }
 
-  private decideLastAlive(room: Room): void {
+  /**
+   * Everyone is out (ADR 0026): the player eliminated last by server time wins, unless another elimination came within
+   * `SIMULTANEOUS_DEATH_WINDOW_MS` of it, which is a draw. Runs `SIMULTANEOUS_DEATH_WINDOW_MS` after the last one.
+   */
+  private decideLastOut(room: Room): void {
     if (room.phase !== 'countdown' && room.phase !== 'playing') return;
-    const alive = room.players.filter((p) => !p.eliminated);
-    if (alive.length > 1) {
+    if (room.players.some((p) => !p.eliminated)) {
       this.evaluate(room);
       return;
     }
-    this.finish(room, alive[0] ?? null);
+    const last = Math.max(...room.players.map((p) => p.eliminatedAt));
+    const lastOut = room.players.filter(
+      (p) => last - p.eliminatedAt < SIMULTANEOUS_DEATH_WINDOW_MS,
+    );
+    this.finish(room, lastOut.length === 1 ? (lastOut[0] ?? null) : null);
   }
 
   private finish(room: Room, winner: Player | null): void {
@@ -614,8 +628,9 @@ export class RoomRegistry {
       .map((p, order) => ({ p, order }))
       .sort(
         (a, b) =>
+          Number(b.p === winner) - Number(a.p === winner) ||
           Number(a.p.eliminated) - Number(b.p.eliminated) ||
-          b.p.kills - a.p.kills ||
+          (a.p.eliminated ? b.p.eliminatedAt - a.p.eliminatedAt : b.p.kills - a.p.kills) ||
           a.order - b.order,
       )
       .map(({ p }) => ({
